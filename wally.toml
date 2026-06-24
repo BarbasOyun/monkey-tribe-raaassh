@@ -1,9 +1,9 @@
 [package]
-name = "monkey-tribe-raaassh"
+name = "monkey-tribe-raaassh/game"
 version = "0.1.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 
 [dependencies]
-
-[dev-dependencies]
+Knit = "sleitnick/knit@^1.7"
+Signal = "sleitnick/signal@^1.5"
