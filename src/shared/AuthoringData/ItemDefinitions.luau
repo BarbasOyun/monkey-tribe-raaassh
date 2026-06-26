@@ -120,15 +120,15 @@ local itemTypeTags = {
 
 local itemTypeDefinition = {
 	["Orb"] = { itemTypeTags.Defined, itemTypeTags.Vacuum },
-	["Weapon"] = { itemTypeTags.Instance, itemTypeTags.Manual },
+	["Weapon"] = { itemTypeTags.Instance, itemTypeTags.Auto },
 	-- equipment
 }
 
-local itemVisualDefinitions = {
+local itemPrefabs = {
 	prefabs.SmallXpOrb,
-	prefabs.Banana,
-	prefabs.Stick,
-	prefabs.Rock,
+	prefabs:FindFirstChild("Banana"),
+	prefabs:FindFirstChild("Stick"),
+	prefabs:FindFirstChild("Rock"),
 	prefabs.WoodenClub,
 	prefabs.IronMace,
 	prefabs.IronAxe,
@@ -138,7 +138,7 @@ return {
 	itemDefinitions = itemDefinitions,
 	itemStore = itemStore,
 	itemTypes = itemTypes,
-	itemTypeTags = itemTypeTags,
-	itemTypeDefinition = itemTypeDefinition,
-	itemVisualDefinitions = itemVisualDefinitions,
+	-- itemTypeTags = itemTypeTags,
+	-- itemTypeDefinition = itemTypeDefinition,
+	itemPrefabs = itemPrefabs,
 }

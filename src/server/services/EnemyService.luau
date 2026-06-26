@@ -14,33 +14,58 @@ local enemyParent = workspace.WeaponHit
 local ItemService = nil
 
 -- ENEMY AUTHORING DATA
--- Move to file
-local enemyData = {
-	["Dummy"] = {
-		EnemyType = "Dummy",
-		Life = 100,
-	},
-	["Robot"] = {
-		EnemyType = "Robot",
-		Life = 100,
-	},
-}
+local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
+local enemyStore = enemyDef.enemyStore
+local enemyDefinitions = enemyDef.enemyDefinitions
+local enemyPrefabs = enemyDef.enemyPrefabs
 
+-- ECS
 -- TODO : Implement ECS
 -- Instead of using Rodux store
 -- TODO : Use smart ID instead of Humanoid as key
 
 -- Per enemy property
+-- local ids = {}
+-- local versions = {}
 local life = {}
 local lifeBar = {}
 local deathEvent = {}
 
--- Take an instance and associate it stats
-function EnemyService:CreateEnemy(humanoid, enemyType)
-	local character = humanoid.Parent
+-- Per enemyType Spawn setup
+local enemySetup = {
+	-- 1 = Dummy
+	function(character, humanoid)
+		local function onDeath(player)
+			-- Feedback
+			print(character.Name .. " Died")
+
+			-- dismember(dummy)
+			local snap = character.Torso.Snap
+
+			if snap then
+				snap:Destroy()
+			end
+
+			task.wait(1)
+			EnemyService:SpawnEnemy(enemyStore.Dummy, character:GetPivot().Position) -- Re spawn Dummy
+			character:Destroy()
+		end
+
+		deathEvent[humanoid]:Connect(onDeath)
+	end,
+	-- 2 = Robot
+}
+
+-- ADD ENEMY
+
+-- Create Enemy for already spawned Model
+function EnemyService:CreateEnemy(character, enemyId)
+	local enemyDefinition = enemyDefinitions[enemyId]
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+
 	character.Parent = enemyParent
 
-	life[humanoid] = enemyType.Life
+	life[humanoid] = enemyDefinition.MaxLife
 	deathEvent[humanoid] = Signal.new()
 
 	-- Try to find lifeBar
@@ -48,12 +73,27 @@ function EnemyService:CreateEnemy(humanoid, enemyType)
 	if lBar then
 		lifeBar[humanoid] = lBar.LifeBar
 	end
+
+	-- Per Enemy type setup
+	enemySetup[enemyId](character, humanoid)
 end
+
+-- Spawn Model + Create Enemy
+function EnemyService:SpawnEnemy(enemyId, position)
+	local character = enemyPrefabs[enemyId]:Clone() -- TODO : Object Pooling
+	character:PivotTo(CFrame.new(position))
+	self:CreateEnemy(character, enemyId)
+end
+
+-- DAMAGE + REMOVE
 
 function EnemyService:DamageEnemy(player, humanoid, damage)
 	if not life[humanoid] or damage <= 0 then
 		return
 	end
+
+	local enemyId = humanoid.Parent:GetAttribute("DefinitionID")
+	local definition = enemyDefinitions[enemyId]
 
 	life[humanoid] -= damage
 
@@ -62,9 +102,8 @@ function EnemyService:DamageEnemy(player, humanoid, damage)
 	-- print(" Dealt " .. damage .. " damage to " .. humanoid.Parent.Name .. " New life : " .. life)
 
 	if lifeBar[humanoid] then
-		local lifePercent = life / 100 -- TODO : Better Enemy type definition
-		-- lifeBar[humanoid].Size = CFrame.new(lifePercent, 1)
-		lifeBar[humanoid].Size = UDim2.new(lifePercent, 0, 1, 0)
+		local lifePercent = life / definition.MaxLife
+		lifeBar[humanoid].Size = UDim2.fromScale(lifePercent, 1)
 	end
 
 	if life <= 0 then
@@ -75,14 +114,21 @@ end
 
 function EnemyService:KillEnemy(player, humanoid, overKillDamage)
 	-- TODO : Check if userId is nil -> attribute the kill to nearest Player
-	deathEvent[humanoid]:Fire(player)
-
 	-- Rewards
 	ItemService:GenerateLoot(player, humanoid)
 
 	life[humanoid] = nil
+
+	if lifeBar[humanoid] then
+		lifeBar[humanoid] = nil
+	end
+
+	deathEvent[humanoid]:Fire(player) -- overKillDamage
+
 	deathEvent[humanoid] = nil
 end
+
+-- ENEMY TYPE SETUP
 
 -- TODO : Move
 local function dismember(character)
@@ -95,41 +141,21 @@ local function dismember(character)
 	end
 end
 
-function EnemyService:setupDummy(dummy)
-	local humanoid = dummy:FindFirstChildOfClass("Humanoid")
-
-	self:CreateEnemy(humanoid, enemyData["Dummy"])
-	-- 	dummy.HumanoidRootPart.Anchored = true
-
-	-- Death
-	local clone = dummy:Clone()
-
-	local function onDeath(player)
-		-- Feedback
-		-- print(dummy.Name .. " Died")
-		-- dismember(dummy)
-		dummy.Torso.Snap:Destroy()
-
-		-- Respawn
-		task.wait(1)
-		self:setupDummy(clone)
-		dummy:Destroy()
-	end
-
-	deathEvent[humanoid]:Connect(onDeath)
-end
-
+-- TODO : Setup Enemy / Type
+-- enemyId
 local function setupAllDummies()
 	-- Setup Existing Dummies
 	for _, dummy in pairs(CollectionService:GetTagged("Dummy")) do
-		EnemyService:setupDummy(dummy)
-	end
+		-- Avoid setuping Prefabs
+		if not dummy:IsDescendantOf(workspace) then
+			continue
+		end
 
-	-- Setup New Dummies
-	CollectionService:GetInstanceAddedSignal("Dummy"):Connect(function(dummy)
-		EnemyService:setupDummy(dummy)
-	end)
+		EnemyService:CreateEnemy(dummy, enemyStore.Dummy)
+	end
 end
+
+-- SERVICE
 
 function EnemyService:KnitInit()
 	print("EnemyService Init")

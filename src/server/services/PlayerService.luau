@@ -27,11 +27,11 @@ local PlayerService = Knit.CreateService({
 local ItemService = nil
 
 -- TODO : Implement
--- local STATS_TYPE = {
--- 	["attackSpeed"] = {
--- 		dispatchAction = storeActions.SetIncreasedAttackSpeed,
--- 	},
--- }
+local STATS_TYPE = {
+	["attackSpeed"] = {
+		dispatchAction = storeActions.SetIncreasedAttackSpeed,
+	},
+}
 
 -- PickupRange Parameters
 local autoPickupParam = OverlapParams.new()
@@ -44,8 +44,7 @@ local frameCount = 0
 
 -- PLAYERS
 
--- gameState = data that need to be Replicated when a player join
--- Sent over network to joining Clients -> need to be serializable
+-- Data that need to be Replicated when a player join
 local function gameState()
 	local state = store:getState()
 	local players = {}
@@ -54,7 +53,7 @@ local function gameState()
 	for userId, player in pairs(state.players) do
 		players[userId] = {
 			username = player.username,
-			score = player.score,
+			bananas = player.bananas,
 			stats = player.stats,
 		}
 	end
@@ -78,7 +77,6 @@ function PlayerService:AddPlayer(player, username)
 
 	-- Send the full store to the new player
 	local gameState = gameState()
-	-- /!\ Negative numbers (Roblox userIds when testting) are automatically turned into strings when sent over network
 	self.Client.ReplicateStore:Fire(player, gameState)
 end
 
@@ -90,27 +88,27 @@ function PlayerService:RemovePlayer(userId)
 	self.Client.PlayerRemoved:FireAll(userId)
 end
 
--- SCORE
+-- BANANAS
 
-function PlayerService:GetScore(userId)
-	local score = store:getState().players[userId].score
-	return if score ~= nil then score else 0
+function PlayerService:GetBananas(userId)
+	local bananas = store:getState().players[userId].bananas
+	return if bananas ~= nil then bananas else 0
 end
 
-function PlayerService:AddScore(userId, value)
-	local score = self:GetScore(userId)
-	local newScore = score + value
-	store:dispatch(storeActions.SetScore(userId, newScore))
+function PlayerService:AddBananas(userId, value)
+	local bananas = self:GetBananas(userId)
+	local newValue = bananas + value
+	store:dispatch(storeActions.SetScore(userId, newValue))
 
-	self.ScoreChanged:Fire(userId, newScore)
+	self.ScoreChanged:Fire(userId, newValue)
 	-- Replicate to Clients
-	self.Client.ScoreChanged:FireAll(userId, newScore)
+	self.Client.ScoreChanged:FireAll(userId, newValue)
 end
 
--- STATS > Move to Combat/Stats Service?
+-- STATS
 
 -- Most Stats work like this : baseX * increasedX = x
--- some baseX (eg attackSpeedBase) come from weaponData
+-- some baseX (eg baseAttackSpeed) come from weaponData
 -- every used / final x stats is stored in the playerStats (weaponData never mutate)
 
 function PlayerService:GetStats(userId)
@@ -121,6 +119,7 @@ function PlayerService:GetStats(userId)
 	return playerStats, weaponData
 end
 
+-- Every function to calculate a player stats
 local statsCalcFunctions = {
 	calculateAttackDamage = function(userId)
 		local playerStats, weaponData = PlayerService:GetStats(userId)
@@ -185,21 +184,20 @@ function PlayerService:ApplyStats(userId)
 	-- eg restart lifeRegen thread
 
 	self:CalculateAllStats(userId)
+	-- life regen
 	-- weapon:ScaleTo(weaponInfo.weaponSize * Gears.IncreaseToMultiplier(playerStat.aoe))
 	-- MS
 end
 
---[[ TODO : Implement
 function PlayerService:AddIncreasedStat(userId, statType, value)
 	-- Get stat
-	local newStat = store:getState().players[userId][statType] + value
+	local newStat = store:getState().players[userId].stats[statType] + value
 	store:dispatch(STATS_TYPE[statType](userId, newStat))
 end
-]]
 
 function PlayerService:AddIncreasedAttackSpeed(userId, value)
-	local newincreasedAttackSpeed = store:getState().players[userId].stats.increasedAttackSpeed + value
-	store:dispatch(storeActions.SetIncreasedAttackSpeed(userId, newincreasedAttackSpeed))
+	local newIncreasedAttackSpeed = store:getState().players[userId].stats.increasedAttackSpeed + value
+	store:dispatch(storeActions.SetIncreasedAttackSpeed(userId, newIncreasedAttackSpeed))
 
 	statsCalcFunctions.calculateAttackSpeed(userId)
 end

@@ -2,6 +2,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Rodux = require(ReplicatedStorage.Shared.Rodux)
 
+MAX_BANANAS = 10_000
+
 -- Rodux store hold a table of players
 -- key = player.UserId
 local PLAYER_STRUCT = {
@@ -14,9 +16,8 @@ local PLAYER_STRUCT = {
 	-- gearData
 }
 
--- 1) Define PlayerStats struct
--- 2) Authoring Data > Move to file
--- TODO : Change keys to strings -> Common access
+-- PlayerStats struct & Authoring Data
+-- Default Stats
 local PLAYER_STATS_STRUCT = {
 	-- Level
 	level = 1,
@@ -34,15 +35,16 @@ local PLAYER_STATS_STRUCT = {
 	increasedAoe = 0,
 	aoe = 0,
 	-- Defensive
-	baseLife = 100,
-	increasedLife = 0,
+	-- baseLife = 100,
+	-- increasedLife = 0,
 	maxLife = 100,
 	life = 100,
 	lifeRegen = 1,
 	damageReduction = 0,
 	-- Utility
+	mobility = 10,
 	movementSpeed = 15,
-	manualPickupRange = 5,
+	luck = 0,
 	basePickupRange = 10,
 	increasedPickupRange = 0,
 	pickupRange = 10,
@@ -75,7 +77,7 @@ local Actions = {
 		}
 	end,
 
-	-- Score
+	-- Bananas
 	SetBananas = function(userId, bananas)
 		return {
 			type = "SetBananas",
@@ -93,19 +95,20 @@ local Actions = {
 		}
 	end,
 
+	SetIncreasedAttackSpeed = function(userId, increasedAttackSpeed)
+		return {
+			type = "SetIncreasedAttackSpeed",
+			userId = userId,
+			-- statType = statType,
+			increasedAttackSpeed = increasedAttackSpeed,
+		}
+	end,
+
 	SetAttackDamage = function(userId, attackDamage)
 		return {
 			type = "SetAttackDamage",
 			userId = userId,
 			attackDamage = attackDamage,
-		}
-	end,
-
-	SetIncreasedAttackSpeed = function(userId, increasedAttackSpeed)
-		return {
-			type = "SetIncreasedAttackSpeed",
-			userId = userId,
-			increasedAttackSpeed = increasedAttackSpeed,
 		}
 	end,
 
@@ -160,15 +163,15 @@ local playerReducer = Rodux.createReducer({}, {
 		return players
 	end,
 
-	SetAttackDamage = function(state, action)
-		local players = table.clone(state) or {}
-		players[action.userId].stats.attackDamage = action.attackDamage
-		return players
-	end,
-
 	SetIncreasedAttackSpeed = function(state, action)
 		local players = table.clone(state) or {}
 		players[action.userId].stats.increasedAttackSpeed = action.increasedAttackSpeed
+		return players
+	end,
+
+	SetAttackDamage = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].stats.attackDamage = action.attackDamage
 		return players
 	end,
 

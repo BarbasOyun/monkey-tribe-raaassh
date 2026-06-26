@@ -20,14 +20,11 @@ weaponHitParam.FilterDescendantsInstances = { workspace.WeaponHit }
 weaponHitParam.MaxParts = 100
 
 -- Per Player Combat Data
--- Only used by CombatService > not worth to put on store
 local expectingAttack = {}
 local attackBuffer = {}
 local lastAttacks = {}
 local comboIndexes = {} -- For Weapon Animation
 local comboReset = {}
-
-local lifeRegenUpdate = nil -- life regen loop for every player
 
 -- ATTACK STEPS
 -- 1) Client : Player Input -> Ask Server to Attack
@@ -86,7 +83,7 @@ local function attackHit(player, playerStats, weaponData)
 
 		-- Enemy Hit
 		humanoidsHit[humanoid] = true
-		-- hit:ApplyImpulse((hit.Position - player.Character.PrimaryPart.Position) * 50) -- Doesn't work -- TODO : Per Weapon
+		-- humanoid.Parent:ApplyImpulse((humanoid.Parent.Position - player.Character.PrimaryPart.Position) * 50) -- Doesn't work -- TODO : Per Weapon
 		EnemyService:DamageEnemy(player, humanoid, damage)
 		-- print(player.Name .. " Hit : " .. humanoid.Parent.Name)
 	end
