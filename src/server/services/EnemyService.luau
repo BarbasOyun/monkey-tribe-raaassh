@@ -37,7 +37,7 @@ local enemySetup = {
 	function(character, humanoid)
 		local function onDeath(player)
 			-- Feedback
-			print(character.Name .. " Died")
+			-- print(character.Name .. " Died")
 
 			-- dismember(dummy)
 			local snap = character.Torso.Snap
@@ -123,7 +123,9 @@ function EnemyService:KillEnemy(player, humanoid, overKillDamage)
 		lifeBar[humanoid] = nil
 	end
 
-	deathEvent[humanoid]:Fire(player) -- overKillDamage
+	if deathEvent[humanoid] then
+		deathEvent[humanoid]:Fire(player) -- overKillDamage
+	end
 
 	deathEvent[humanoid] = nil
 end

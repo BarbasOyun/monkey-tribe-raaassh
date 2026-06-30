@@ -95,12 +95,12 @@ local Actions = {
 		}
 	end,
 
-	SetIncreasedAttackSpeed = function(userId, increasedAttackSpeed)
+	SetIncreasedStat = function(userId, statType, increasedValue)
 		return {
-			type = "SetIncreasedAttackSpeed",
+			type = "SetIncreasedStat",
 			userId = userId,
-			-- statType = statType,
-			increasedAttackSpeed = increasedAttackSpeed,
+			statType = statType,
+			increasedValue = increasedValue,
 		}
 	end,
 
@@ -163,9 +163,13 @@ local playerReducer = Rodux.createReducer({}, {
 		return players
 	end,
 
-	SetIncreasedAttackSpeed = function(state, action)
+	SetIncreasedStat = function(state, action)
 		local players = table.clone(state) or {}
-		players[action.userId].stats.increasedAttackSpeed = action.increasedAttackSpeed
+		local userId = action.userId
+		local statType = action.statType
+		local increasedValue = action.increasedValue
+
+		players[userId].stats[statType] = increasedValue
 		return players
 	end,
 

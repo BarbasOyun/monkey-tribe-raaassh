@@ -1,4 +1,4 @@
-local Workspace = game:GetService("Workspace")
+-- local Workspace = game:GetService("Workspace")
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -20,7 +20,7 @@ local CombatService
 local ItemService
 
 local player = Players.LocalPlayer
-local camera = Workspace.CurrentCamera
+local camera = workspace.CurrentCamera
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local animator = humanoid:WaitForChild("Animator")
@@ -32,12 +32,13 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- Sounds
 local soundFolder = playerGui.ClientSounds
 local getOrbSound = soundFolder.GetOrb
+local enteringGameSound = soundFolder.EnteringGame
 
 -- Controls
 -- TODO : StateMachine -> States define controls
 local isLClickDown = false
 
--- ANIMATIONS
+-- ANIMATIONS -> AnimationController
 
 local function loadAnimation(animationId)
 	local anim = Instance.new("Animation")
@@ -70,6 +71,12 @@ local function onCharacterAdded(newCharacter)
 	loadAllAnimations()
 end
 
+local function playAttackAnim(animationId, animationSpeed)
+	-- print(localPlayer.Name .. " Combo: " .. animationId .. " Animation Speed: " .. animationSpeed)
+	animationTracks[animationId]:Play()
+	animationTracks[animationId]:AdjustSpeed(animationSpeed)
+end
+
 -- CONTROLS
 
 local function setupControls()
@@ -99,7 +106,7 @@ local function setupAttack()
 	-- 1) Client : Player Input -> Ask Server to Attack
 	RunService.Heartbeat:Connect(function()
 		if isLClickDown then
-			print(player.Name .. " Ask Server to Attack")
+			-- print(player.Name .. " Ask Server to Attack")
 			CombatService.startAttack:Fire()
 		end
 	end)
@@ -107,9 +114,7 @@ local function setupAttack()
 	-- 3) Clients : Animation
 	-- Server Validated the attack
 	CombatService.startAttack:Connect(function(animationId, animationSpeed) -- animationId = comboIndex + 1
-		-- print(localPlayer.Name .. " Combo: " .. animationId .. " Animation Speed: " .. animationSpeed)
-		animationTracks[animationId]:Play()
-		animationTracks[animationId]:AdjustSpeed(animationSpeed)
+		playAttackAnim(animationId, animationSpeed)
 	end)
 end
 
@@ -128,8 +133,8 @@ local function setupPlayerService()
 
 		gameState.players = players
 
-		print("Replicating gameState from Server :")
-		print(gameState)
+		-- print("Replicating gameState from Server :")
+		-- print(gameState)
 		store:dispatch(storeActions.SetGameState(gameState, player.UserId))
 	end)
 
@@ -147,10 +152,14 @@ local function setupPlayerService()
 		store:dispatch(storeActions.RemovePlayer(userId))
 	end)
 
-	-- Score
-	PlayerService.ScoreChanged:Connect(function(userId, newScore)
-		-- Update Score instead of Increment
-		store:dispatch(storeActions.SetScore(userId, newScore))
+	PlayerService.EnteringGame:Connect(function()
+		enteringGameSound:Play()
+	end)
+
+	-- Bananas
+	PlayerService.BananasChanged:Connect(function(userId, newValue)
+		-- Set Banans instead of Increment
+		store:dispatch(storeActions.SetBananas(userId, newValue))
 	end)
 end
 

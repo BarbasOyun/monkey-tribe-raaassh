@@ -21,6 +21,22 @@ function gears.deepCopy(original)
 	return copy
 end
 
+function gears.joinTable(table1, table2)
+	for _, element in ipairs(table2) do
+		table.insert(table1, element)
+	end
+end
+
+function gears.splitTable(table1, table2)
+	for _, element in ipairs(table2) do
+		local index = table.find(table1, element)
+
+		if index then
+			table.remove(table1, index)
+		end
+	end
+end
+
 -- INSTANCES / WORLD OBJECT
 
 function gears.getPartCount(parentObject)

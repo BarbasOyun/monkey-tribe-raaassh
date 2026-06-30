@@ -24,8 +24,8 @@ local ItemService = Knit.CreateService({
 	},
 })
 
+-- Get Items Data
 local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-
 local itemDefinitions = itemDef.itemDefinitions
 local itemStore = itemDef.itemStore
 local itemTypes = itemDef.itemTypes
@@ -37,6 +37,7 @@ local PlayerService = nil
 
 -- TODO : useItem(player)
 local usablesLogicDefinition = {
+	-- Small XP Orb
 	["Small XP Orb"] = function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
 		PlayerService:AddXpToPlayer(player.UserId, itemDefinition.xp)
@@ -102,7 +103,7 @@ local function spawnItemDef(itemDefinitionId, position)
 	local itemDefinition = itemDefinitions[itemDefinitionId]
 
 	-- Spawn Model
-	local newModel = itemPrefabs[itemDefinition.id]:clone()
+	local newModel = itemPrefabs[itemDefinition.id]:Clone()
 
 	local partToMove = newModel
 

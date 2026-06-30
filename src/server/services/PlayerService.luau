@@ -1,37 +1,39 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportService = game:GetService("TeleportService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
+-- Get Stats Authoring Data
+local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+local STATS_STORE = statsData.STATS_STORE
+local DISPLAY_TEXT = statsData.DISPLAY_TEXT
+local META_UPRGADES = statsData.META_UPRGADES
+local AUGMENTS = statsData.AUGMENTS
+
+-- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
 local storeActions = RoduxStore.Actions
 
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
-	ScoreChanged = Signal.new(),
 	PlayerAdded = Signal.new(),
 	PlayerRemoved = Signal.new(),
+	StatsStore = STATS_STORE,
 	Client = {
-		PlayerAdded = Knit.CreateSignal(),
 		ReplicateStore = Knit.CreateSignal(),
+		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
-		ScoreChanged = Knit.CreateSignal(),
-		GiveMeAttackSpeed = Knit.CreateSignal(),
+		EnteringGame = Knit.CreateSignal(),
+		BananasChanged = Knit.CreateSignal(),
 	},
 })
 
 local ItemService = nil
-
--- TODO : Implement
-local STATS_TYPE = {
-	["attackSpeed"] = {
-		dispatchAction = storeActions.SetIncreasedAttackSpeed,
-	},
-}
 
 -- PickupRange Parameters
 local autoPickupParam = OverlapParams.new()
@@ -41,6 +43,41 @@ autoPickupParam.MaxParts = 50
 
 local AUTO_PICKUP_FRAME = 5 -- AutoPickup every X Frame
 local frameCount = 0
+
+-- TP to main Game instance
+local GAME_PLACE_ID = 109804031798809
+
+local gamePlatforms = workspace.GamePlatforms
+
+local platforms = {
+	gamePlatforms.GamePlatform1.PlayerDetection,
+	gamePlatforms.GamePlatform2.PlayerDetection,
+	gamePlatforms.GamePlatform3.PlayerDetection,
+	gamePlatforms.GamePlatform4.PlayerDetection,
+}
+
+local platformsLabels = {
+	gamePlatforms.GamePlatform1.SurfacePart.SurfaceGui.TextLabel,
+	gamePlatforms.GamePlatform2.SurfacePart.SurfaceGui.TextLabel,
+	gamePlatforms.GamePlatform3.SurfacePart.SurfaceGui.TextLabel,
+	gamePlatforms.GamePlatform4.SurfacePart.SurfaceGui.TextLabel,
+}
+
+local platformsMaxPlayers = {
+	1,
+	2,
+	3,
+	4,
+}
+
+local platformsPlayers = {
+	{},
+	{},
+	{},
+	{},
+}
+
+local playersLoadingTp = {}
 
 -- PLAYERS
 
@@ -88,7 +125,76 @@ function PlayerService:RemovePlayer(userId)
 	self.Client.PlayerRemoved:FireAll(userId)
 end
 
--- BANANAS
+-- TP
+
+local function createGameInstance(players)
+	Gears.joinTable(playersLoadingTp, players)
+
+	for _, player in ipairs(players) do
+		PlayerService.Client.EnteringGame:Fire(player) -- Feedback
+	end
+
+	-- Create Instance
+	print("Creating new Game Instance for players :")
+	print(players)
+
+	local newCode = TeleportService:ReserveServerAsync(GAME_PLACE_ID)
+	print("Reserved new server with code: " .. newCode)
+
+	-- Join Instance
+	local options = Instance.new("TeleportOptions")
+	options.ReservedServerAccessCode = newCode
+
+	task.spawn(function()
+		task.wait(TeleportService:TeleportAsync(GAME_PLACE_ID, players, options))
+		Gears.splitTable(playersLoadingTp, players)
+	end)
+end
+
+local function updatePlatformLabel(platformId)
+	platformsLabels[platformId].Text = "Raaassh ("
+		.. #platformsPlayers[platformId]
+		.. "/"
+		.. platformsMaxPlayers[platformId]
+		.. ")"
+end
+
+local function setupPlatforms()
+	for i, platform in ipairs(platforms) do
+		platform.Touched:Connect(function(hit)
+			local player = game.Players:GetPlayerFromCharacter(hit.Parent)
+
+			if not player or table.find(playersLoadingTp, player) or table.find(platformsPlayers[i], player) then
+				return
+			end
+
+			table.insert(platformsPlayers[i], player)
+			updatePlatformLabel(i)
+
+			-- if there is enough players on the Platform -> Launch Game
+			if #platformsPlayers[i] >= platformsMaxPlayers[i] then
+				createGameInstance(platformsPlayers[i])
+
+				table.clear(platformsPlayers[i])
+				updatePlatformLabel(i)
+			end
+		end)
+
+		platform.TouchEnded:Connect(function(hit)
+			local player = game.Players:GetPlayerFromCharacter(hit.Parent)
+
+			if not player or table.find(playersLoadingTp, player) then
+				return
+			end
+
+			local id = table.find(platformsPlayers[i], player)
+			table.remove(platformsPlayers[i], id)
+			updatePlatformLabel(i)
+		end)
+	end
+end
+
+-- STATS
 
 function PlayerService:GetBananas(userId)
 	local bananas = store:getState().players[userId].bananas
@@ -96,16 +202,17 @@ function PlayerService:GetBananas(userId)
 end
 
 function PlayerService:AddBananas(userId, value)
+	if value <= 0 then
+		return
+	end
+
 	local bananas = self:GetBananas(userId)
 	local newValue = bananas + value
 	store:dispatch(storeActions.SetScore(userId, newValue))
 
-	self.ScoreChanged:Fire(userId, newValue)
 	-- Replicate to Clients
-	self.Client.ScoreChanged:FireAll(userId, newValue)
+	self.Client.BananasChanged:FireAll(userId, newValue)
 end
-
--- STATS
 
 -- Most Stats work like this : baseX * increasedX = x
 -- some baseX (eg baseAttackSpeed) come from weaponData
@@ -189,17 +296,11 @@ function PlayerService:ApplyStats(userId)
 	-- MS
 end
 
+-- statType = string from the STATS_STORE
 function PlayerService:AddIncreasedStat(userId, statType, value)
 	-- Get stat
 	local newStat = store:getState().players[userId].stats[statType] + value
-	store:dispatch(STATS_TYPE[statType](userId, newStat))
-end
-
-function PlayerService:AddIncreasedAttackSpeed(userId, value)
-	local newIncreasedAttackSpeed = store:getState().players[userId].stats.increasedAttackSpeed + value
-	store:dispatch(storeActions.SetIncreasedAttackSpeed(userId, newIncreasedAttackSpeed))
-
-	statsCalcFunctions.calculateAttackSpeed(userId)
+	store:dispatch(storeActions.SetIncreasedStat(userId, statType, newStat))
 end
 
 function PlayerService:AddXpToPlayer(player, xp)
@@ -291,16 +392,11 @@ local function autoPickupRange()
 	end
 end
 
--- Unit Tests
-
 -- Start Service
 function PlayerService:KnitInit()
 	print("PlayerService Initialized")
 
-	self.Client.GiveMeAttackSpeed:Connect(function(player)
-		-- Validation + Spend money
-		self:AddIncreasedAttackSpeed(player.UserId, 100)
-	end)
+	setupPlatforms()
 end
 
 function PlayerService:KnitStart()

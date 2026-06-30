@@ -1,135 +1,102 @@
--- Default Stats
-local PLAYER_STATS_STRUCT = {
-	-- Level
-	level = 1,
-	currentXp = 0,
-	increasedXp = 0,
-	levelUpXp = 10,
-	-- Offensive
-	increasedAttackDamage = 0,
-	attackDamage = 0,
-	critChance = 5,
-	critMultiplier = 50,
-	increasedAttackSpeed = 0,
-	attackSpeed = 0, -- Attacks / Second
-	animationTime = 1, -- Get lower as attackSpeed get higher
-	increasedAoe = 0,
-	aoe = 0,
-	-- Defensive
-	-- baseLife = 100,
-	-- increasedLife = 0,
-	maxLife = 100,
-	life = 100,
-	lifeRegen = 1,
-	damageReduction = 0,
-	-- Utility
-	mobility = 10,
-	movementSpeed = 15,
-	luck = 0,
-	basePickupRange = 10,
-	increasedPickupRange = 0,
-	pickupRange = 10,
-}
-
 -- Stats that can be Upgraded
 local STATS_STORE = {
-	AttackDamage = "AttackDamage",
-	CritChance = "CritChance",
-	CritMulti = "CritMulti",
-	AttackSpeed = "AttackSpeed",
-	Aoe = "Aoe",
-	MaxLife = "MaxLife",
-	LifeRegen = "LifeRegen",
-	DamageReduction = "DamageReduction",
-	Mobility = "Mobility",
-	Luck = "Luck",
-	Xp = "Xp",
-	PickupRange = "PickupRange",
+	increasedAttackDamage = "increasedAttackDamage",
+	critChance = "critChance",
+	critMultiplier = "critMultiplier",
+	increasedAttackSpeed = "increasedAttackSpeed",
+	increasedAoe = "increasedAoe",
+	maxLife = "maxLife",
+	lifeRegen = "lifeRegen",
+	damageReduction = "damageReduction",
+	mobility = "mobility",
+	luck = "luck",
+	increasedXp = "increasedXp",
+	increasedPickupRange = "increasedPickupRange",
 }
 
 local DISPLAY_TEXT = {
-	AttackDamage = "% Attack Damage",
-	CritChance = "% Crit Chance",
-	CritMulti = "% Crit Multiplier",
-	AttackSpeed = "% Attack Speed",
-	Aoe = "% AOE",
-	MaxLife = "Max Life",
-	LifeRegen = "Life Regen",
-	DamageReduction = "% Damage Reduction",
-	Mobility = "Mobility",
-	Luck = "Luck",
-	Xp = "% XP",
-	PickupRange = "% Pickup Range",
+	increasedAttackDamage = "% Attack Damage",
+	critChance = "% Crit Chance",
+	critMultiplier = "% Crit Multiplier",
+	increasedAttackSpeed = "% Attack Speed",
+	increasedAoe = "% increasedAoe",
+	maxLife = "Max Life",
+	lifeRegen = "Life Regen",
+	damageReduction = "% Damage Reduction",
+	mobility = "mobility",
+	luck = "luck",
+	increasedXp = "% increasedXp",
+	increasedPickupRange = "% Pickup Range",
 }
 
 local META_UPGRADES = {
-	AttackDamage = {
+	increasedAttackDamage = {
 		IncrementValue = 5,
 		BaseCost = 10,
 		MaxIncrement = 20,
 		CostMultiplier = 1.1,
 	},
-	CritChance = {
+	critChance = {
 		Increment = 2,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["critMultiplier"] = {
+	critMultiplier = {
 		Increment = 2,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["attackSpeed"] = {
+	increasedAttackSpeed = {
 		Increment = 2,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["aoe"] = {
+	increasedAoe = {
 		Increment = 2,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["maxHealth"] = {
+	maxLife = {
 		Increment = 5,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["lifeRegen"] = {
+	lifeRegen = {
 		Increment = 1,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["damageReduction"] = {
+	damageReduction = {
 		Increment = 2,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["mobility"] = {
+	mobility = {
 		Increment = 0.5,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["luck"] = {
+	luck = {
 		Increment = 1,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["increasedXp"] = {
+	increasedXp = {
 		Increment = 2,
 		BaseCost = 100,
 		MaxIncrement = 10,
 		CostMultiplier = 1.4,
 	},
-	["increasedPickupRange"] = {
+	increasedPickupRange = {
 		Increment = 2,
 		BaseCost = 100,
 		MaxIncrement = 10,
@@ -138,89 +105,89 @@ local META_UPGRADES = {
 }
 
 local AUGMENTS = {
-	BaseLuckValue = 200,
-	LuckPoints = { 0, 75, 150, 180, 195 },
-	Rarity = {
+	baseLuckValue = 200,
+	luckPoints = { 0, 75, 150, 180, 195 },
+	rarity = {
 		Common = "Common",
 		Uncommon = "Uncommon",
 		Rare = "Rare",
 		Epic = "Epic",
 		Legendary = "Legendary",
 	},
-	Colors = {
+	colors = {
 		Common = Color3.fromRGB(155, 155, 155),
 		Uncommon = Color3.fromRGB(0, 255, 0),
 		Rare = Color3.fromRGB(0, 0, 255),
 		Epic = Color3.fromRGB(116, 2, 116),
 		Legendary = Color3.fromRGB(211, 4, 4),
 	},
-	AttackDamage = {
+	increasedAttackDamage = {
 		Common = 10,
 		Uncommon = 15,
 		Rare = 20,
 		Epic = 25,
 		Legendary = 35,
 	},
-	CritChance = {
+	critChance = {
 		Common = 3,
 		Uncommon = 6,
 		Rare = 9,
 		Epic = 12,
 		Legendary = 15,
 	},
-	["critMultiplier"] = {
+	critMultiplier = {
 		Uncommon = 10,
 		Rare = 15,
 		Epic = 20,
 		Legendary = 25,
 	},
-	["attackSpeed"] = {
+	increasedAttackSpeed = {
 		Common = 3,
 		Uncommon = 6,
 		Rare = 9,
 		Epic = 12,
 		Legendary = 15,
 	},
-	["aoe"] = {
+	increasedAoe = {
 		Uncommon = 10,
 		Rare = 15,
 		Epic = 20,
 		Legendary = 25,
 	},
-	["maxHealth"] = {
+	maxLife = {
 		Uncommon = 30,
 		Rare = 45,
 		Epic = 60,
 		Legendary = 75,
 	},
-	["lifeRegen"] = {
+	lifeRegen = {
 		Common = 1,
 		Uncommon = 3,
 		Rare = 5,
 		Epic = 7,
 		Legendary = 9,
 	},
-	["damageReduction"] = {
+	damageReduction = {
 		Uncommon = 5,
 		Rare = 7,
 		Epic = 9,
 		Legendary = 11,
 	},
-	["mobility"] = {
+	mobility = {
 		Rare = 1,
 		Epic = 2,
 		Legendary = 3,
 	},
-	["luck"] = {
+	luck = {
 		Rare = 5,
 		Epic = 10,
 	},
-	["increasedXp"] = {
+	increasedXp = {
 		Rare = 10,
 		Epic = 15,
 		Legendary = 20,
 	},
-	["increasedPickupRange"] = {
+	increasedPickupRange = {
 		Uncommon = 10,
 		Rare = 15,
 		Epic = 20,
@@ -229,8 +196,8 @@ local AUGMENTS = {
 }
 
 return {
-	PLAYER_STATS_STRUCT = PLAYER_STATS_STRUCT,
 	STATS_STORE = STATS_STORE,
+	DISPLAY_TEXT = DISPLAY_TEXT,
 	META_UPRGADES = META_UPGRADES,
 	AUGMENTS = AUGMENTS,
 }
