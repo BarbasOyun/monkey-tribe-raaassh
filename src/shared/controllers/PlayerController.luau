@@ -118,6 +118,12 @@ local function setupAttack()
 	end)
 end
 
+-- LINK SERVICES
+
+function PlayerController:BuyUpgrade(upgradeType)
+	PlayerService:BuyMetaUpgrade(upgradeType)
+end
+
 local function setupPlayerService()
 	-- Players Join/Leave
 
@@ -138,6 +144,7 @@ local function setupPlayerService()
 		store:dispatch(storeActions.SetGameState(gameState, player.UserId))
 	end)
 
+	-- Players Added & Removed
 	PlayerService.PlayerAdded:Connect(function(userId, username)
 		-- only add players after joining
 		if userId == player.UserId then

@@ -8,25 +8,20 @@ local Roact = require(ReplicatedStorage.Shared.Roact)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await() -- Wait for KnitControllersStart
 
+local PlayerService = Knit.GetService("PlayerService")
 local PlayerController = Knit.GetController("PlayerController")
 
 local player = Players.LocalPlayer
 local playerGui = Players.LocalPlayer.PlayerGui
 
 local controlsBoard = workspace.Wiki.ControlsBoard.Board
+local upgradesBoard = workspace.Main.UpgradeBoard.Board
 local shopBoard = workspace.Main.ShopBoard.Board
 
 -- Shop
 -- TODO : Shop Module or Service in ReplicatedStorage
 local hundredDonationId = 3607471778
 local thousandDonationId = 3607471867
-
--- IN WORLD UI
-
--- attackSpeedButton.MouseButton1Click:Connect(function()
--- 	local PlayerService = Knit.GetService("PlayerService")
--- 	PlayerService.GiveMeAttackSpeed:Fire()
--- end)
 
 -- ROACT COMPONENTS
 
@@ -89,6 +84,16 @@ local function textButton(props)
 	})
 end
 
+-- Controls
+local controlsTextProps = {
+	text = "WASD = Movements\nSpace = Jump\nA = Open Augment Menu\nF = Center Camera\nM = Toggle Music",
+	size = UDim2.fromScale(1, 1),
+}
+
+-- Wiki
+-- ...
+
+-- Shop
 local hundredDonationProps = {
 	text = "Donate\n100 Robux",
 	onClick = function()
@@ -103,18 +108,21 @@ local thousandDonationProps = {
 	end,
 }
 
-local controlsTextProps = {
-	text = "WASD = Movements\nSpace = Jump\nA = Open Augment Menu\nF = Center Camera\nM = Toggle Music",
-	size = UDim2.fromScale(1, 1),
+-- Upgrade Board
+local attackDamageProps = {
+	text = PlayerService.StatsDisplayText.increasedAttackDamage,
+	onClick = function()
+		PlayerController:BuyUpgrade(PlayerService.StatsStore.increasedAttackDamage)
+	end,
 }
 
+-- Bananas Count
 local bananaImageProps = {
 	position = UDim2.fromScale(0.77, 0),
 	size = UDim2.fromScale(0.08, 0.18),
 	imageLink = "rbxassetid://92617984020165",
 }
 
--- Bananas Count
 local function Bananas(props)
 	local position = props.position or UDim2.fromScale(0, 0)
 	local size = props.size or UDim2.fromScale(0.2, 0.2)
@@ -149,7 +157,7 @@ BananasMain = RoactRodux.connect(function(state, props)
 	}
 end)(Bananas)
 
--- Final Elements
+-- FINAL GUIS
 
 local function mainGui()
 	return Roact.createElement("ScreenGui", {}, {
@@ -188,6 +196,31 @@ local function shopGui()
 	})
 end
 
+local function upgradeGui()
+	return Roact.createElement("SurfaceGui", {
+		Adornee = upgradesBoard,
+		Face = "Left",
+	}, {
+		Frame = Roact.createElement("Frame", {
+			Position = UDim2.fromScale(0.05, 0.05),
+			Size = UDim2.fromScale(0.9, 0.9),
+			BackgroundTransparency = 1,
+		}, {
+			Roact.createElement("UIGridLayout", {
+				CellPadding = UDim2.fromScale(0.05, 0.05),
+				CellSize = UDim2.fromScale(0.2, 0.2), -- 4 Cell / Row
+			}),
+			textButton(attackDamageProps),
+			textButton(thousandDonationProps),
+			textButton(thousandDonationProps),
+			textButton(thousandDonationProps),
+			textButton(thousandDonationProps),
+			textButton(thousandDonationProps),
+			textButton(thousandDonationProps),
+		}),
+	})
+end
+
 -- App
 local app = Roact.createElement(RoactRodux.StoreProvider, {
 	store = PlayerController.store,
@@ -195,7 +228,8 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 	Container = Roact.createElement("Folder", {}, {
 		MainGui = mainGui(),
 		ControlsGui = controlsGui(),
-		Shop = shopGui(),
+		ShopGui = shopGui(),
+		UpgradeGui = upgradeGui(),
 	}),
 })
 

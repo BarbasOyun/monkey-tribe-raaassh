@@ -8,10 +8,12 @@ MAX_BANANAS = 10_000
 -- key = player.UserId
 local PLAYER_STRUCT = {
 	username = "",
+	isMusicEnabled = true,
 	bananas = 0,
 	sticks = 0,
 	stones = 0,
 	stats = nil,
+	metaUpgrades = nil,
 	weaponData = nil,
 	-- gearData
 }
@@ -48,6 +50,26 @@ local PLAYER_STATS_STRUCT = {
 	basePickupRange = 10,
 	increasedPickupRange = 0,
 	pickupRange = 10,
+}
+
+-- Load from DB and Store in Server for Mutations
+-- When player leave HUB -> Send to DB
+local META_UPGRADES = {
+	-- Offense
+	increasedAttackDamage = 0,
+	critChance = 0,
+	critMultiplier = 0,
+	increasedAttackSpeed = 0,
+	increasedAoe = 0,
+	-- Defense
+	maxLife = 0,
+	lifeRegen = 0,
+	damageReduction = 0,
+	-- Utility
+	mobility = 0,
+	luck = 0,
+	increasedXp = 0,
+	increasedPickupRange = 0,
 }
 
 -- RODUX ACTIONS
@@ -87,14 +109,6 @@ local Actions = {
 	end,
 
 	-- Stats
-	SetWeaponData = function(userId, weaponData)
-		return {
-			type = "SetWeaponData",
-			userId = userId,
-			weaponData = weaponData,
-		}
-	end,
-
 	SetIncreasedStat = function(userId, statType, increasedValue)
 		return {
 			type = "SetIncreasedStat",
@@ -128,6 +142,33 @@ local Actions = {
 			aoe = aoe,
 		}
 	end,
+
+	-- Meta Upgrades
+	SetMetaUpgrades = function(userId, metaUpgrades)
+		return {
+			type = "SetMetaUpgrades",
+			userId = userId,
+			metaUpgrades = metaUpgrades,
+		}
+	end,
+
+	SetMetaUpgrade = function(userId, upgradeType, value)
+		return {
+			type = "SetMetaUpgrade",
+			userId = userId,
+			upgradeType = upgradeType,
+			value = value,
+		}
+	end,
+
+	-- Gear
+	SetWeaponData = function(userId, weaponData)
+		return {
+			type = "SetWeaponData",
+			userId = userId,
+			weaponData = weaponData,
+		}
+	end,
 }
 
 -- RODUX REDUCERS
@@ -138,6 +179,7 @@ local playerReducer = Rodux.createReducer({}, {
 		players[action.userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
 		players[action.userId].username = action.username
 		players[action.userId].stats = Gears.deepCopy(PLAYER_STATS_STRUCT)
+		players[action.userId].metaUpgrades = Gears.deepCopy(META_UPGRADES)
 
 		return players
 	end,
@@ -157,12 +199,6 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 
 	-- Stats
-	SetWeaponData = function(state, action)
-		local players = table.clone(state) or {}
-		players[action.userId].weaponData = action.weaponData
-		return players
-	end,
-
 	SetIncreasedStat = function(state, action)
 		local players = table.clone(state) or {}
 		local userId = action.userId
@@ -189,6 +225,29 @@ local playerReducer = Rodux.createReducer({}, {
 	SetAoe = function(state, action)
 		local players = table.clone(state) or {}
 		players[action.userId].stats.aoe = action.aoe
+		return players
+	end,
+
+	SetMetaUpgrades = function(state, action)
+		local players = table.clone(state) or {}
+		local metaUpgrades = action.metaUpgrades
+
+		players[action.userId].metaUpgrades = metaUpgrades
+		return players
+	end,
+
+	SetMetaUpgrade = function(state, action)
+		local players = table.clone(state) or {}
+		local upgradeType = action.upgradeType
+		local value = action.value
+
+		players[action.userId].metaUpgrades[upgradeType] = value
+		return players
+	end,
+
+	SetWeaponData = function(state, action)
+		local players = table.clone(state) or {}
+		players[action.userId].weaponData = action.weaponData
 		return players
 	end,
 })

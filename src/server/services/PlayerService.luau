@@ -23,13 +23,15 @@ local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
 	PlayerAdded = Signal.new(),
 	PlayerRemoved = Signal.new(),
-	StatsStore = STATS_STORE,
 	Client = {
+		StatsStore = STATS_STORE,
+		StatsDisplayText = DISPLAY_TEXT,
 		ReplicateStore = Knit.CreateSignal(),
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
 		EnteringGame = Knit.CreateSignal(),
 		BananasChanged = Knit.CreateSignal(),
+		AskForUpgrade = Knit.CreateSignal(),
 	},
 })
 
@@ -81,7 +83,7 @@ local playersLoadingTp = {}
 
 -- PLAYERS
 
--- Data that need to be Replicated when a player join
+-- Replicate State when Player Join
 local function gameState()
 	local state = store:getState()
 	local players = {}
@@ -118,6 +120,8 @@ function PlayerService:AddPlayer(player, username)
 end
 
 function PlayerService:RemovePlayer(userId)
+	-- Save Bananas + Meta Upgrades to DB
+
 	store:dispatch(storeActions.RemovePlayer(userId))
 
 	-- Events
@@ -217,6 +221,42 @@ end
 -- Most Stats work like this : baseX * increasedX = x
 -- some baseX (eg baseAttackSpeed) come from weaponData
 -- every used / final x stats is stored in the playerStats (weaponData never mutate)
+
+-- upgradeType = from STATS_STORE
+local function incrementMetaUpgrade(userId, upgradeType)
+	local newStat = store:getState().players[userId].metaUpgrades[upgradeType] + 1
+	store:dispatch(storeActions.SetMetaUpgrade(userId, upgradeType, newStat))
+end
+
+function PlayerService:BuyMetaUpgrade(player, upgradeType)
+	print(player.Name)
+	local userId = player.UserId
+	local playerData = store:getState().players[userId]
+	local playerBananas = playerData.bananas
+	local upgradeLevel = playerData.metaUpgrades[upgradeType]
+	local upgradeCost = META_UPRGADES[upgradeType].baseCost + upgradeLevel * META_UPRGADES[upgradeType].costMultiplier
+
+	print(
+		playerData.username
+			.. " Try to buy "
+			.. upgradeType
+			.. " at "
+			.. upgradeCost
+			.. " with "
+			.. playerBananas
+			.. " Bananas"
+	)
+
+	if playerBananas < upgradeCost then
+		print(playerData.username .. " Not Enough Bananas to buy Upgrade")
+		return
+	end
+
+	-- Buy = Subtract Cost + Grant Upgrade
+	local newBananas = playerBananas - upgradeCost
+	store:dispatch(storeActions.SetBananas(userId, newBananas))
+	incrementMetaUpgrade(userId, upgradeType)
+end
 
 function PlayerService:GetStats(userId)
 	local storeState = store:getState()
@@ -397,6 +437,10 @@ function PlayerService:KnitInit()
 	print("PlayerService Initialized")
 
 	setupPlatforms()
+
+	self.Client.AskForUpgrade:Connect(function(player)
+		-- Check Bananas
+	end)
 end
 
 function PlayerService:KnitStart()
