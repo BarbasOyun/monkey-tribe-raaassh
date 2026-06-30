@@ -1,6 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local PlayerGui = Players.LocalPlayer.PlayerGui
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local RoactRodux = require(ReplicatedStorage.Shared.RoactRodux)
 local Roact = require(ReplicatedStorage.Shared.Roact)
@@ -11,8 +11,15 @@ Knit.OnStart():await() -- Wait for KnitControllersStart
 local PlayerController = Knit.GetController("PlayerController")
 
 local player = Players.LocalPlayer
+local playerGui = Players.LocalPlayer.PlayerGui
+
 local controlsBoard = workspace.Wiki.ControlsBoard.Board
-local shopBoard = workspace.Wiki.ShopBoard.Board
+local shopBoard = workspace.Main.ShopBoard.Board
+
+-- Shop
+-- TODO : Shop Module or Service in ReplicatedStorage
+local hundredDonationId = 3607471778
+local thousandDonationId = 3607471867
 
 -- IN WORLD UI
 
@@ -59,8 +66,45 @@ local function image(props)
 	})
 end
 
+local function textButton(props)
+	local position = props.position or UDim2.fromScale(0, 0)
+	local size = props.size or UDim2.fromScale(0.2, 0.2)
+
+	local text = props.text or "Button"
+	local onClick = props.onClick
+
+	return Roact.createElement("TextButton", {
+		Position = position,
+		Size = size,
+		Text = text,
+		[Roact.Event.MouseButton1Click] = onClick,
+		-- TextScaled = true,
+		TextSize = 45,
+		TextWrap = true,
+		Font = Enum.Font.Bangers,
+		TextColor3 = Color3.new(),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderColor3 = Color3.new(1, 1, 0),
+		BorderSizePixel = 10,
+	})
+end
+
+local hundredDonationProps = {
+	text = "Donate\n100 Robux",
+	onClick = function()
+		MarketplaceService:PromptProductPurchase(player, hundredDonationId)
+	end,
+}
+
+local thousandDonationProps = {
+	text = "Donate\n1 000 Robux",
+	onClick = function()
+		MarketplaceService:PromptProductPurchase(player, thousandDonationId)
+	end,
+}
+
 local controlsTextProps = {
-	text = "WASD = Movements\nSpace = Jump\nA = Open Augment Menu\nF = Center Camera",
+	text = "WASD = Movements\nSpace = Jump\nA = Open Augment Menu\nF = Center Camera\nM = Toggle Music",
 	size = UDim2.fromScale(1, 1),
 }
 
@@ -105,32 +149,54 @@ BananasMain = RoactRodux.connect(function(state, props)
 	}
 end)(Bananas)
 
+-- Final Elements
+
+local function mainGui()
+	return Roact.createElement("ScreenGui", {}, {
+		EnteringGameLabel = Roact.createElement(enteringGameLabel),
+		Bananas = Roact.createElement(BananasMain),
+		BananaImage = image(bananaImageProps),
+	})
+end
+
+local function controlsGui()
+	return Roact.createElement("SurfaceGui", {
+		Adornee = controlsBoard,
+		Face = "Left",
+	}, {
+		ControlsTextLabel = textLabel(controlsTextProps),
+	})
+end
+
+local function shopGui()
+	return Roact.createElement("SurfaceGui", {
+		Adornee = shopBoard,
+		Face = "Left",
+	}, {
+		Frame = Roact.createElement("Frame", {
+			Position = UDim2.fromScale(0.05, 0.05),
+			Size = UDim2.fromScale(0.9, 0.9),
+			BackgroundTransparency = 1,
+		}, {
+			Roact.createElement("UIGridLayout", {
+				CellPadding = UDim2.fromScale(0.05, 0.05),
+				CellSize = UDim2.fromScale(0.27, 0.25),
+			}),
+			textButton(hundredDonationProps),
+			textButton(thousandDonationProps),
+		}),
+	})
+end
+
 -- App
 local app = Roact.createElement(RoactRodux.StoreProvider, {
 	store = PlayerController.store,
 }, {
 	Container = Roact.createElement("Folder", {}, {
-		-- Main
-		MainGui = Roact.createElement("ScreenGui", {}, {
-			EnteringGameLabel = Roact.createElement(enteringGameLabel),
-			Bananas = Roact.createElement(BananasMain),
-			BananaImage = image(bananaImageProps),
-		}),
-		-- Controls = SurfaceGui
-		ControlsGui = Roact.createElement("SurfaceGui", {
-			Adornee = controlsBoard,
-			Face = "Left",
-		}, {
-			ControlsTextLabel = textLabel(controlsTextProps),
-		}),
-		-- Shop = SurfaceGui
-		Shop = Roact.createElement("SurfaceGui", {
-			Adornee = shopBoard,
-			Face = "Left",
-		}, {
-			ControlsTextLabel = textLabel(controlsTextProps),
-		}),
+		MainGui = mainGui(),
+		ControlsGui = controlsGui(),
+		Shop = shopGui(),
 	}),
 })
 
-Roact.mount(app, PlayerGui)
+Roact.mount(app, playerGui)

@@ -1,6 +1,8 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local MarketplaceService = game:GetService("MarketplaceService")
+
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await()
 
@@ -14,6 +16,48 @@ local PlayerService = Knit.GetService("PlayerService")
 
 -- local spawnWeaponButton = workspace.Wiki.RandomWeaponSpawner.Surface.SurfaceGui.TextButton
 -- local weaponSpawnPos = workspace.Wiki.RandomWeaponSpawner.WeaponSpawnPos
+
+-- Store
+local hundredDonationId = 3607471778
+local thousandDonationId = 3607471867
+
+-- Authoring Logic
+local productFunctions = {}
+
+-- Music
+local music = workspace.Music
+music:Play()
+
+-- STORE
+
+productFunctions[hundredDonationId] = function(receipt, player)
+	return true
+end
+
+productFunctions[thousandDonationId] = function(receipt, player)
+	return true
+end
+
+local function processReceipt(receiptInfo)
+	local userId = receiptInfo.PlayerId
+	local productId = receiptInfo.ProductId
+	local player = Players:GetPlayerByUserId(userId)
+
+	if player then
+		local handler = productFunctions[productId]
+
+		local success, result = pcall(handler, receiptInfo, player)
+		if success then
+			return Enum.ProductPurchaseDecision.PurchaseGranted
+		else
+			error(receiptInfo)
+		end
+	end
+
+	return Enum.ProductPurchaseDecision.NotProcessedYet
+end
+
+MarketplaceService.ProcessReceipt = processReceipt
 
 Players.PlayerAdded:Connect(function(player)
 	PlayerService:AddPlayer(player, player.Name)
