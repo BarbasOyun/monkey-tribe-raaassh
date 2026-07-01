@@ -8,14 +8,12 @@ local Roact = require(ReplicatedStorage.Shared.Roact)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await() -- Wait for KnitControllersStart
 
-local PlayerService = Knit.GetService("PlayerService")
 local PlayerController = Knit.GetController("PlayerController")
 
 local player = Players.LocalPlayer
 local playerGui = Players.LocalPlayer.PlayerGui
 
 local controlsBoard = workspace.Wiki.ControlsBoard.Board
-local upgradesBoard = workspace.Main.UpgradeBoard.Board
 local shopBoard = workspace.Main.ShopBoard.Board
 
 -- Shop
@@ -25,32 +23,14 @@ local thousandDonationId = 3607471867
 
 -- ROACT COMPONENTS
 
-local enteringGameLabel = require(ReplicatedStorage.Shared.Components.EnteringGame)
-
-local function textLabel(props)
-	local text = props.text or ""
-	local textScaled = props.textScaled or true
-	local textColor = props.textColor or Color3.fromRGB(255, 255, 255)
-	local transparency = props.transparency or 1
-
-	local position = props.position or UDim2.fromScale(0, 0)
-	local size = props.size or UDim2.fromScale(0.2, 0.2)
-
-	return Roact.createElement("TextLabel", {
-		Text = text,
-		Font = Enum.Font.Bangers,
-		TextScaled = textScaled,
-		TextColor3 = textColor,
-		BackgroundTransparency = transparency,
-		Position = position,
-		Size = size,
-	})
-end
+local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
+local textButton = require(ReplicatedStorage.Shared.Components.TextButton)
 
 -- Image Component : ImageId, Pos, Size
 local function image(props)
 	local position = props.position or UDim2.fromScale(0, 0)
 	local size = props.size or UDim2.fromScale(0.2, 0.2)
+
 	local imageLink = props.imageLink
 
 	return Roact.createElement("ImageLabel", {
@@ -61,32 +41,9 @@ local function image(props)
 	})
 end
 
-local function textButton(props)
-	local position = props.position or UDim2.fromScale(0, 0)
-	local size = props.size or UDim2.fromScale(0.2, 0.2)
-
-	local text = props.text or "Button"
-	local onClick = props.onClick
-
-	return Roact.createElement("TextButton", {
-		Position = position,
-		Size = size,
-		Text = text,
-		[Roact.Event.MouseButton1Click] = onClick,
-		-- TextScaled = true,
-		TextSize = 45,
-		TextWrap = true,
-		Font = Enum.Font.Bangers,
-		TextColor3 = Color3.new(),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		BorderColor3 = Color3.new(1, 1, 0),
-		BorderSizePixel = 10,
-	})
-end
-
 -- Controls
 local controlsTextProps = {
-	text = "WASD = Movements\nSpace = Jump\nA = Open Augment Menu\nF = Center Camera\nM = Toggle Music",
+	text = "WASD = Movements\nSpace = Jump\nA = Open Augment Menu\nF = Center Camera\nT = Toggle Music",
 	size = UDim2.fromScale(1, 1),
 }
 
@@ -108,38 +65,12 @@ local thousandDonationProps = {
 	end,
 }
 
--- Upgrade Board
-local attackDamageProps = {
-	text = PlayerService.StatsDisplayText.increasedAttackDamage,
-	onClick = function()
-		PlayerController:BuyUpgrade(PlayerService.StatsStore.increasedAttackDamage)
-	end,
-}
-
 -- Bananas Count
 local bananaImageProps = {
 	position = UDim2.fromScale(0.77, 0),
 	size = UDim2.fromScale(0.08, 0.18),
 	imageLink = "rbxassetid://92617984020165",
 }
-
-local function Bananas(props)
-	local position = props.position or UDim2.fromScale(0, 0)
-	local size = props.size or UDim2.fromScale(0.2, 0.2)
-
-	local text = props.text or "Bananas: "
-	local bananas = props.bananas or 0
-
-	return Roact.createElement("TextLabel", {
-		Text = text .. bananas,
-		Font = Enum.Font.Bangers,
-		TextScaled = true,
-		TextColor3 = Color3.fromRGB(255, 255, 255),
-		BackgroundTransparency = 1,
-		Position = position,
-		Size = size,
-	})
-end
 
 BananasMain = RoactRodux.connect(function(state, props)
 	-- mapStateToProps
@@ -152,10 +83,11 @@ BananasMain = RoactRodux.connect(function(state, props)
 	return {
 		position = UDim2.fromScale(0.65, 0), -- X_pos = 0.75 - size.x / 2
 		size = UDim2.fromScale(0.2, 0.2),
-		bananas = bananas,
-		text = "",
+		text = bananas,
 	}
-end)(Bananas)
+end)(textLabel)
+
+local enteringGameLabel = require(ReplicatedStorage.Shared.Components.EnteringGame)
 
 -- FINAL GUIS
 
@@ -196,30 +128,7 @@ local function shopGui()
 	})
 end
 
-local function upgradeGui()
-	return Roact.createElement("SurfaceGui", {
-		Adornee = upgradesBoard,
-		Face = "Left",
-	}, {
-		Frame = Roact.createElement("Frame", {
-			Position = UDim2.fromScale(0.05, 0.05),
-			Size = UDim2.fromScale(0.9, 0.9),
-			BackgroundTransparency = 1,
-		}, {
-			Roact.createElement("UIGridLayout", {
-				CellPadding = UDim2.fromScale(0.05, 0.05),
-				CellSize = UDim2.fromScale(0.2, 0.2), -- 4 Cell / Row
-			}),
-			textButton(attackDamageProps),
-			textButton(thousandDonationProps),
-			textButton(thousandDonationProps),
-			textButton(thousandDonationProps),
-			textButton(thousandDonationProps),
-			textButton(thousandDonationProps),
-			textButton(thousandDonationProps),
-		}),
-	})
-end
+local upgradeGui = require(ReplicatedStorage.Shared.Components.UpgradesGui)
 
 -- App
 local app = Roact.createElement(RoactRodux.StoreProvider, {
@@ -229,7 +138,7 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 		MainGui = mainGui(),
 		ControlsGui = controlsGui(),
 		ShopGui = shopGui(),
-		UpgradeGui = upgradeGui(),
+		UpgradeGui = upgradeGui,
 	}),
 })
 

@@ -12,7 +12,19 @@ local storeActions = RoduxStore.Actions
 local Knit = require(ReplicatedStorage.Packages.Knit)
 --  Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local PlayerController = Knit.CreateController({ Name = "PlayerController" })
+-- Get Stats Authoring Data
+local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+local STATS_STORE = statsData.STATS_STORE
+local STATS_DISPLAY = statsData.STATS_DISPLAY
+local META_UPRGADES = statsData.META_UPRGADES
+local AUGMENTS = statsData.AUGMENTS
+
+local PlayerController = Knit.CreateController({
+	Name = "PlayerController",
+	StatsStore = STATS_STORE,
+	StatsDisplay = STATS_DISPLAY,
+	MetaUpgrades = META_UPRGADES,
+})
 PlayerController.store = store
 
 local PlayerService
@@ -33,6 +45,8 @@ local playerGui = player:WaitForChild("PlayerGui")
 local soundFolder = playerGui.ClientSounds
 local getOrbSound = soundFolder.GetOrb
 local enteringGameSound = soundFolder.EnteringGame
+
+local music = soundFolder.Music
 
 -- Controls
 -- TODO : StateMachine -> States define controls
@@ -88,6 +102,20 @@ local function setupControls()
 
 		if input.UserInputType == Enum.UserInputType.MouseButton1 then
 			isLClickDown = true
+		end
+
+		if input.KeyCode == Enum.KeyCode.T then
+			warn("M Pressed")
+			local state = store:getState()
+			local enabled = not state.players[player.UserId].isMusicEnabled
+
+			if enabled then
+				music:Play()
+			else
+				music:Stop()
+			end
+
+			PlayerService:ToggleMusic(enabled)
 		end
 	end)
 
@@ -159,6 +187,10 @@ local function setupPlayerService()
 		store:dispatch(storeActions.RemovePlayer(userId))
 	end)
 
+	PlayerService.MusicChanged:Connect(function(enabled)
+		store:dispatch(storeActions.ToggleMusic(player.UserId, enabled))
+	end)
+
 	PlayerService.EnteringGame:Connect(function()
 		enteringGameSound:Play()
 	end)
@@ -195,6 +227,14 @@ function PlayerController:KnitStart()
 
 	setupControls()
 	setupAttack()
+
+	-- Start Music
+	local store = store:getState()
+	local isMusicEnabled = store.players[player.UserId].isMusicEnabled
+
+	if isMusicEnabled then
+		music:Play()
+	end
 end
 
 return PlayerController

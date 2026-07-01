@@ -14,6 +14,7 @@ local PlayerService = Knit.GetService("PlayerService")
 -- 	"Dummy",
 -- }
 
+-- Weapon Spawner
 -- local spawnWeaponButton = workspace.Wiki.RandomWeaponSpawner.Surface.SurfaceGui.TextButton
 -- local weaponSpawnPos = workspace.Wiki.RandomWeaponSpawner.WeaponSpawnPos
 
@@ -23,10 +24,6 @@ local thousandDonationId = 3607471867
 
 -- Authoring Logic
 local productFunctions = {}
-
--- Music
-local music = workspace.Music
-music:Play()
 
 -- STORE
 

@@ -25,7 +25,7 @@ local PLAYER_STATS_STRUCT = {
 	level = 1,
 	currentXp = 0,
 	increasedXp = 0,
-	levelUpXp = 10,
+	xpRequired = 10,
 	-- Offensive
 	increasedAttackDamage = 0,
 	attackDamage = 0,
@@ -45,21 +45,33 @@ local PLAYER_STATS_STRUCT = {
 	damageReduction = 0,
 	-- Utility
 	mobility = 10,
-	movementSpeed = 15,
 	luck = 0,
 	basePickupRange = 10,
 	increasedPickupRange = 0,
 	pickupRange = 10,
 }
 
+-- 2 Type of Stats :
+-- 1] IncreaseStat -> BaseX * IncreasedX = x eg attackDamage
+-- 2] FlatStat -> x eg maxLife
+local TOTAL_STATS_STORE = {
+	-- IncreaseStats
+	attackDamage = "attackDamage",
+	attackSpeed = "attackSpeed",
+	animationTime = "animationTime",
+	aoe = "aoe",
+	pickupRange = "pickupRange",
+}
+
 -- Load from DB and Store in Server for Mutations
 -- When player leave HUB -> Send to DB
+-- Store currentStat, Cost, ...?
 local META_UPGRADES = {
 	-- Offense
-	increasedAttackDamage = 0,
-	critChance = 0,
-	critMultiplier = 0,
-	increasedAttackSpeed = 0,
+	increasedAttackDamage = 3,
+	critChance = 5,
+	critMultiplier = 1,
+	increasedAttackSpeed = 2,
 	increasedAoe = 0,
 	-- Defense
 	maxLife = 0,
@@ -99,7 +111,15 @@ local Actions = {
 		}
 	end,
 
-	-- Bananas
+	ToggleMusic = function(userId, enabled)
+		return {
+			type = "ToggleMusic",
+			userId = userId,
+			enabled = enabled,
+		}
+	end,
+
+	-- Currencies
 	SetBananas = function(userId, bananas)
 		return {
 			type = "SetBananas",
@@ -176,10 +196,12 @@ local Actions = {
 local playerReducer = Rodux.createReducer({}, {
 	AddPlayer = function(state, action)
 		local players = table.clone(state) or {} -- Shallow copy the players table
-		players[action.userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
-		players[action.userId].username = action.username
-		players[action.userId].stats = Gears.deepCopy(PLAYER_STATS_STRUCT)
-		players[action.userId].metaUpgrades = Gears.deepCopy(META_UPGRADES)
+		local userId = action.userId
+
+		players[userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
+		players[userId].username = action.username
+		players[userId].stats = Gears.deepCopy(PLAYER_STATS_STRUCT)
+		players[userId].metaUpgrades = Gears.deepCopy(META_UPGRADES)
 
 		return players
 	end,
@@ -190,7 +212,16 @@ local playerReducer = Rodux.createReducer({}, {
 		return players
 	end,
 
-	-- Bananas
+	ToggleMusic = function(state, action)
+		local players = table.clone(state) or {}
+		local userId = action.userId
+		local enabled = action.enabled
+
+		players[userId].isMusicEnabled = enabled
+		return players
+	end,
+
+	-- Currencies
 	SetBananas = function(state, action)
 		local players = table.clone(state) or {}
 		players[action.userId].bananas = action.bananas

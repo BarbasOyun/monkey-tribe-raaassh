@@ -139,7 +139,7 @@ local function attackValidation(player)
 	local playerStats, weaponData = PlayerService:GetStats(player.UserId)
 
 	if not playerStats or not weaponData then
-		warn("No playerStats or weaponData")
+		-- warn("No playerStats or weaponData")
 		return
 	end
 

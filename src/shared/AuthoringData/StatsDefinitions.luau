@@ -17,18 +17,18 @@ local STATS_STORE = {
 	increasedPickupRange = "increasedPickupRange",
 }
 
-local DISPLAY_TEXT = {
+local STATS_DISPLAY = {
 	increasedAttackDamage = "% Attack Damage",
 	critChance = "% Crit Chance",
 	critMultiplier = "% Crit Multiplier",
 	increasedAttackSpeed = "% Attack Speed",
-	increasedAoe = "% increasedAoe",
+	increasedAoe = "% Aoe",
 	maxLife = "Max Life",
 	lifeRegen = "Life Regen",
 	damageReduction = "% Damage Reduction",
-	mobility = "mobility",
-	luck = "luck",
-	increasedXp = "% increasedXp",
+	mobility = "Mobility",
+	luck = "Luck",
+	increasedXp = "% Xp",
 	increasedPickupRange = "% Pickup Range",
 }
 
@@ -36,73 +36,73 @@ local META_UPGRADES = {
 	increasedAttackDamage = {
 		incrementValue = 5,
 		baseCost = 10,
-		maxIncrement = 20,
+		maxLevel = 20,
 		costMultiplier = 1.1,
 	},
 	critChance = {
 		incrementValue = 2,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	critMultiplier = {
 		incrementValue = 2,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	increasedAttackSpeed = {
 		incrementValue = 2,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	increasedAoe = {
 		incrementValue = 2,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	maxLife = {
 		incrementValue = 5,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	lifeRegen = {
 		incrementValue = 1,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	damageReduction = {
 		incrementValue = 2,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	mobility = {
 		incrementValue = 0.5,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	luck = {
 		incrementValue = 1,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	increasedXp = {
 		incrementValue = 2,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 	increasedPickupRange = {
 		incrementValue = 2,
 		baseCost = 100,
-		maxIncrement = 10,
+		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
 }
@@ -200,7 +200,7 @@ local AUGMENTS = {
 
 return {
 	STATS_STORE = STATS_STORE,
-	DISPLAY_TEXT = DISPLAY_TEXT,
+	STATS_DISPLAY = STATS_DISPLAY,
 	META_UPRGADES = META_UPGRADES,
 	AUGMENTS = AUGMENTS,
 }

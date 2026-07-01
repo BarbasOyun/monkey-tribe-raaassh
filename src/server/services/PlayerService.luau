@@ -7,28 +7,28 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
--- Get Stats Authoring Data
-local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
-local STATS_STORE = statsData.STATS_STORE
-local DISPLAY_TEXT = statsData.DISPLAY_TEXT
-local META_UPRGADES = statsData.META_UPRGADES
-local AUGMENTS = statsData.AUGMENTS
-
 -- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
 local storeActions = RoduxStore.Actions
 
+-- Get Stats Authoring Data
+local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+local STATS_STORE = statsData.STATS_STORE
+local STATS_DISPLAY = statsData.STATS_DISPLAY
+local META_UPRGADES = statsData.META_UPRGADES
+local AUGMENTS = statsData.AUGMENTS
+
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
+	StatsStore = STATS_STORE,
 	PlayerAdded = Signal.new(),
 	PlayerRemoved = Signal.new(),
 	Client = {
-		StatsStore = STATS_STORE,
-		StatsDisplayText = DISPLAY_TEXT,
 		ReplicateStore = Knit.CreateSignal(),
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
+		MusicChanged = Knit.CreateSignal(),
 		EnteringGame = Knit.CreateSignal(),
 		BananasChanged = Knit.CreateSignal(),
 		AskForUpgrade = Knit.CreateSignal(),
@@ -92,8 +92,12 @@ local function gameState()
 	for userId, player in pairs(state.players) do
 		players[userId] = {
 			username = player.username,
+			isMusicEnabled = player.isMusicEnabled,
 			bananas = player.bananas,
+			sticks = player.sticks,
+			stones = player.stones,
 			stats = player.stats,
+			metaUpgrades = player.metaUpgrades,
 		}
 	end
 
@@ -127,6 +131,11 @@ function PlayerService:RemovePlayer(userId)
 	-- Events
 	self.PlayerRemoved:Fire(userId)
 	self.Client.PlayerRemoved:FireAll(userId)
+end
+
+function PlayerService.Client:ToggleMusic(player, enabled)
+	store:dispatch(storeActions.ToggleMusic(player.UserId, enabled))
+	self.MusicChanged:Fire(player, enabled)
 end
 
 -- TP
@@ -198,7 +207,7 @@ local function setupPlatforms()
 	end
 end
 
--- STATS
+-- CURRENCIES
 
 function PlayerService:GetBananas(userId)
 	local bananas = store:getState().players[userId].bananas
@@ -218,6 +227,8 @@ function PlayerService:AddBananas(userId, value)
 	self.Client.BananasChanged:FireAll(userId, newValue)
 end
 
+-- STATS
+
 -- Most Stats work like this : baseX * increasedX = x
 -- some baseX (eg baseAttackSpeed) come from weaponData
 -- every used / final x stats is stored in the playerStats (weaponData never mutate)
@@ -228,13 +239,15 @@ local function incrementMetaUpgrade(userId, upgradeType)
 	store:dispatch(storeActions.SetMetaUpgrade(userId, upgradeType, newStat))
 end
 
-function PlayerService:BuyMetaUpgrade(player, upgradeType)
-	print(player.Name)
+function PlayerService.Client:BuyMetaUpgrade(player, upgradeType)
 	local userId = player.UserId
 	local playerData = store:getState().players[userId]
 	local playerBananas = playerData.bananas
+
+	-- Price Check
 	local upgradeLevel = playerData.metaUpgrades[upgradeType]
-	local upgradeCost = META_UPRGADES[upgradeType].baseCost + upgradeLevel * META_UPRGADES[upgradeType].costMultiplier
+	local upgradeData = META_UPRGADES[upgradeType]
+	local upgradeCost = upgradeData.baseCost + upgradeData.baseCost * upgradeLevel * upgradeData.costMultiplier
 
 	print(
 		playerData.username
@@ -260,23 +273,29 @@ end
 
 function PlayerService:GetStats(userId)
 	local storeState = store:getState()
+
 	local playerStats = storeState.players[userId].stats
+	local metaUpgrade = storeState.players[userId].metaUpgrades
 	local weaponData = storeState.players[userId].weaponData
 
-	return playerStats, weaponData
+	return playerStats, metaUpgrade, weaponData
 end
 
 -- Every function to calculate a player stats
 local statsCalcFunctions = {
 	calculateAttackDamage = function(userId)
-		local playerStats, weaponData = PlayerService:GetStats(userId)
+		local playerStats, metaUpgrade, weaponData = PlayerService:GetStats(userId)
 
 		if not playerStats or not weaponData then
 			return
 		end
 
-		-- baseAttackDamage = weaponData.damage
-		local attackDamage = weaponData.damage * Gears.increaseToMultiplier(playerStats.increasedAttackDamage)
+		local metaUpgradeIncrease = metaUpgrade.increasedAttackDamage
+			* META_UPRGADES[STATS_STORE.increasedAttackDamage].incrementValue
+		local totalIncrease = playerStats.increasedAttackDamage + metaUpgradeIncrease
+
+		-- use weapon as Base Damage
+		local attackDamage = weaponData.damage * Gears.increaseToMultiplier(totalIncrease)
 
 		store:dispatch(storeActions.SetAttackDamage(userId, attackDamage))
 
@@ -284,7 +303,7 @@ local statsCalcFunctions = {
 	end,
 
 	calculateAttackSpeed = function(userId)
-		local playerStats, weaponData = PlayerService:GetStats(userId)
+		local playerStats, metaUpgrade, weaponData = PlayerService:GetStats(userId)
 
 		if not playerStats or not weaponData then
 			return
@@ -300,7 +319,7 @@ local statsCalcFunctions = {
 	end,
 
 	calculateAoe = function(userId)
-		local playerStats, weaponData = PlayerService:GetStats(userId)
+		local playerStats, metaUpgrade, weaponData = PlayerService:GetStats(userId)
 
 		if not playerStats or not weaponData then
 			return
