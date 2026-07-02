@@ -14,14 +14,17 @@ local storeActions = RoduxStore.Actions
 
 -- Get Stats Authoring Data
 local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+-- stores
 local STATS_STORE = statsData.STATS_STORE
-local STATS_DISPLAY = statsData.STATS_DISPLAY
+local MOD_STATS_STORE = statsData.MOD_STATS_STORE
+local TO_STAT_OBJECT = statsData.TO_STAT_OBJECT
+-- authoring data
+local DEFAULT_STATS = statsData.DEFAULT_STATS
 local META_UPRGADES = statsData.META_UPRGADES
-local AUGMENTS = statsData.AUGMENTS
 
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
-	StatsStore = STATS_STORE,
+	StatsStore = MOD_STATS_STORE,
 	PlayerAdded = Signal.new(),
 	PlayerRemoved = Signal.new(),
 	Client = {
@@ -106,7 +109,8 @@ local function gameState()
 		-- other game data
 	}
 
-	return gameState
+	-- return gameState
+	return state
 end
 
 function PlayerService:AddPlayer(player, username)
@@ -229,31 +233,47 @@ end
 
 -- STATS
 
--- Most Stats work like this : baseX * increasedX = x
--- some baseX (eg baseAttackSpeed) come from weaponData
--- every used / final x stats is stored in the playerStats (weaponData never mutate)
+-- upgradeType = from MOD_STATS_STORE
+local function incrementMetaUpgrade(state, userId, upgradeType)
+	local playerData = state.players[userId]
+	local upgradeData = META_UPRGADES[upgradeType]
 
--- upgradeType = from STATS_STORE
-local function incrementMetaUpgrade(userId, upgradeType)
-	local newStat = store:getState().players[userId].metaUpgrades[upgradeType] + 1
-	store:dispatch(storeActions.SetMetaUpgrade(userId, upgradeType, newStat))
+	-- Increment Update Level
+	local newLevel = playerData.metaUpgradesLevel[upgradeType] + 1
+
+	-- Calculate new Stats & Cost
+	local cost = upgradeData.baseCost + upgradeData.baseCost * newLevel * upgradeData.costMultiplier
+	local stat = newLevel * upgradeData.incrementValue
+
+	local newUpgrade = {
+		level = newLevel,
+		cost = cost,
+		stat = stat,
+	}
+
+	-- Dispatch
+	store:dispatch(storeActions.SetMetaUpgrade(userId, upgradeType, newUpgrade))
+
+	local newState = store:getState()
+	local statType = TO_STAT_OBJECT[upgradeType]
+	PlayerService:CalculateStat(newState, userId, statType)
 end
 
 function PlayerService.Client:BuyMetaUpgrade(player, upgradeType)
+	local state = store:getState()
 	local userId = player.UserId
-	local playerData = store:getState().players[userId]
+
+	local playerData = state.players[userId]
 	local playerBananas = playerData.bananas
 
 	-- Price Check
-	local upgradeLevel = playerData.metaUpgrades[upgradeType]
-	local upgradeData = META_UPRGADES[upgradeType]
-	local upgradeCost = upgradeData.baseCost + upgradeData.baseCost * upgradeLevel * upgradeData.costMultiplier
+	local upgradeCost = playerData.metaUpgradesCost[upgradeType]
 
 	print(
 		playerData.username
 			.. " Try to buy "
 			.. upgradeType
-			.. " at "
+			.. " at Cost = "
 			.. upgradeCost
 			.. " with "
 			.. playerBananas
@@ -265,101 +285,166 @@ function PlayerService.Client:BuyMetaUpgrade(player, upgradeType)
 		return
 	end
 
-	-- Buy = Subtract Cost + Grant Upgrade
+	-- Buy
+	-- Grant Upgrade
+	incrementMetaUpgrade(state, userId, upgradeType)
+
+	-- Subtract Cost from Bananas
 	local newBananas = playerBananas - upgradeCost
 	store:dispatch(storeActions.SetBananas(userId, newBananas))
-	incrementMetaUpgrade(userId, upgradeType)
 end
 
-function PlayerService:GetStats(userId)
-	local storeState = store:getState()
+local function calcModStat(state, userId, statType)
+	local playerData = state.players[userId]
 
-	local playerStats = storeState.players[userId].stats
-	local metaUpgrade = storeState.players[userId].metaUpgrades
-	local weaponData = storeState.players[userId].weaponData
+	-- Get Stat from each Power System
+	local metaUpgradeStat = playerData.metaUpgradesStat[statType]
+	local augmentStat = playerData.augmentsStat[statType]
 
-	return playerStats, metaUpgrade, weaponData
+	local modStat = DEFAULT_STATS[statType] + metaUpgradeStat + augmentStat
+
+	return modStat
 end
 
--- Every function to calculate a player stats
-local statsCalcFunctions = {
-	calculateAttackDamage = function(userId)
-		local playerStats, metaUpgrade, weaponData = PlayerService:GetStats(userId)
+local function calcSumStat(state, userId, statType)
+	local modStat = calcModStat(state, userId, statType)
+	store:dispatch(storeActions.SetTotalStat(userId, statType, modStat))
+end
 
-		if not playerStats or not weaponData then
+local function calcMultStat(state, userId, modStat, calcStat, baseValue)
+	local totalModStat = calcModStat(state, userId, modStat)
+
+	local totalStat = baseValue * Gears.increaseToMultiplier(totalModStat)
+
+	store:dispatch(storeActions.SetTotalStat(userId, modStat, totalModStat))
+	store:dispatch(storeActions.SetTotalStat(userId, calcStat, totalStat))
+
+	return totalStat
+end
+
+-- Every functions to calculate player stats
+local statsCalculation = {
+	-- Offense
+	attackDamage = function(state, userId)
+		local weaponData = state.players[userId].weaponData
+
+		if not weaponData then
 			return
 		end
 
-		local metaUpgradeIncrease = metaUpgrade.increasedAttackDamage
-			* META_UPRGADES[STATS_STORE.increasedAttackDamage].incrementValue
-		local totalIncrease = playerStats.increasedAttackDamage + metaUpgradeIncrease
+		local modStat = MOD_STATS_STORE.increasedAttackDamage
+		local calcStat = STATS_STORE.attackDamage
 
-		-- use weapon as Base Damage
-		local attackDamage = weaponData.damage * Gears.increaseToMultiplier(totalIncrease)
-
-		store:dispatch(storeActions.SetAttackDamage(userId, attackDamage))
-
-		-- print("Attack Damage = " .. attackDamage)
+		calcMultStat(state, userId, modStat, calcStat, weaponData.damage)
 	end,
 
-	calculateAttackSpeed = function(userId)
-		local playerStats, metaUpgrade, weaponData = PlayerService:GetStats(userId)
+	critChance = function(state, userId)
+		calcSumStat(state, userId, MOD_STATS_STORE.critChance)
+	end,
 
-		if not playerStats or not weaponData then
+	critMultiplier = function(state, userId)
+		calcSumStat(state, userId, MOD_STATS_STORE.critMultiplier)
+	end,
+
+	attackSpeed = function(state, userId)
+		local weaponData = state.players[userId].weaponData
+
+		if not weaponData then
 			return
 		end
 
-		local attackSpeed = weaponData.attackSpeed * Gears.increaseToMultiplier(playerStats.increasedAttackSpeed)
+		local modStat = MOD_STATS_STORE.increasedAttackSpeed
+		local calcStat = STATS_STORE.attackSpeed
+
+		local attackSpeed = calcMultStat(state, userId, modStat, calcStat, weaponData.attackSpeed)
 		local animationTime = 1 / attackSpeed
 
-		store:dispatch(storeActions.SetAttackSpeed(userId, attackSpeed, animationTime))
-
-		-- print("Attack Speed = " .. attackSpeed)
-		-- print("Animation Time = " .. animationTime)
+		store:dispatch(storeActions.SetTotalStat(userId, STATS_STORE.animationTime, animationTime))
 	end,
 
-	calculateAoe = function(userId)
-		local playerStats, metaUpgrade, weaponData = PlayerService:GetStats(userId)
+	aoe = function(state, userId)
+		local weaponData = state.players[userId].weaponData
 
-		if not playerStats or not weaponData then
+		if not weaponData then
 			return
 		end
 
-		local aoe = weaponData.aoe * Gears.increaseToMultiplier(playerStats.increasedAoe)
+		local modStat = MOD_STATS_STORE.increasedAoe
+		local calcStat = STATS_STORE.aoe
 
-		-- disspatch
-		store:dispatch(storeActions.SetAoe(userId, aoe))
-
-		-- print("AOE = " .. aoe)
+		calcMultStat(state, userId, modStat, calcStat, weaponData.aoe)
 	end,
 
-	-- DR
-	-- PickupRange
+	-- Defense
+	life = function(state, userId)
+		calcSumStat(state, userId, MOD_STATS_STORE.maxLife)
+	end,
+
+	lifeRegen = function(state, userId)
+		calcSumStat(state, userId, MOD_STATS_STORE.lifeRegen)
+	end,
+
+	damageReduction = function(state, userId)
+		calcSumStat(state, userId, MOD_STATS_STORE.damageReduction)
+	end,
+
+	-- Utility
+	mobility = function(state, userId)
+		calcSumStat(state, userId, MOD_STATS_STORE.mobility)
+	end,
+
+	luck = function(state, userId)
+		calcSumStat(state, userId, MOD_STATS_STORE.luck)
+	end,
+
+	xp = function(state, userId)
+		calcSumStat(state, userId, MOD_STATS_STORE.increasedXp)
+	end,
+
+	pickupRange = function(state, userId)
+		local modStat = MOD_STATS_STORE.increasedPickupRange
+		local calcStat = STATS_STORE.pickupRange
+
+		local basePickupRange = DEFAULT_STATS[MOD_STATS_STORE.basePickupRange]
+
+		calcMultStat(state, userId, modStat, calcStat, basePickupRange)
+	end,
 }
 
+-- statType = from STATS_STORE
+function PlayerService:CalculateStat(state, userId, statType)
+	statsCalculation[statType](state, userId)
+end
+
 function PlayerService:CalculateAllStats(userId)
-	for _, calculateStat in pairs(statsCalcFunctions) do
-		calculateStat(userId)
+	local state = store:getState()
+
+	for _, calculateStat in pairs(statsCalculation) do
+		calculateStat(state, userId)
 	end
 
-	-- TODO : Send to Client -> Display on Client side character stats sheet
+	-- TODO : Replicate to Client -> Display on Client side character stats sheet
 end
 
 function PlayerService:ApplyStats(userId)
 	-- Make the current stats effective
 	-- eg restart lifeRegen thread
 
-	self:CalculateAllStats(userId)
+	self:CalculateAllStats(userId) -- Get correct stats values
+
 	-- life regen
 	-- weapon:ScaleTo(weaponInfo.weaponSize * Gears.IncreaseToMultiplier(playerStat.aoe))
 	-- MS
 end
 
--- statType = string from the STATS_STORE
-function PlayerService:AddIncreasedStat(userId, statType, value)
+-- modStat = string from MOD_STATS_STORE
+-- Test func -> Will be overwritten on calculating stats
+function PlayerService:AddTotalStat(userId, modStat, value)
+	local state = store:getState()
 	-- Get stat
-	local newStat = store:getState().players[userId].stats[statType] + value
-	store:dispatch(storeActions.SetIncreasedStat(userId, statType, newStat))
+	local stat = state.players[userId].stats[modStat]
+	local newStat = stat + value
+	store:dispatch(storeActions.SetTotalStat(userId, modStat, newStat))
 end
 
 function PlayerService:AddXpToPlayer(player, xp)

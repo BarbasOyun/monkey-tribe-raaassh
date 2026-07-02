@@ -4,36 +4,81 @@ local Rodux = require(ReplicatedStorage.Shared.Rodux)
 
 MAX_BANANAS = 10_000
 
--- Rodux store hold a table of players
+-- DATA STRUCTS
+
+-- Rodux hold a table of players
 -- key = player.UserId
 local PLAYER_STRUCT = {
 	username = "",
 	isMusicEnabled = true,
+	-- Currencies
 	bananas = 0,
 	sticks = 0,
 	stones = 0,
+	-- Level
+	level = 1,
+	currentXp = 0,
+	xpRequired = 10,
+	-- Stats
 	stats = nil,
-	metaUpgrades = nil,
+	metaUpgradesLevel = nil,
+	metaUpgradesCost = nil,
+	metaUpgradesStat = nil,
+	augmentsStat = nil,
 	weaponData = nil,
 	-- gearData
 }
 
--- PlayerStats struct & Authoring Data
--- Default Stats
-local PLAYER_STATS_STRUCT = {
-	-- Level
-	level = 1,
-	currentXp = 0,
+-- StatsSystem :
+-- INPUT = Take ModStats of each Power Systems (Mutated by other Systems)
+-- Calculate & Create TotalStats & Make them effective
+-- OUTPUT = TotalStats -> Display
+
+-- ModStats :
+-- (Stats Mutated by other Systems)
+-- 1] FlatStat eg maxLife, crit
+-- 2] IncreaseStat
+
+-- TotalStats :
+-- (Effective Stats) -> Calculated from powerSystems eg metaUpgrades, augments
+-- Stored in the playerStats -> weaponData never mutate
+-- 1] SumStat eg maxLife, crit
+-- 2] MultStat eg attackDamage
+
+-- MultStat
+-- baseX * increasedX = x
+-- some baseX come from weaponData eg baseAttackSpeed
+
+-- Stats of Power Systems : MetaUpgrades + Augments -> Input
+local MOD_STATS = {
+	-- Offense
+	increasedAttackDamage = 0,
+	increasedAttackSpeed = 0,
+	critChance = 0,
+	critMultiplier = 0,
+	increasedAoe = 0,
+	-- Defense
+	maxLife = 0,
+	lifeRegen = 0,
+	damageReduction = 0,
+	-- Utility
+	mobility = 0,
+	luck = 0,
 	increasedXp = 0,
-	xpRequired = 10,
+	increasedPickupRange = 0,
+}
+
+-- Total Stats -> Output
+local STATS_STRUCT = {
 	-- Offensive
 	increasedAttackDamage = 0,
+	-- moreAttackDamageLayers = {}
 	attackDamage = 0,
-	critChance = 5,
-	critMultiplier = 50,
 	increasedAttackSpeed = 0,
 	attackSpeed = 0, -- Attacks / Second
 	animationTime = 1, -- Get lower as attackSpeed get higher
+	critChance = 5,
+	critMultiplier = 50,
 	increasedAoe = 0,
 	aoe = 0,
 	-- Defensive
@@ -46,42 +91,10 @@ local PLAYER_STATS_STRUCT = {
 	-- Utility
 	mobility = 10,
 	luck = 0,
+	increasedXp = 0,
 	basePickupRange = 10,
 	increasedPickupRange = 0,
 	pickupRange = 10,
-}
-
--- 2 Type of Stats :
--- 1] IncreaseStat -> BaseX * IncreasedX = x eg attackDamage
--- 2] FlatStat -> x eg maxLife
-local TOTAL_STATS_STORE = {
-	-- IncreaseStats
-	attackDamage = "attackDamage",
-	attackSpeed = "attackSpeed",
-	animationTime = "animationTime",
-	aoe = "aoe",
-	pickupRange = "pickupRange",
-}
-
--- Load from DB and Store in Server for Mutations
--- When player leave HUB -> Send to DB
--- Store currentStat, Cost, ...?
-local META_UPGRADES = {
-	-- Offense
-	increasedAttackDamage = 3,
-	critChance = 5,
-	critMultiplier = 1,
-	increasedAttackSpeed = 2,
-	increasedAoe = 0,
-	-- Defense
-	maxLife = 0,
-	lifeRegen = 0,
-	damageReduction = 0,
-	-- Utility
-	mobility = 0,
-	luck = 0,
-	increasedXp = 0,
-	increasedPickupRange = 0,
 }
 
 -- RODUX ACTIONS
@@ -120,6 +133,7 @@ local Actions = {
 	end,
 
 	-- Currencies
+	-- TODO : SetCurrency
 	SetBananas = function(userId, bananas)
 		return {
 			type = "SetBananas",
@@ -129,42 +143,17 @@ local Actions = {
 	end,
 
 	-- Stats
-	SetIncreasedStat = function(userId, statType, increasedValue)
+	SetTotalStat = function(userId, statType, value)
 		return {
-			type = "SetIncreasedStat",
+			type = "SetModStat",
 			userId = userId,
 			statType = statType,
-			increasedValue = increasedValue,
-		}
-	end,
-
-	SetAttackDamage = function(userId, attackDamage)
-		return {
-			type = "SetAttackDamage",
-			userId = userId,
-			attackDamage = attackDamage,
-		}
-	end,
-
-	SetAttackSpeed = function(userId, attackSpeed, animationTime)
-		return {
-			type = "SetAttackSpeed",
-			userId = userId,
-			attackSpeed = attackSpeed,
-			animationTime = animationTime,
-		}
-	end,
-
-	SetAoe = function(userId, aoe)
-		return {
-			type = "SetAoe",
-			userId = userId,
-			aoe = aoe,
+			value = value,
 		}
 	end,
 
 	-- Meta Upgrades
-	SetMetaUpgrades = function(userId, metaUpgrades)
+	SetMetaUpgrades = function(userId, property, metaUpgrades)
 		return {
 			type = "SetMetaUpgrades",
 			userId = userId,
@@ -172,11 +161,20 @@ local Actions = {
 		}
 	end,
 
-	SetMetaUpgrade = function(userId, upgradeType, value)
+	SetMetaUpgrade = function(userId, upgradeType, metaUpgrade)
 		return {
 			type = "SetMetaUpgrade",
 			userId = userId,
 			upgradeType = upgradeType,
+			metaUpgrade = metaUpgrade,
+		}
+	end,
+
+	SetAugment = function(userId, augmentType, value)
+		return {
+			type = "SetAugment",
+			userId = userId,
+			augmentType = augmentType,
 			value = value,
 		}
 	end,
@@ -200,8 +198,11 @@ local playerReducer = Rodux.createReducer({}, {
 
 		players[userId] = Gears.deepCopy(PLAYER_STRUCT) -- Deep copy the default Player Data
 		players[userId].username = action.username
-		players[userId].stats = Gears.deepCopy(PLAYER_STATS_STRUCT)
-		players[userId].metaUpgrades = Gears.deepCopy(META_UPGRADES)
+
+		-- Stats
+		players[userId].stats = Gears.deepCopy(STATS_STRUCT)
+		players[userId].metaUpgrades = Gears.deepCopy(MOD_STATS)
+		players[userId].augmentsStats = Gears.deepCopy(MOD_STATS)
 
 		return players
 	end,
@@ -230,32 +231,13 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 
 	-- Stats
-	SetIncreasedStat = function(state, action)
+	SetTotalStat = function(state, action)
 		local players = table.clone(state) or {}
 		local userId = action.userId
 		local statType = action.statType
-		local increasedValue = action.increasedValue
+		local value = action.value
 
-		players[userId].stats[statType] = increasedValue
-		return players
-	end,
-
-	SetAttackDamage = function(state, action)
-		local players = table.clone(state) or {}
-		players[action.userId].stats.attackDamage = action.attackDamage
-		return players
-	end,
-
-	SetAttackSpeed = function(state, action)
-		local players = table.clone(state) or {}
-		players[action.userId].stats.attackSpeed = action.attackSpeed
-		players[action.userId].stats.animationTime = action.animationTime
-		return players
-	end,
-
-	SetAoe = function(state, action)
-		local players = table.clone(state) or {}
-		players[action.userId].stats.aoe = action.aoe
+		players[userId].stats[statType] = value
 		return players
 	end,
 
@@ -270,9 +252,20 @@ local playerReducer = Rodux.createReducer({}, {
 	SetMetaUpgrade = function(state, action)
 		local players = table.clone(state) or {}
 		local upgradeType = action.upgradeType
+		local metaUpgrade = action.metaUpgrade
+
+		players[action.userId].metaUpgradesLevel[upgradeType] = metaUpgrade.level
+		players[action.userId].metaUpgradesCost[upgradeType] = metaUpgrade.cost
+		players[action.userId].metaUpgradesStat[upgradeType] = metaUpgrade.stat
+		return players
+	end,
+
+	SetAugment = function(state, action)
+		local players = table.clone(state) or {}
+		local augmentType = action.augmentType
 		local value = action.value
 
-		players[action.userId].metaUpgrades[upgradeType] = value
+		players[action.userId].augmentType[augmentType] = value
 		return players
 	end,
 

@@ -1,10 +1,31 @@
--- Stats that can be Upgraded
+-- STORES (Lookup tables)
+
+-- Stats as objects
 local STATS_STORE = {
 	-- Offense
-	increasedAttackDamage = "increasedAttackDamage",
+	attackDamage = "attackDamage",
+	attackSpeed = "attackSpeed",
 	critChance = "critChance",
 	critMultiplier = "critMultiplier",
+	aoe = "aoe",
+	-- Defense
+	maxLife = "life",
+	lifeRegen = "lifeRegen",
+	damageReduction = "damageReduction",
+	-- Utility
+	mobility = "mobility",
+	luck = "luck",
+	xp = "xp",
+	pickupRange = "pickupRange",
+}
+
+-- Every Stats mutated by other systems -> Input
+local MOD_STATS_STORE = {
+	-- Offense
+	increasedAttackDamage = "increasedAttackDamage",
 	increasedAttackSpeed = "increasedAttackSpeed",
+	critChance = "critChance",
+	critMultiplier = "critMultiplier",
 	increasedAoe = "increasedAoe",
 	-- Defense
 	maxLife = "maxLife",
@@ -14,7 +35,66 @@ local STATS_STORE = {
 	mobility = "mobility",
 	luck = "luck",
 	increasedXp = "increasedXp",
+	basePickupRange = "basePickupRange",
 	increasedPickupRange = "increasedPickupRange",
+}
+
+-- Stats that need to be multiplied
+-- > Can use STAT_STORE instead
+--[[
+local MULT_STATS_STORE = {
+	attackDamage = "attackDamage",
+	attackSpeed = "attackSpeed",
+	animationTime = "animationTime",
+	aoe = "aoe",
+	pickupRange = "pickupRange",
+}
+]]
+
+local TO_STAT_OBJECT = {
+	-- Offense
+	increasedAttackDamage = "attackDamage",
+	attackDamage = "attackDamage",
+	increasedAttackSpeed = "attackSpeed",
+	attackSpeed = "attackSpeed",
+	animationTime = "attackSpeed",
+	critChance = "critChance",
+	critMultiplier = "critMultiplier",
+	increasedAoe = "aoe",
+	aoe = "aoe",
+	-- Defense
+	maxLife = "life",
+	lifeRegen = "lifeRegen",
+	damageReduction = "damageReduction",
+	-- Utility
+	mobility = "mobility",
+	luck = "luck",
+	increasedXp = "xp",
+	basePickupRange = "pickupRange",
+	increasedPickupRange = "pickupRange",
+	pickupRange = "pickupRange",
+}
+
+-- AUTHORING DATA
+
+-- Only for ModStats
+local DEFAULT_STATS = {
+	-- Offense
+	increasedAttackDamage = 0,
+	critChance = 5,
+	critMultiplier = 50,
+	increasedAttackSpeed = 0,
+	increasedAoe = 0,
+	-- Defense
+	maxLife = 100,
+	lifeRegen = 1,
+	damageReduction = 0,
+	-- Utility
+	mobility = 10,
+	luck = 0,
+	increasedXp = 0,
+	basePickupRange = 10,
+	increasedPickupRange = 0,
 }
 
 local STATS_DISPLAY = {
@@ -39,6 +119,12 @@ local META_UPGRADES = {
 		maxLevel = 20,
 		costMultiplier = 1.1,
 	},
+	increasedAttackSpeed = {
+		incrementValue = 5,
+		baseCost = 20,
+		maxLevel = 20,
+		costMultiplier = 1.1,
+	},
 	critChance = {
 		incrementValue = 2,
 		baseCost = 100,
@@ -51,23 +137,17 @@ local META_UPGRADES = {
 		maxLevel = 10,
 		costMultiplier = 1.4,
 	},
-	increasedAttackSpeed = {
-		incrementValue = 2,
-		baseCost = 100,
-		maxLevel = 10,
-		costMultiplier = 1.4,
-	},
 	increasedAoe = {
-		incrementValue = 2,
-		baseCost = 100,
-		maxLevel = 10,
+		incrementValue = 4,
+		baseCost = 150,
+		maxLevel = 5,
 		costMultiplier = 1.4,
 	},
 	maxLife = {
 		incrementValue = 5,
-		baseCost = 100,
-		maxLevel = 10,
-		costMultiplier = 1.4,
+		baseCost = 10,
+		maxLevel = 30,
+		costMultiplier = 1.05,
 	},
 	lifeRegen = {
 		incrementValue = 1,
@@ -76,22 +156,22 @@ local META_UPGRADES = {
 		costMultiplier = 1.4,
 	},
 	damageReduction = {
-		incrementValue = 2,
-		baseCost = 100,
-		maxLevel = 10,
+		incrementValue = 5,
+		baseCost = 200,
+		maxLevel = 5,
 		costMultiplier = 1.4,
 	},
 	mobility = {
 		incrementValue = 0.5,
-		baseCost = 100,
+		baseCost = 80,
 		maxLevel = 10,
-		costMultiplier = 1.4,
+		costMultiplier = 1.5,
 	},
 	luck = {
 		incrementValue = 1,
-		baseCost = 100,
+		baseCost = 150,
 		maxLevel = 10,
-		costMultiplier = 1.4,
+		costMultiplier = 1.3,
 	},
 	increasedXp = {
 		incrementValue = 2,
@@ -102,8 +182,8 @@ local META_UPGRADES = {
 	increasedPickupRange = {
 		incrementValue = 2,
 		baseCost = 100,
-		maxLevel = 10,
-		costMultiplier = 1.4,
+		maxLevel = 12,
+		costMultiplier = 1.2,
 	},
 }
 
@@ -199,7 +279,13 @@ local AUGMENTS = {
 }
 
 return {
+	-- Stores
 	STATS_STORE = STATS_STORE,
+	MOD_STATS_STORE = MOD_STATS_STORE,
+	-- MULT_STATS_STORE = MULT_STATS_STORE,
+	TO_STAT_OBJECT = TO_STAT_OBJECT,
+	-- Authoring Data
+	DEFAULT_STATS = DEFAULT_STATS,
 	STATS_DISPLAY = STATS_DISPLAY,
 	META_UPRGADES = META_UPGRADES,
 	AUGMENTS = AUGMENTS,

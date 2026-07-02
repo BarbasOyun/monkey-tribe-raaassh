@@ -25,7 +25,7 @@ local function title(statType, backgroundColor)
 		local maxUpgradeLvl = 10
 
 		if playerData then
-			upgradeLvl = playerData.metaUpgrades[statType]
+			upgradeLvl = playerData.metaUpgradesLevel[statType]
 			maxUpgradeLvl = META_UPRGADES[statType].maxLevel
 		end
 
@@ -48,10 +48,8 @@ local function currentStat(statType)
 
 		local currentStat = 0
 
-		local upgradeLevel = playerData.metaUpgrades[statType]
-
 		if playerData then
-			currentStat = upgradeLevel * META_UPRGADES[statType].incrementValue
+			currentStat = playerData.metaUpgradesStat[statType]
 		end
 
 		return {
@@ -67,14 +65,11 @@ end
 local function cost(statType)
 	return RoactRodux.connect(function(state, props)
 		local playerData = state.players[player.UserId]
-		local statData = META_UPRGADES[statType]
 
 		local cost = 0
 
-		local upgradeLevel = playerData.metaUpgrades[statType]
-
 		if playerData then
-			cost = statData.baseCost + statData.baseCost * statData.costMultiplier * upgradeLevel
+			cost = playerData.metaUpgradesCost[statType]
 		end
 
 		return {

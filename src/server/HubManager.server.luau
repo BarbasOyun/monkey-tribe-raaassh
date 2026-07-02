@@ -61,7 +61,7 @@ Players.PlayerAdded:Connect(function(player)
 
 	-- Manual Tests
 	local userId = player.UserId
-	PlayerService:AddIncreasedStat(userId, PlayerService.StatsStore.increasedAttackSpeed, 100)
+	PlayerService:AddTotalStat(userId, PlayerService.StatsStore.increasedAttackSpeed, 100)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
