@@ -102,9 +102,9 @@ end
 
 -- Offense
 local attackDamageButton = statButton(MOD_STATS_STORE.increasedAttackDamage, Color3.new(1, 0, 0))
+local attackSpeedButton = statButton(MOD_STATS_STORE.increasedAttackSpeed, Color3.new(1, 0, 0))
 local critChanceButton = statButton(MOD_STATS_STORE.critChance, Color3.new(1, 0, 0))
 local critMultiButton = statButton(MOD_STATS_STORE.critMultiplier, Color3.new(1, 0, 0))
-local attackSpeedButton = statButton(MOD_STATS_STORE.increasedAttackSpeed, Color3.new(1, 0, 0))
 local aoeButton = statButton(MOD_STATS_STORE.increasedAoe, Color3.new(1, 0, 0))
 
 -- Defense
@@ -145,8 +145,8 @@ return Roact.createElement("SurfaceGui", {
 		increasedPickupRangeButton,
 		-- Offense
 		attackDamageButton,
+		attackSpeedButton,
 		critChanceButton,
 		critMultiButton,
-		attackSpeedButton,
 	}),
 })

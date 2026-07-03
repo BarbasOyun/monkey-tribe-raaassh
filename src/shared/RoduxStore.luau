@@ -2,8 +2,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Rodux = require(ReplicatedStorage.Shared.Rodux)
 
-MAX_BANANAS = 10_000
-
 -- DATA STRUCTS
 
 -- Rodux hold a table of players
@@ -21,6 +19,7 @@ local PLAYER_STRUCT = {
 	destruction = 0,
 	-- Level
 	level = 1,
+	waitingLevel = 0,
 	currentXp = 0,
 	xpRequired = 10,
 	-- Stats
@@ -96,12 +95,10 @@ local STATS_STRUCT = {
 	-- baseLife = 100,
 	-- increasedLife = 0,
 	maxLife = 100,
-	life = 100,
 	lifeRegen = 1,
-	lifeRegenUpdate = nil,
 	damageReduction = 0,
 	-- Utility
-	mobility = 10,
+	mobility = 15,
 	luck = 0,
 	increasedXp = 0,
 	basePickupRange = 10,

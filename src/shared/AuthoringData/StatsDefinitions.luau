@@ -19,6 +19,30 @@ local STATS_STORE = {
 	pickupRange = "pickupRange",
 }
 
+local TO_STAT_OBJECT = {
+	-- Offense
+	increasedAttackDamage = "attackDamage",
+	attackDamage = "attackDamage",
+	increasedAttackSpeed = "attackSpeed",
+	attackSpeed = "attackSpeed",
+	animationTime = "attackSpeed",
+	critChance = "critChance",
+	critMultiplier = "critMultiplier",
+	increasedAoe = "aoe",
+	aoe = "aoe",
+	-- Defense
+	maxLife = "life",
+	lifeRegen = "lifeRegen",
+	damageReduction = "damageReduction",
+	-- Utility
+	mobility = "mobility",
+	luck = "luck",
+	increasedXp = "xp",
+	basePickupRange = "pickupRange",
+	increasedPickupRange = "pickupRange",
+	pickupRange = "pickupRange",
+}
+
 -- Every Stats mutated by other systems (Meta Upgrades & Augments) -> Input
 local MOD_STATS_STORE = {
 	-- Offense
@@ -51,30 +75,6 @@ local MULT_STATS_STORE = {
 }
 ]]
 
-local TO_STAT_OBJECT = {
-	-- Offense
-	increasedAttackDamage = "attackDamage",
-	attackDamage = "attackDamage",
-	increasedAttackSpeed = "attackSpeed",
-	attackSpeed = "attackSpeed",
-	animationTime = "attackSpeed",
-	critChance = "critChance",
-	critMultiplier = "critMultiplier",
-	increasedAoe = "aoe",
-	aoe = "aoe",
-	-- Defense
-	maxLife = "life",
-	lifeRegen = "lifeRegen",
-	damageReduction = "damageReduction",
-	-- Utility
-	mobility = "mobility",
-	luck = "luck",
-	increasedXp = "xp",
-	basePickupRange = "pickupRange",
-	increasedPickupRange = "pickupRange",
-	pickupRange = "pickupRange",
-}
-
 -- AUTHORING DATA
 
 -- Only for ModStats
@@ -90,7 +90,7 @@ local DEFAULT_STATS = {
 	lifeRegen = 1,
 	damageReduction = 0,
 	-- Utility
-	mobility = 10,
+	mobility = 15,
 	luck = 0,
 	increasedXp = 0,
 	basePickupRange = 10,
@@ -140,7 +140,7 @@ local META_UPGRADES = {
 	increasedAoe = {
 		incrementValue = 4,
 		baseCost = 150,
-		maxLevel = 5,
+		maxLevel = 7,
 		costMultiplier = 1.4,
 	},
 	maxLife = {

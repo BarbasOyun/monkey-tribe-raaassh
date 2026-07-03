@@ -88,7 +88,11 @@ local function attackHit(player, playerStats, weaponData)
 
 		-- Enemy Hit
 		humanoidsHit[humanoid] = true
-		humanoid.Parent:ApplyImpulse((humanoid.Parent.Position - player.Character.PrimaryPart.CFrame.Position) * 50) -- TODO : Per Weapon
+
+		-- local impulseDirection = humanoid.Parent.PrimaryPart.CFrame.Position
+		-- 	- player.Character.PrimaryPart.CFrame.Position
+		-- humanoid.Parent:ApplyImpulse(impulseDirection * 50) -- TODO : Per Weapon
+
 		EnemyService:DamageEnemy(player, humanoid, damage)
 		-- print(player.Name .. " Hit : " .. humanoid.Parent.Name)
 	end

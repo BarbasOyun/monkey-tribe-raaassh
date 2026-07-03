@@ -40,15 +40,13 @@ local usablesLogicDefinition = {
 	-- Small XP Orb
 	["Small XP Orb"] = function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
-		-- local state = store:getState()
-		-- PlayerService:AddXpToPlayer(state, player, itemDefinition.xp)
-		PlayerService:AddXpToAllPlayers(itemDefinition.xp)
+		-- PlayerService:AddXpToAllPlayers(itemDefinition.xp)
 		ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
 		ItemService:RemoveGroundItem(itemModel)
 	end,
 	["Banana"] = function(player, itemDefinition, itemModel)
 		print("Add Banana to : " .. player.Name)
-		PlayerService:AddBananas(player.UserId, itemDefinition.banana)
+		PlayerService:AddBananas(itemDefinition.banana)
 		ItemService.Client.GetOrb:Fire(player)
 		ItemService:RemoveGroundItem(itemModel)
 	end,
@@ -210,10 +208,25 @@ end
 
 -- WEAPON : SETUP & EQUIP
 
+function ItemService:EquipDefaultWeapon(player)
+	local humanoid = player.Character:FindFirstChild("Humanoid")
+	local backpack = player:FindFirstChild("Backpack")
+
+	if not humanoid or not backpack then
+		return
+	end
+
+	local defaultTool = backpack:FindFirstChild("WoodenClub")
+	-- print("Equip Default tool : " .. defaultTool)
+	if defaultTool then
+		humanoid:EquipTool(defaultTool)
+	end
+end
+
 local function setWeapon(player, weapon)
 	-- print(player.Name .. " new Weapon Data")
 	store:dispatch(storeActions.PatchPlayer(player.UserId, { weaponData = weapon }))
-	PlayerService:ApplyStats(player.UserId)
+	PlayerService:CalculateAllStats(player.UserId) -- TODO : Calculate Weapon Stats
 end
 
 local function addSounds(player, weapon)

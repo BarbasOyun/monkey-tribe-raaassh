@@ -62,13 +62,12 @@ Players.PlayerAdded:Connect(function(player)
 	-- Manual Tests
 	local userId = player.UserId
 	PlayerService:AddAugment(userId, PlayerService.StatsStore.increasedAttackSpeed, 100)
-	PlayerService:AddBananas(userId, 100)
+	-- PlayerService:AddBananas(100)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
-	local userId = player.UserId
-
-	PlayerService:RemovePlayer(userId)
+	PlayerService:SaveToDb(player.UserId)
+	PlayerService:RemovePlayer(player)
 end)
 
 -- IN WORLD SHARED UI

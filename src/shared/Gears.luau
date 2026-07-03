@@ -47,26 +47,6 @@ function gears.findWhere(table, condition)
 	return nil
 end
 
-function gears.safeIncrement(dataStore, userId, amount, maxValue)
-	if amount <= 0 then
-		return
-	end
-
-	local success, newValue = pcall(function()
-		return dataStore:UpdateAsync(userId, function(oldValue)
-			local current = oldValue or 0
-			local nextValue = current + amount
-			return math.clamp(nextValue, 0, maxValue)
-		end)
-	end)
-
-	if success then
-		return newValue
-	end
-
-	return nil
-end
-
 -- INSTANCES / WORLD OBJECT
 
 function gears.getPartCount(parentObject)
