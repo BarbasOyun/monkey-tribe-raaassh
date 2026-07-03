@@ -14,14 +14,17 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 
 -- Get Stats Authoring Data
 local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+-- stores
 local STATS_STORE = statsData.STATS_STORE
+local MOD_STATS_STORE = statsData.MOD_STATS_STORE
+-- authoring data
 local STATS_DISPLAY = statsData.STATS_DISPLAY
 local META_UPRGADES = statsData.META_UPRGADES
-local AUGMENTS = statsData.AUGMENTS
 
 local PlayerController = Knit.CreateController({
 	Name = "PlayerController",
 	StatsStore = STATS_STORE,
+	ModStatsStore = MOD_STATS_STORE,
 	StatsDisplay = STATS_DISPLAY,
 	MetaUpgrades = META_UPRGADES,
 })
@@ -105,17 +108,17 @@ local function setupControls()
 		end
 
 		if input.KeyCode == Enum.KeyCode.T then
-			warn("M Pressed")
 			local state = store:getState()
-			local enabled = not state.players[player.UserId].isMusicEnabled
+			local isEnabled = not state.players[player.UserId].isMusicEnabled
 
-			if enabled then
+			if isEnabled then
 				music:Play()
 			else
 				music:Stop()
 			end
 
-			PlayerService:ToggleMusic(enabled)
+			store:dispatch(storeActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
+			PlayerService:ToggleMusic(isEnabled)
 		end
 	end)
 
@@ -187,18 +190,13 @@ local function setupPlayerService()
 		store:dispatch(storeActions.RemovePlayer(userId))
 	end)
 
-	PlayerService.MusicChanged:Connect(function(enabled)
-		store:dispatch(storeActions.ToggleMusic(player.UserId, enabled))
-	end)
-
 	PlayerService.EnteringGame:Connect(function()
 		enteringGameSound:Play()
 	end)
 
 	-- Bananas
 	PlayerService.BananasChanged:Connect(function(userId, newValue)
-		-- Set Banans instead of Increment
-		store:dispatch(storeActions.SetBananas(userId, newValue))
+		store:dispatch(storeActions.PatchPlayer(userId, { bananas = newValue }))
 	end)
 end
 

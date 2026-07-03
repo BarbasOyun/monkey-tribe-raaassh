@@ -40,13 +40,15 @@ local usablesLogicDefinition = {
 	-- Small XP Orb
 	["Small XP Orb"] = function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
-		PlayerService:AddXpToPlayer(player.UserId, itemDefinition.xp)
+		-- local state = store:getState()
+		-- PlayerService:AddXpToPlayer(state, player, itemDefinition.xp)
+		PlayerService:AddXpToAllPlayers(itemDefinition.xp)
 		ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
 		ItemService:RemoveGroundItem(itemModel)
 	end,
 	["Banana"] = function(player, itemDefinition, itemModel)
 		print("Add Banana to : " .. player.Name)
-		PlayerService:IncrementBananas(player.UserId, itemDefinition.banana)
+		PlayerService:AddBananas(player.UserId, itemDefinition.banana)
 		ItemService.Client.GetOrb:Fire(player)
 		ItemService:RemoveGroundItem(itemModel)
 	end,
@@ -210,7 +212,7 @@ end
 
 local function setWeapon(player, weapon)
 	-- print(player.Name .. " new Weapon Data")
-	store:dispatch(storeActions.SetWeaponData(player.UserId, weapon))
+	store:dispatch(storeActions.PatchPlayer(player.UserId, { weaponData = weapon }))
 	PlayerService:ApplyStats(player.UserId)
 end
 

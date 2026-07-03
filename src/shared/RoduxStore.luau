@@ -10,11 +10,15 @@ MAX_BANANAS = 10_000
 -- key = player.UserId
 local PLAYER_STRUCT = {
 	username = "",
+	state = "Playing",
 	isMusicEnabled = true,
 	-- Currencies
 	bananas = 0,
 	sticks = 0,
 	stones = 0,
+	-- Score
+	kills = 0,
+	destruction = 0,
 	-- Level
 	level = 1,
 	currentXp = 0,
@@ -23,10 +27,17 @@ local PLAYER_STRUCT = {
 	stats = nil,
 	metaUpgradesLevel = nil,
 	metaUpgradesCost = nil,
-	metaUpgradesStat = nil,
-	augmentsStat = nil,
-	weaponData = nil,
+	metaUpgrades = nil,
+	augments = nil,
+	weaponData = "",
 	-- gearData
+}
+
+-- TODO : Move
+local PLAYER_STATE = {
+	playing = "Playing",
+	pickingAugment = "PickingAugment",
+	-- menuing
 }
 
 -- StatsSystem :
@@ -87,6 +98,7 @@ local STATS_STRUCT = {
 	maxLife = 100,
 	life = 100,
 	lifeRegen = 1,
+	lifeRegenUpdate = nil,
 	damageReduction = 0,
 	-- Utility
 	mobility = 10,
@@ -124,43 +136,25 @@ local Actions = {
 		}
 	end,
 
-	ToggleMusic = function(userId, enabled)
+	-- Manage : Music, Currencies, Score, Level, Gear
+	PatchPlayer = function(userId, patch)
 		return {
-			type = "ToggleMusic",
+			type = "PatchPlayer",
 			userId = userId,
-			enabled = enabled,
-		}
-	end,
-
-	-- Currencies
-	-- TODO : SetCurrency
-	SetBananas = function(userId, bananas)
-		return {
-			type = "SetBananas",
-			userId = userId,
-			bananas = bananas,
+			patch = patch,
 		}
 	end,
 
 	-- Stats
-	SetTotalStat = function(userId, statType, value)
+	PatchStat = function(userId, patch)
 		return {
-			type = "SetModStat",
+			type = "PatchStat",
 			userId = userId,
-			statType = statType,
-			value = value,
+			patch = patch,
 		}
 	end,
 
 	-- Meta Upgrades
-	SetMetaUpgrades = function(userId, property, metaUpgrades)
-		return {
-			type = "SetMetaUpgrades",
-			userId = userId,
-			metaUpgrades = metaUpgrades,
-		}
-	end,
-
 	SetMetaUpgrade = function(userId, upgradeType, metaUpgrade)
 		return {
 			type = "SetMetaUpgrade",
@@ -170,21 +164,12 @@ local Actions = {
 		}
 	end,
 
-	SetAugment = function(userId, augmentType, value)
+	-- Augments
+	PatchAugment = function(userId, patch)
 		return {
-			type = "SetAugment",
+			type = "PatchAugment",
 			userId = userId,
-			augmentType = augmentType,
-			value = value,
-		}
-	end,
-
-	-- Gear
-	SetWeaponData = function(userId, weaponData)
-		return {
-			type = "SetWeaponData",
-			userId = userId,
-			weaponData = weaponData,
+			patch = patch,
 		}
 	end,
 }
@@ -201,8 +186,10 @@ local playerReducer = Rodux.createReducer({}, {
 
 		-- Stats
 		players[userId].stats = Gears.deepCopy(STATS_STRUCT)
+		players[userId].metaUpgradesLevel = Gears.deepCopy(MOD_STATS)
+		players[userId].metaUpgradesCost = Gears.deepCopy(MOD_STATS)
 		players[userId].metaUpgrades = Gears.deepCopy(MOD_STATS)
-		players[userId].augmentsStats = Gears.deepCopy(MOD_STATS)
+		players[userId].augments = Gears.deepCopy(MOD_STATS)
 
 		return players
 	end,
@@ -213,39 +200,44 @@ local playerReducer = Rodux.createReducer({}, {
 		return players
 	end,
 
-	ToggleMusic = function(state, action)
+	PatchPlayer = function(state, action)
 		local players = table.clone(state) or {}
+
 		local userId = action.userId
-		local enabled = action.enabled
+		local patch = action.patch
 
-		players[userId].isMusicEnabled = enabled
-		return players
-	end,
+		for key, value in pairs(patch) do
+			local property = players[userId][key]
 
-	-- Currencies
-	SetBananas = function(state, action)
-		local players = table.clone(state) or {}
-		players[action.userId].bananas = action.bananas
+			if not property then
+				warn("Key : " .. key .. " Doesn't exist in Player")
+				continue
+			end
+
+			players[userId][key] = value
+		end
 
 		return players
 	end,
 
 	-- Stats
-	SetTotalStat = function(state, action)
+	PatchStat = function(state, action)
 		local players = table.clone(state) or {}
+
 		local userId = action.userId
-		local statType = action.statType
-		local value = action.value
+		local patch = action.patch
 
-		players[userId].stats[statType] = value
-		return players
-	end,
+		for key, value in pairs(patch) do
+			local property = players[userId].stats[key]
 
-	SetMetaUpgrades = function(state, action)
-		local players = table.clone(state) or {}
-		local metaUpgrades = action.metaUpgrades
+			if not property then
+				warn("Key : " .. key .. " Doesn't exist in Stats")
+				continue
+			end
 
-		players[action.userId].metaUpgrades = metaUpgrades
+			players[userId].stats[key] = value
+		end
+
 		return players
 	end,
 
@@ -256,22 +248,27 @@ local playerReducer = Rodux.createReducer({}, {
 
 		players[action.userId].metaUpgradesLevel[upgradeType] = metaUpgrade.level
 		players[action.userId].metaUpgradesCost[upgradeType] = metaUpgrade.cost
-		players[action.userId].metaUpgradesStat[upgradeType] = metaUpgrade.stat
+		players[action.userId].metaUpgrades[upgradeType] = metaUpgrade.stat
 		return players
 	end,
 
-	SetAugment = function(state, action)
+	PatchAugment = function(state, action)
 		local players = table.clone(state) or {}
-		local augmentType = action.augmentType
-		local value = action.value
 
-		players[action.userId].augmentType[augmentType] = value
-		return players
-	end,
+		local userId = action.userId
+		local patch = action.patch
 
-	SetWeaponData = function(state, action)
-		local players = table.clone(state) or {}
-		players[action.userId].weaponData = action.weaponData
+		for key, value in pairs(patch) do
+			local property = players[userId].augments[key]
+
+			if not property then
+				warn("Key : " .. key .. " Doesn't exist in Augments")
+				continue
+			end
+
+			players[userId].augments[key] = value
+		end
+
 		return players
 	end,
 })

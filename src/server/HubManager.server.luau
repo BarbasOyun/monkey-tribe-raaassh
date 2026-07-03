@@ -61,7 +61,8 @@ Players.PlayerAdded:Connect(function(player)
 
 	-- Manual Tests
 	local userId = player.UserId
-	PlayerService:AddTotalStat(userId, PlayerService.StatsStore.increasedAttackSpeed, 100)
+	PlayerService:AddAugment(userId, PlayerService.StatsStore.increasedAttackSpeed, 100)
+	PlayerService:AddBananas(userId, 100)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
@@ -70,7 +71,7 @@ Players.PlayerRemoving:Connect(function(player)
 	PlayerService:RemovePlayer(userId)
 end)
 
--- IN WORLD UI
+-- IN WORLD SHARED UI
 
 --[[
 -- Weapon Spawner

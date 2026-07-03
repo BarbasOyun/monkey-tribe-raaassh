@@ -42,10 +42,10 @@ local function image(props)
 end
 
 -- Controls
-local controlsTextProps = {
+local controlsText = textLabel({
 	text = "WASD = Movements\nSpace = Jump\nA = Open Augment Menu\nF = Center Camera\nT = Toggle Music",
 	size = UDim2.fromScale(1, 1),
-}
+})
 
 -- Wiki
 -- ...
@@ -81,9 +81,10 @@ BananasMain = RoactRodux.connect(function(state, props)
 	end
 
 	return {
-		position = UDim2.fromScale(0.65, 0), -- X_pos = 0.75 - size.x / 2
+		position = UDim2.fromScale(0.57, 0), -- X_pos = 0.75 - size.x / 2
 		size = UDim2.fromScale(0.2, 0.2),
 		text = bananas,
+		textXAlign = "Right",
 	}
 end)(textLabel)
 
@@ -104,7 +105,7 @@ local function controlsGui()
 		Adornee = controlsBoard,
 		Face = "Left",
 	}, {
-		ControlsTextLabel = textLabel(controlsTextProps),
+		ControlsTextLabel = controlsText,
 	})
 end
 

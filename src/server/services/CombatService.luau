@@ -3,10 +3,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
+-- Get Rodux Store
+local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
+local store = RoduxStore.Store
+-- local storeActions = RoduxStore.Actions
+
 local CombatService = Knit.CreateService({
 	Name = "CombatService",
 	Client = {
-		startAttack = Knit.CreateSignal(),
+		startAttack = Knit.CreateSignal(), -- Func
 		finishAttack = Knit.CreateSignal(),
 	},
 })
@@ -33,8 +38,6 @@ local comboReset = {}
 -- 4) Server : Attack Callback + validation
 -- 5) Server : HitDetection + Damage + Feeback -> finishAttack Event
 
--- 5) HitDetection + Damage + Feeback
--- Context = After Validation
 local function attackFeedback(weaponData, isCrit)
 	-- VFX
 	weaponData.attackVFX:Emit(5)
@@ -48,6 +51,8 @@ local function attackFeedback(weaponData, isCrit)
 	Gears.safePlaySound(weaponData.sounds.slash)
 end
 
+-- 5) HitDetection + Damage + Feeback
+-- Context = After Validation
 local function attackHit(player, playerStats, weaponData)
 	-- Damage
 	local damage = playerStats.attackDamage
@@ -83,7 +88,7 @@ local function attackHit(player, playerStats, weaponData)
 
 		-- Enemy Hit
 		humanoidsHit[humanoid] = true
-		-- humanoid.Parent:ApplyImpulse((humanoid.Parent.Position - player.Character.PrimaryPart.Position) * 50) -- Doesn't work -- TODO : Per Weapon
+		humanoid.Parent:ApplyImpulse((humanoid.Parent.Position - player.Character.PrimaryPart.CFrame.Position) * 50) -- TODO : Per Weapon
 		EnemyService:DamageEnemy(player, humanoid, damage)
 		-- print(player.Name .. " Hit : " .. humanoid.Parent.Name)
 	end
@@ -109,19 +114,22 @@ local function incrementCombo(player, weaponData)
 end
 
 local function attackCallback(player)
-	local playerStats, weaponData = PlayerService:GetStats(player.UserId)
+	local state = store:getState()
+
+	local playerStats = state.players[player.UserId].stats
+	local weaponData = state.players[player.UserId].weaponData
 
 	local currentTime = tick()
 	local attackDelta = currentTime - lastAttacks[player.UserId] -- Time between last attack and now
 
-	-- Check if The Call is Legit
-	-- Using setup on step 2)
+	-- Validation -> Using setup on step 2)
 	if not expectingAttack[player.UserId] and attackDelta >= playerStats.animationTime then
 		warn("Unexpected AttackHit from player: " .. player.Name)
 		return
 	end
+
 	-- Reset Player speed
-	player.Character.Humanoid.WalkSpeed = playerStats.movementSpeed
+	player.Character.Humanoid.WalkSpeed = playerStats.mobility
 	expectingAttack[player.UserId] = nil
 	attackBuffer[player.UserId] = nil
 
@@ -136,7 +144,10 @@ end
 -- 2) Server Validation + Setup Expected Attack
 -- Player is asking to Attack using their Weapon
 local function attackValidation(player)
-	local playerStats, weaponData = PlayerService:GetStats(player.UserId)
+	local state = store:getState()
+
+	local playerStats = state.players[player.UserId].stats
+	local weaponData = state.players[player.UserId].weaponData
 
 	if not playerStats or not weaponData then
 		-- warn("No playerStats or weaponData")

@@ -19,7 +19,7 @@ local STATS_STORE = {
 	pickupRange = "pickupRange",
 }
 
--- Every Stats mutated by other systems -> Input
+-- Every Stats mutated by other systems (Meta Upgrades & Augments) -> Input
 local MOD_STATS_STORE = {
 	-- Offense
 	increasedAttackDamage = "increasedAttackDamage",
@@ -211,6 +211,13 @@ local AUGMENTS = {
 		epic = 25,
 		legendary = 35,
 	},
+	increasedAttackSpeed = {
+		common = 3,
+		uncommon = 6,
+		rare = 9,
+		epic = 12,
+		legendary = 15,
+	},
 	critChance = {
 		common = 3,
 		uncommon = 6,
@@ -223,13 +230,6 @@ local AUGMENTS = {
 		rare = 15,
 		epic = 20,
 		legendary = 25,
-	},
-	increasedAttackSpeed = {
-		common = 3,
-		uncommon = 6,
-		rare = 9,
-		epic = 12,
-		legendary = 15,
 	},
 	increasedAoe = {
 		uncommon = 10,

@@ -5,7 +5,8 @@ local RoactRodux = require(ReplicatedStorage.Shared.RoactRodux)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
 local PlayerController = Knit.GetController("PlayerController")
-local STATS_STORE = PlayerController.StatsStore
+-- local STATS_STORE = PlayerController.StatsStore
+local MOD_STATS_STORE = PlayerController.ModStatsStore
 local STATS_DISPLAY = PlayerController.StatsDisplay
 local META_UPRGADES = PlayerController.MetaUpgrades
 
@@ -49,7 +50,7 @@ local function currentStat(statType)
 		local currentStat = 0
 
 		if playerData then
-			currentStat = playerData.metaUpgradesStat[statType]
+			currentStat = playerData.metaUpgrades[statType]
 		end
 
 		return {
@@ -100,22 +101,22 @@ end
 -- PER STAT PROPS
 
 -- Offense
-local attackDamageButton = statButton(STATS_STORE.increasedAttackDamage, Color3.new(1, 0, 0))
-local critChanceButton = statButton(STATS_STORE.critChance, Color3.new(1, 0, 0))
-local critMultiButton = statButton(STATS_STORE.critMultiplier, Color3.new(1, 0, 0))
-local attackSpeedButton = statButton(STATS_STORE.increasedAttackSpeed, Color3.new(1, 0, 0))
-local aoeButton = statButton(STATS_STORE.increasedAoe, Color3.new(1, 0, 0))
+local attackDamageButton = statButton(MOD_STATS_STORE.increasedAttackDamage, Color3.new(1, 0, 0))
+local critChanceButton = statButton(MOD_STATS_STORE.critChance, Color3.new(1, 0, 0))
+local critMultiButton = statButton(MOD_STATS_STORE.critMultiplier, Color3.new(1, 0, 0))
+local attackSpeedButton = statButton(MOD_STATS_STORE.increasedAttackSpeed, Color3.new(1, 0, 0))
+local aoeButton = statButton(MOD_STATS_STORE.increasedAoe, Color3.new(1, 0, 0))
 
 -- Defense
-local maxLifeButton = statButton(STATS_STORE.maxLife, Color3.new(0, 0, 1))
-local lifeRegenButton = statButton(STATS_STORE.lifeRegen, Color3.new(0, 0, 1))
-local damageReductionButton = statButton(STATS_STORE.damageReduction, Color3.new(0, 0, 1))
+local maxLifeButton = statButton(MOD_STATS_STORE.maxLife, Color3.new(0, 0, 1))
+local lifeRegenButton = statButton(MOD_STATS_STORE.lifeRegen, Color3.new(0, 0, 1))
+local damageReductionButton = statButton(MOD_STATS_STORE.damageReduction, Color3.new(0, 0, 1))
 
 -- Utility
-local mobilityButton = statButton(STATS_STORE.mobility, Color3.new(0, 1, 0))
-local luckButton = statButton(STATS_STORE.luck, Color3.new(0, 1, 0))
-local increasedXpButton = statButton(STATS_STORE.increasedXp, Color3.new(0, 1, 0))
-local increasedPickupRangeButton = statButton(STATS_STORE.increasedPickupRange, Color3.new(0, 1, 0))
+local mobilityButton = statButton(MOD_STATS_STORE.mobility, Color3.new(0, 1, 0))
+local luckButton = statButton(MOD_STATS_STORE.luck, Color3.new(0, 1, 0))
+local increasedXpButton = statButton(MOD_STATS_STORE.increasedXp, Color3.new(0, 1, 0))
+local increasedPickupRangeButton = statButton(MOD_STATS_STORE.increasedPickupRange, Color3.new(0, 1, 0))
 
 return Roact.createElement("SurfaceGui", {
 	Adornee = upgradesBoard,

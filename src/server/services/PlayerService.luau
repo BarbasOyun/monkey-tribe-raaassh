@@ -31,24 +31,19 @@ local PlayerService = Knit.CreateService({
 		ReplicateStore = Knit.CreateSignal(),
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
-		MusicChanged = Knit.CreateSignal(),
-		EnteringGame = Knit.CreateSignal(),
 		BananasChanged = Knit.CreateSignal(),
-		AskForUpgrade = Knit.CreateSignal(),
+		-- Hub
+		EnteringGame = Knit.CreateSignal(),
+		-- Game
+		LevelUp = Knit.CreateSignal(),
+		RerollAugment = Knit.CreateSignal(), -- Func
+		PickAugment = Knit.CreateSignal(), -- Func
 	},
 })
 
-local ItemService = nil
+local ItemService
 
--- PickupRange Parameters
-local autoPickupParam = OverlapParams.new()
-autoPickupParam.FilterType = Enum.RaycastFilterType.Include
-autoPickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
-autoPickupParam.MaxParts = 50
-
-local AUTO_PICKUP_FRAME = 5 -- AutoPickup every X Frame
-local frameCount = 0
-
+-- Hub
 -- TP to main Game instance
 local GAME_PLACE_ID = 109804031798809
 
@@ -84,24 +79,50 @@ local platformsPlayers = {
 
 local playersLoadingTp = {}
 
+-- Game
+-- PickupRange Parameters
+local autoPickupParam = OverlapParams.new()
+autoPickupParam.FilterType = Enum.RaycastFilterType.Include
+autoPickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
+autoPickupParam.MaxParts = 50
+
+local AUTO_PICKUP_FRAME = 5 -- AutoPickup every X Frame
+local frameCount = 0
+
+local totalXp = 0 -- Add to joining players
+
+local currentAugments = {}
+local positionStart = {} -- Reset Player's Pos after picking augment
+
 -- PLAYERS
 
--- Replicate State when Player Join
-local function gameState()
+-- Per Player Custom GameState -> Remove useless Data
+local function playerGameState(player)
 	local state = store:getState()
 	local players = {}
 
-	-- TODO : use player struct
 	for userId, player in pairs(state.players) do
-		players[userId] = {
-			username = player.username,
-			isMusicEnabled = player.isMusicEnabled,
-			bananas = player.bananas,
-			sticks = player.sticks,
-			stones = player.stones,
-			stats = player.stats,
-			metaUpgrades = player.metaUpgrades,
-		}
+		if userId == player.UserId then
+			-- Self Data
+			players[userId] = {
+				username = player.username,
+				isMusicEnabled = player.isMusicEnabled,
+				-- Score
+				kills = player.kills,
+				-- Currencies
+				bananas = player.bananas,
+				sticks = player.sticks,
+				stones = player.stones,
+				stats = player.stats,
+				metaUpgrades = player.metaUpgrades,
+			}
+		else
+			-- Others Data
+			players[userId] = {
+				username = player.username,
+				kills = player.kills,
+			}
+		end
 	end
 
 	local gameState = {
@@ -110,7 +131,7 @@ local function gameState()
 	}
 
 	-- return gameState
-	return state
+	return gameState
 end
 
 function PlayerService:AddPlayer(player, username)
@@ -118,13 +139,16 @@ function PlayerService:AddPlayer(player, username)
 
 	store:dispatch(storeActions.AddPlayer(userId, username))
 
+	self:GetMetaUpgrades(player.UserId)
+
 	-- Events
 	self.PlayerAdded:Fire(userId)
 	self.Client.PlayerAdded:FireAll(userId, username)
 
 	-- Send the full store to the new player
-	local gameState = gameState()
-	self.Client.ReplicateStore:Fire(player, gameState)
+	-- local gameState = playerGameState(player)
+	local state = store:getState()
+	self.Client.ReplicateStore:Fire(player, state)
 end
 
 function PlayerService:RemovePlayer(userId)
@@ -137,9 +161,8 @@ function PlayerService:RemovePlayer(userId)
 	self.Client.PlayerRemoved:FireAll(userId)
 end
 
-function PlayerService.Client:ToggleMusic(player, enabled)
-	store:dispatch(storeActions.ToggleMusic(player.UserId, enabled))
-	self.MusicChanged:Fire(player, enabled)
+function PlayerService.Client:ToggleMusic(player, isEnabled)
+	store:dispatch(storeActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
 end
 
 -- TP
@@ -214,7 +237,8 @@ end
 -- CURRENCIES
 
 function PlayerService:GetBananas(userId)
-	local bananas = store:getState().players[userId].bananas
+	local state = store:getState()
+	local bananas = state.players[userId].bananas
 	return if bananas ~= nil then bananas else 0
 end
 
@@ -225,25 +249,93 @@ function PlayerService:AddBananas(userId, value)
 
 	local bananas = self:GetBananas(userId)
 	local newValue = bananas + value
-	store:dispatch(storeActions.SetScore(userId, newValue))
+	store:dispatch(storeActions.PatchPlayer(userId, { bananas = newValue }))
 
 	-- Replicate to Clients
 	self.Client.BananasChanged:FireAll(userId, newValue)
 end
 
+-- LEVELS
+
+function PlayerService:AddXpToAllPlayers(xp)
+	if not xp or xp <= 0 then
+		return
+	end
+
+	local state = store:getState()
+
+	totalXp += xp
+
+	for _, player in pairs(Players:GetPlayers()) do
+		self:AddXpToLvl(state, player, xp)
+	end
+end
+
+function PlayerService:AddXpToPlayer(state, player, xp)
+	print(player.Name .. " Get : " .. xp .. " XP")
+
+	if not xp or xp <= 0 then
+		return
+	end
+
+	-- local playerStat = playersStats[player.UserId]
+	-- playerStat.currentXp.Value += xp * Gears.increaseToMultiplier(playerStat.increasedXp)
+
+	-- if playerStat.currentXp.Value >= playerStat.levelUpXp.Value then
+	-- 	playersStats.LevelUp(player, playerStat)
+	-- end
+
+	-- Dispatch xp
+end
+
+function PlayerService:LevelUp(player, playerStat)
+	-- Compute XP
+	-- local overXp = playerStat.currentXp.Value - playerStat.levelUpXp.Value
+	-- playerStat.waitingLevel += 1
+	-- playerStat.currentXp.Value = 0
+	-- playerStat.levelUpXp.Value *= 1.1
+	-- print(player.Name .. " Leveled Up")
+
+	-- playersStats.SendAugment(player, playerStat)
+	-- levelUpEvent:FireClient(player, playerStat.level, playerStat.waitingLevel)
+
+	-- playersStats.AddXpToLvl(player, overXp)
+
+	-- Dispatch Lvl
+end
+
 -- STATS
+
+-- Add Stat
+function PlayerService:AddAugment(userId, modStat, value)
+	local state = store:getState()
+
+	-- Get stat
+	local stat = state.players[userId].augments[modStat]
+	local newStat = stat + value
+
+	store:dispatch(storeActions.PatchAugment(userId, { [modStat] = newStat }))
+end
+
+local function updateMetaUpgrade(newLevel, upgradeType)
+	-- Calculate Cost & Stat after cahnging level
+	local upgradeData = META_UPRGADES[upgradeType]
+
+	local cost = upgradeData.baseCost + upgradeData.baseCost * newLevel * upgradeData.costMultiplier
+	local stat = newLevel * upgradeData.incrementValue
+
+	return cost, stat
+end
 
 -- upgradeType = from MOD_STATS_STORE
 local function incrementMetaUpgrade(state, userId, upgradeType)
 	local playerData = state.players[userId]
-	local upgradeData = META_UPRGADES[upgradeType]
 
 	-- Increment Update Level
 	local newLevel = playerData.metaUpgradesLevel[upgradeType] + 1
 
 	-- Calculate new Stats & Cost
-	local cost = upgradeData.baseCost + upgradeData.baseCost * newLevel * upgradeData.costMultiplier
-	local stat = newLevel * upgradeData.incrementValue
+	local cost, stat = updateMetaUpgrade(newLevel, upgradeType)
 
 	local newUpgrade = {
 		level = newLevel,
@@ -254,6 +346,7 @@ local function incrementMetaUpgrade(state, userId, upgradeType)
 	-- Dispatch
 	store:dispatch(storeActions.SetMetaUpgrade(userId, upgradeType, newUpgrade))
 
+	-- Update Stat
 	local newState = store:getState()
 	local statType = TO_STAT_OBJECT[upgradeType]
 	PlayerService:CalculateStat(newState, userId, statType)
@@ -291,35 +384,52 @@ function PlayerService.Client:BuyMetaUpgrade(player, upgradeType)
 
 	-- Subtract Cost from Bananas
 	local newBananas = playerBananas - upgradeCost
-	store:dispatch(storeActions.SetBananas(userId, newBananas))
+	-- store:dispatch(storeActions.SetBananas(userId, newBananas))
+	store:dispatch(storeActions.PatchPlayer(userId, { bananas = newBananas }))
 end
 
+function PlayerService:GetMetaUpgrades(userId)
+	-- Get Levels from DB or 0
+	local levels = {}
+	local costs = {}
+	local stats = {}
+
+	-- Calculate Cost & Stat
+	for upgradeType, level in pairs(levels) do
+		local cost, stat = updateMetaUpgrade(level, upgradeType)
+		costs[upgradeType] = cost
+		stats[upgradeType] = stat
+	end
+
+	store:dispatch(
+		storeActions.PatchPlayer(userId, { metaUpgradesLevel = levels, metaUpgradesCost = costs, metaUpgrades = stats })
+	)
+end
+
+-- Stat Calc
 local function calcModStat(state, userId, statType)
 	local playerData = state.players[userId]
 
 	-- Get Stat from each Power System
-	local metaUpgradeStat = playerData.metaUpgradesStat[statType]
-	local augmentStat = playerData.augmentsStat[statType]
+	local metaUpgradeStat = playerData.metaUpgrades[statType]
+	local augmentStat = playerData.augments[statType]
 
 	local modStat = DEFAULT_STATS[statType] + metaUpgradeStat + augmentStat
 
 	return modStat
 end
 
-local function calcSumStat(state, userId, statType)
-	local modStat = calcModStat(state, userId, statType)
-	store:dispatch(storeActions.SetTotalStat(userId, statType, modStat))
+local function calcSumStat(state, userId, modStat)
+	local totalModStat = calcModStat(state, userId, modStat)
+
+	store:dispatch(storeActions.PatchStat(userId, { [modStat] = totalModStat }))
 end
 
 local function calcMultStat(state, userId, modStat, calcStat, baseValue)
 	local totalModStat = calcModStat(state, userId, modStat)
-
 	local totalStat = baseValue * Gears.increaseToMultiplier(totalModStat)
 
-	store:dispatch(storeActions.SetTotalStat(userId, modStat, totalModStat))
-	store:dispatch(storeActions.SetTotalStat(userId, calcStat, totalStat))
-
-	return totalStat
+	store:dispatch(storeActions.PatchStat(userId, { [modStat] = totalModStat, [calcStat] = totalStat }))
 end
 
 -- Every functions to calculate player stats
@@ -356,10 +466,16 @@ local statsCalculation = {
 		local modStat = MOD_STATS_STORE.increasedAttackSpeed
 		local calcStat = STATS_STORE.attackSpeed
 
-		local attackSpeed = calcMultStat(state, userId, modStat, calcStat, weaponData.attackSpeed)
+		local totalModStat = calcModStat(state, userId, modStat)
+		local attackSpeed = weaponData.attackSpeed * Gears.increaseToMultiplier(totalModStat)
 		local animationTime = 1 / attackSpeed
 
-		store:dispatch(storeActions.SetTotalStat(userId, STATS_STORE.animationTime, animationTime))
+		store:dispatch(
+			storeActions.PatchStat(
+				userId,
+				{ [modStat] = totalModStat, [calcStat] = attackSpeed, animationTime = animationTime }
+			)
+		)
 	end,
 
 	aoe = function(state, userId)
@@ -426,53 +542,17 @@ function PlayerService:CalculateAllStats(userId)
 	-- TODO : Replicate to Client -> Display on Client side character stats sheet
 end
 
+-- EFFECTIVE STATS
+
 function PlayerService:ApplyStats(userId)
 	-- Make the current stats effective
 	-- eg restart lifeRegen thread
 
-	self:CalculateAllStats(userId) -- Get correct stats values
+	self:CalculateAllStats(userId) -- Use correct stats values
 
 	-- life regen
 	-- weapon:ScaleTo(weaponInfo.weaponSize * Gears.IncreaseToMultiplier(playerStat.aoe))
 	-- MS
-end
-
--- modStat = string from MOD_STATS_STORE
--- Test func -> Will be overwritten on calculating stats
-function PlayerService:AddTotalStat(userId, modStat, value)
-	local state = store:getState()
-	-- Get stat
-	local stat = state.players[userId].stats[modStat]
-	local newStat = stat + value
-	store:dispatch(storeActions.SetTotalStat(userId, modStat, newStat))
-end
-
-function PlayerService:AddXpToPlayer(player, xp)
-	-- print(player.Name .. " Gained : " .. xp .. " XP")
-	-- local playerStat = playersStats[player.UserId]
-	-- playerStat.currentXp.Value += xp * Gears.increaseToMultiplier(playerStat.increasedXp)
-
-	-- if playerStat.currentXp.Value >= playerStat.levelUpXp.Value then
-	-- 	playersStats.LevelUp(player, playerStat)
-	-- end
-
-	-- Dispatch xp
-end
-
-function PlayerService:LevelUp(player, playerStat)
-	-- Compute XP
-	-- local overXp = playerStat.currentXp.Value - playerStat.levelUpXp.Value
-	-- playerStat.waitingLevel += 1
-	-- playerStat.currentXp.Value = 0
-	-- playerStat.levelUpXp.Value *= 1.1
-	-- print(player.Name .. " Leveled Up")
-
-	-- playersStats.SendAugment(player, playerStat)
-	-- levelUpEvent:FireClient(player, playerStat.level, playerStat.waitingLevel)
-
-	-- playersStats.AddXpToLvl(player, overXp)
-
-	-- Dispatch Lvl
 end
 
 -- Auto Pickup
@@ -510,10 +590,10 @@ local function autoPickupRange()
 
 	frameCount = 0
 
-	local storeState = store:getState()
+	local state = store:getState()
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		local playerData = storeState.players[player.userId]
+		local playerData = state.players[player.userId]
 
 		if not playerData then
 			continue
@@ -541,15 +621,9 @@ function PlayerService:KnitInit()
 	print("PlayerService Initialized")
 
 	setupPlatforms()
-
-	self.Client.AskForUpgrade:Connect(function(player)
-		-- Check Bananas
-	end)
 end
 
 function PlayerService:KnitStart()
-	-- print("PlayerService Start")
-
 	ItemService = Knit.GetService("ItemService")
 
 	RunService.Heartbeat:Connect(autoPickupRange)
