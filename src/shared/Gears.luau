@@ -22,8 +22,14 @@ function gears.deepCopy(original)
 end
 
 function gears.joinTable(table1, table2)
-	for _, element in ipairs(table2) do
+	for _, element in pairs(table2) do
 		table.insert(table1, element)
+	end
+end
+
+function gears.fuseTable(table1, table2)
+	for key, element in pairs(table2) do
+		table1[key] = element
 	end
 end
 

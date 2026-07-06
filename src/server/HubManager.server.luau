@@ -9,6 +9,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await()
 
 local PlayerService = Knit.GetService("PlayerService")
+local StatService = Knit.GetService("StatService")
 -- local ItemService = Knit.GetService("ItemService")
 
 -- Enemies to load for this place
@@ -177,8 +178,10 @@ local function setupPlayerService()
 	PlayerService.BananasChanged:Connect(function(player, value)
 		safeInsert(isPlayerChanged, player)
 	end)
+end
 
-	PlayerService.MetaUpgradesChanged:Connect(function(player, upgradeType, newUpgrade)
+local function setupStatService()
+	StatService.MetaUpgradesChanged:Connect(function(player, upgradeType, newUpgrade)
 		safeInsert(isPlayerChanged, player)
 	end)
 end
@@ -192,7 +195,7 @@ Players.PlayerAdded:Connect(function(player)
 
 	-- Manual Tests
 	-- local userId = player.UserId
-	-- PlayerService:AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
+	-- StatService:AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
 	-- PlayerService:AddBananas(100)
 end)
 
@@ -209,6 +212,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 setupPlayerService()
+setupStatService()
 setupPlatforms()
 
 -- In World Shared Ui

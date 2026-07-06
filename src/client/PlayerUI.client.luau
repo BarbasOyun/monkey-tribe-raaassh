@@ -43,7 +43,7 @@ end
 
 -- Controls
 local controlsText = textLabel({
-	text = "WASD = Movements\nSpace = Jump\123... = Equip Weapon\nA = Open Augment Menu\nF = Center Camera\nT = Toggle Music",
+	text = "WASD = Movements\nSpace = Jump\n123... = Equip Weapon\nA = Open Augment Menu\nF = Center Camera\nT = Toggle Music",
 	size = UDim2.fromScale(1, 1),
 })
 

@@ -30,6 +30,7 @@ local PlayerController = Knit.CreateController({
 PlayerController.store = store
 
 local PlayerService
+local StatService
 local CombatService
 local ItemService
 
@@ -151,7 +152,7 @@ end
 -- LINK SERVICES
 
 function PlayerController:BuyUpgrade(upgradeType)
-	PlayerService:BuyMetaUpgrade(upgradeType)
+	StatService:BuyMetaUpgrade(upgradeType)
 end
 
 local function setupPlayerService()
@@ -197,11 +198,15 @@ local function setupPlayerService()
 	PlayerService.BananasChanged:Connect(function(patch)
 		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 	end)
+end
 
+local function setupStatService()
 	-- Meta Upgrades
-	PlayerService.MetaUpgradesChanged:Connect(function(upgradeType, newUpgrade)
+	StatService.MetaUpgradesChanged:Connect(function(upgradeType, newUpgrade)
 		store:dispatch(storeActions.SetMetaUpgrade(player.UserId, upgradeType, newUpgrade))
 	end)
+
+	-- Augments
 end
 
 local function setupItemService()
@@ -221,10 +226,12 @@ end
 
 function PlayerController:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
+	StatService = Knit.GetService("StatService")
 	ItemService = Knit.GetService("ItemService")
 	CombatService = Knit.GetService("CombatService")
 
 	setupPlayerService()
+	setupStatService()
 	setupItemService()
 
 	setupControls()

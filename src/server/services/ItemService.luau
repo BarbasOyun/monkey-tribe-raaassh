@@ -31,7 +31,8 @@ local itemStore = itemDef.itemStore
 local itemTypes = itemDef.itemTypes
 local itemPrefabs = itemDef.itemPrefabs
 
-local PlayerService = nil
+local PlayerService
+local StatService
 
 -- ITEM SERVICE DEFINITIONS
 
@@ -40,7 +41,7 @@ local usablesLogicDefinition = {
 	-- Small XP Orb
 	["Small XP Orb"] = function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
-		-- PlayerService:AddXpToAllPlayers(itemDefinition.xp)
+		-- StatService:AddXpToAllPlayers(itemDefinition.xp)
 		ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
 		ItemService:RemoveGroundItem(itemModel)
 	end,
@@ -228,7 +229,7 @@ local function setWeapon(player, weapon)
 	local patch = { weaponData = weapon }
 	store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 
-	PlayerService:CalculateAllStats(player.UserId) -- TODO : Calculate Weapon Stats
+	StatService:CalculateAllStats(player.UserId) -- TODO : Calculate Weapon Stats
 end
 
 local function addSounds(player, weapon)
@@ -342,6 +343,7 @@ end
 
 function ItemService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
+	StatService = Knit.GetService("StatService")
 
 	SetupWeaponType("WoodenClub")
 	SetupWeaponType("IronMace")
