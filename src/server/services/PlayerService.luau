@@ -13,38 +13,6 @@ local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
 local storeActions = RoduxStore.Actions
 
-local PlayerService = Knit.CreateService({
-	Name = "PlayerService",
-	PlayerAdded = Signal.new(),
-	PlayerRemoved = Signal.new(),
-	BananasChanged = Signal.new(),
-	Client = {
-		ReplicateStore = Knit.CreateSignal(),
-		PlayerAdded = Knit.CreateSignal(),
-		PlayerRemoved = Knit.CreateSignal(),
-		BananasChanged = Knit.CreateSignal(),
-		-- Hub
-		EnteringGame = Knit.CreateSignal(),
-	},
-})
-
-local StatService
-local ItemService
-
-local MAX_BANANAS = 100_000
-
--- DataStore
-local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
-
--- TP to main Game instance
-local HUB_PLACE_ID = 95975992291805
-
--- Game
--- TODO : Move to GameManager
-local MAX_DISTANCE = 250
-local deadPlayers = {}
-
--- Players
 -- Rodux hold a table of players
 -- key = player.UserId
 local PLAYER_STRUCT = {
@@ -78,6 +46,49 @@ local PLAYER_STATE = {
 	pickingAugment = "PickingAugment",
 	-- menuing
 }
+
+local CURRENCIES = {
+	bananas = "bananas",
+	sticks = "sticks",
+	stones = "stones",
+}
+
+local MAX_CURRENCIES = {
+	bananas = 100_000,
+	sticks = 10_000,
+	stones = 10_000,
+}
+
+local PlayerService = Knit.CreateService({
+	Name = "PlayerService",
+	PlayerAdded = Signal.new(),
+	PlayerRemoved = Signal.new(),
+	BananasChanged = Signal.new(),
+	PLAYER_STATE = PLAYER_STATE,
+	CURRENCIES = CURRENCIES,
+	Client = {
+		ReplicateStore = Knit.CreateSignal(),
+		PlayerAdded = Knit.CreateSignal(),
+		PlayerRemoved = Knit.CreateSignal(),
+		BananasChanged = Knit.CreateSignal(),
+		-- Hub
+		EnteringGame = Knit.CreateSignal(),
+	},
+})
+
+local StatService
+local ItemService
+
+-- DataStore
+local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
+
+-- TP to main Game instance
+local HUB_PLACE_ID = 95975992291805
+
+-- Game
+-- TODO : Move to GameManager
+local MAX_DISTANCE = 250
+local deadPlayers = {}
 
 -- PickupRange Parameters
 local autoPickupParam = OverlapParams.new()
@@ -133,15 +144,15 @@ local function createPlayerData(player)
 
 	playerData.username = player.Name
 
-	local statsStruct = StatService.StatsStruct
-	local modStats = StatService.ModStats
+	local statsStruct = StatService.STATS_STRUCT
+	local modStatsStruct = StatService.MOD_STATS
 
 	-- Stats
 	playerData.stats = Gears.deepCopy(statsStruct)
-	playerData.metaUpgradesLevel = Gears.deepCopy(modStats)
-	playerData.metaUpgradesCost = Gears.deepCopy(modStats)
-	playerData.metaUpgrades = Gears.deepCopy(modStats)
-	playerData.augments = Gears.deepCopy(modStats)
+	playerData.metaUpgradesLevel = Gears.deepCopy(modStatsStruct)
+	playerData.metaUpgradesCost = Gears.deepCopy(modStatsStruct)
+	playerData.metaUpgrades = Gears.deepCopy(modStatsStruct)
+	playerData.augments = Gears.deepCopy(modStatsStruct)
 
 	return playerData
 end
@@ -240,7 +251,7 @@ function PlayerService:IncrementDbBananas(userId, value)
 		return PlayersDb:UpdateAsync(userId, function(oldValue)
 			local current = oldValue or 0
 			local nextValue = current + value
-			return math.clamp(nextValue, 0, MAX_BANANAS)
+			return math.clamp(nextValue, 0, MAX_CURRENCIES[CURRENCIES.bananas])
 		end)
 	end)
 end
@@ -347,19 +358,20 @@ end
 
 -- CURRENCIES
 
-function PlayerService:GetBananas(state, userId)
+-- currencyType = from CURRENCIES
+function PlayerService:GetCurrency(state, userId, currencyType)
 	local playerData = state.players[userId]
-	local bananas = playerData.bananas
-	return if bananas ~= nil then bananas else 0
+	local currency = playerData[currencyType]
+	return if currency ~= nil then currency else 0
 end
 
-local function updateBananas(state, player, value)
+local function updateCurrency(state, player, currencyType, value)
 	local userId = player.UserId
 
-	local bananas = PlayerService:GetBananas(state, userId)
-	local newValue = math.clamp(bananas + value, 0, MAX_BANANAS)
+	local currency = PlayerService:GetCurrency(state, userId, currencyType)
+	local newValue = math.clamp(currency + value, 0, MAX_CURRENCIES[currencyType])
 
-	local patch = { bananas = newValue }
+	local patch = { [currencyType] = newValue }
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
 
 	-- Replicate to Clients
@@ -369,30 +381,28 @@ local function updateBananas(state, player, value)
 	PlayerService.BananasChanged:Fire(player, value)
 end
 
-local function updateAllBananas(value)
-	if value == 0 then
-		return
-	end
+local function updateCurrencyToAllPlayers(currencyType, value)
+	assert(value ~= 0, "value must be not zero")
 
 	local state = store:getState()
 
 	for _, player in Players:GetPlayers() do
-		updateBananas(state, player, value)
+		updateCurrency(state, player, currencyType, value)
 	end
 end
 
 -- Add To all Players
-function PlayerService:AddBananas(value)
+function PlayerService:AddCurrencyToAllPlayers(currencyType, value)
 	assert(value > 0, "value must be positive")
-	updateAllBananas(value)
+	updateCurrencyToAllPlayers(currencyType, value)
 end
 
-function PlayerService:SubtractBananas(player, value)
+function PlayerService:SubtractCurrency(player, currencyType, value)
 	assert(value > 0, "value must be positive")
 
 	local state = store:getState()
 
-	updateBananas(state, player, -value)
+	updateCurrency(state, player, currencyType, -value)
 end
 
 -- Sticks

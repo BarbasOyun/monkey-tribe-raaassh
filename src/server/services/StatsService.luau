@@ -20,6 +20,7 @@ local TO_STAT_OBJECT = statsData.TO_STAT_OBJECT
 -- authoring data
 local DEFAULT_STATS = statsData.DEFAULT_STATS
 local META_UPRGADES = statsData.META_UPRGADES
+local AUGMENTS = statsData.AUGMENTS
 
 -- StatsSystem :
 -- INPUT = Take ModStats of each Power Systems (Mutated by other Systems)
@@ -90,9 +91,9 @@ local STATS_STRUCT = {
 
 local StatService = Knit.CreateService({
 	Name = "StatService",
-	ModStatsStore = MOD_STATS_STORE,
-	ModStats = MOD_STATS,
-	StatsStruct = STATS_STRUCT,
+	MOD_STATS_STORE = MOD_STATS_STORE,
+	MOD_STATS = MOD_STATS,
+	STATS_STRUCT = STATS_STRUCT,
 	MetaUpgradesChanged = Signal.new(),
 	Client = {
 		MetaUpgradesChanged = Knit.CreateSignal(),
@@ -185,16 +186,6 @@ function StatService:AddXpToPlayer(state, player, xp)
 	end
 end
 
--- AUGMENTS
-
-function StatService.Client:RerollAugment()
-	-- TODO
-end
-
-function StatService.Client:PickAugment(index)
-	-- TODO
-end
-
 -- META UPGRADES
 
 function StatService:UpdateMetaUpgrade(newLevel, upgradeType)
@@ -279,102 +270,135 @@ function StatService.Client:BuyMetaUpgrade(player, upgradeType)
 	PlayerService:SubtractBananas(player, upgradeCost)
 end
 
--- Augments
-function StatService:AddAugment(userId, modStat, value)
+-- AUGMENTS
+
+function StatService.Client:RerollAugment(player)
+	if not currentAugments[player.UserId] then
+		print(player.Name .. " No Augments ready ")
+		return
+	end
+
+	local state = store:getState()
+	local playerData = state.players[player.UserId]
+
+	if playerData.sticks.Value < 10 then
+		print(player.Name .. "Not enough Sticks")
+		return
+	end
+
+	-- Transaction
+	StatService:SendAugment(player)
+
+	PlayerService:SubtractCurrency(player, PlayerService.CURRENCIES.sticks, 10)
+end
+
+function StatService.Client:PickAugment(index)
+	-- TODO
+end
+
+-- Player start choosing Augment
+function StatService.Client:StartAugmentPick(player)
+	local userId = player.UserId
+
+	if not currentAugments[userId] then
+		print("No Augments ready for : " .. player.Name)
+		return
+	end
+
+	-- print(player.Name .. " Is Picking Augment...")
+	positionStart[userId] = player.Character.HumanoidRootPart.CFrame.Position
+
+	-- TODO : Disable LifeRegen
+
+	local patch = { state = PlayerService.PLAYER_STATE.pickingAugment }
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
+end
+
+function StatService:AddAugmentStat(userId, modStat, value)
 	local state = store:getState()
 
 	-- Get stat
 	local stat = state.players[userId].augments[modStat]
 	local newStat = stat + value
 
-	store:dispatch(storeActions.PatchAugment(userId, { [modStat] = newStat }))
+	local patch = { [modStat] = newStat }
+	store:dispatch(storeActions.PatchAugment(userId, patch))
 end
 
---[[
-function StatService.Client:RollAugments(luck)
-	local function GetWeights()
-		-- local weights = Augments.weights
-		local baseLuckValue = Augments.baseLuckValue
-		local luckPoints = Augments.luckPoints
-		local luckDistance = {
-			math.abs(luckPoints[1] - luck), -- Deal with Negative Luck
-			math.abs(luckPoints[2] - luck),
-			math.abs(luckPoints[3] - luck),
-			math.abs(luckPoints[4] - luck),
-			math.abs(luckPoints[5] - luck),
-		}
-		local weights = {
-			baseLuckValue - luckDistance[1],
-			baseLuckValue - luckDistance[2],
-			baseLuckValue - luckDistance[3],
-			baseLuckValue - luckDistance[4],
-			baseLuckValue - luckDistance[5],
-		}
+local function getWeights(luck)
+	-- local weights = Augments.weights
+	local baseLuckValue = AUGMENTS.baseLuckValue
+	local luckPoints = AUGMENTS.luckPoints
 
-		return weights
+	local luckDistance = {
+		math.abs(luckPoints[1] - luck), -- Deal with Negative Luck
+		math.abs(luckPoints[2] - luck),
+		math.abs(luckPoints[3] - luck),
+		math.abs(luckPoints[4] - luck),
+		math.abs(luckPoints[5] - luck),
+	}
+
+	local weights = {
+		baseLuckValue - luckDistance[1],
+		baseLuckValue - luckDistance[2],
+		baseLuckValue - luckDistance[3],
+		baseLuckValue - luckDistance[4],
+		baseLuckValue - luckDistance[5],
+	}
+
+	return weights
+end
+
+local function rollRarity()
+	local totalWeight = Gears.sumTable(weights)
+	local roll = math.random(0, totalWeight)
+	local count = 1
+	local currentCheck = weights[1]
+	while roll > currentCheck do
+		count += 1
+		currentCheck += weights[count]
 	end
 
-	-- print("Rolling Augments with : " .. luck .. " Luck")
+	return AUGMENTS.rarity[count]
+end
 
-	local weights = GetWeights()
+local function getAugment()
+	local rarity = rollRarity()
 
-	local function GetAugment()
-		local function FindRarity()
-			local totalWeight = Gears.SumTable(weights)
-			local roll = math.random(0, totalWeight)
-			local count = 1
-			local currentCheck = weights[1]
-			while roll > currentCheck do
-				count += 1
-				currentCheck += weights[count]
-			end
+	-- FindAugment
+	local augmentRoll = math.random(1, #AUGMENTS.augmentType)
+	local augmentType = AUGMENTS.augmentType[augmentRoll]
+	local augmentValue = AUGMENTS[augmentType][rarity]
 
-			return Augments.rarity[count]
-		end
-
-		local rarity = FindRarity()
-
-		local function FindAugment()
-			local augmentRoll = math.random(1, #Augments.augmentType)
-			local augmentType = Augments.augmentType[augmentRoll]
-			local augmentValue = Augments[augmentType][rarity]
-
-			-- TODO Find List of Possible Augments
-			if not augmentValue then
-				-- print(augmentType .. " Doesn't have : " .. rarity .. " Version")
-				return FindAugment()
-			end
-
-			return { augmentType, rarity, augmentValue }
-		end
-
+	-- TODO Find List of Possible Augments
+	if not augmentValue then
+		-- print(augmentType .. " Doesn't have : " .. rarity .. " Version")
 		return FindAugment()
 	end
 
-	-- TODO : Luck Protection
-	local augmentChoices = { GetAugment(), GetAugment(), GetAugment() }
+	return { augmentType, rarity, augmentValue }
+end
+
+local function rollAugments(luck)
+	-- print("Rolling Augments with : " .. luck .. " Luck")
+
+	local weights = getWeights()
+
+	local augmentChoices = { getAugment(), getAugment(), getAugment() }
 
 	return augmentChoices
 end
 
-function playersStats.SendAugment(player, playerStat)
-	local augments = playersStats.RollAugments(playerStat.luck)
-	currentAugments[player.UserId] = augments
-	rerollEvent:FireClient(player, augments)
-end
+-- Make the next set of Augments available
+local function sendAugments(player)
+	local state = store:getState()
+	local userId = player.UserId
+	local playerData = state.players[userId]
 
-local function StartAugmentPick(player)
-	if not currentAugments[player.UserId] then
-		print("No Augments ready for : " .. player.Name)
-		return
-	end
+	local augments = rollAugments(playerData.stats.luck)
+	currentAugments[userId] = augments
 
-	-- print(player.Name .. "Is Picking Augment")
-	local playerStats = playersStats[player.UserId]
-	playerStats.lifeRegenUpdate:Disconnect()
-	playerStats.pickingAugment = true
-
-	positionStart[player.UserId] = player.Character.HumanoidRootPart.CFrame.Position
+	-- rerollEvent:FireClient(player, augments)
 end
 
 local function AugmentPick(player, choiceNbr)
@@ -408,21 +432,6 @@ local function AugmentPick(player, choiceNbr)
 	positionStart[player.UserId] = nil
 	playersStats[player.UserId].pickingAugment = false
 end
-
-local function RerollAugment(player)
-	if not currentAugments[player.UserId] then
-		print("No Augments ready for : " .. player.Name)
-		return
-	end
-
-	if playersStats[player.UserId].sticks.Value < 10 then
-		return
-	end
-
-	playersStats[player.UserId].sticks.Value -= 10
-	playersStats.SendAugment(player, playersStats[player.UserId])
-end
-]]
 
 -- CALCULATIONS
 

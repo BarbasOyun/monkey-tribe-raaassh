@@ -46,8 +46,9 @@ local usablesLogicDefinition = {
 		ItemService:RemoveGroundItem(itemModel)
 	end,
 	["Banana"] = function(player, itemDefinition, itemModel)
-		print("Add Banana to : " .. player.Name)
-		PlayerService:AddBananas(itemDefinition.banana)
+		local bananas = itemDefinition.banana
+		print("Add Banana to all players : " .. bananas)
+		PlayerService:AddCurrencyToAllPlayers(PlayerService.CURRENCIES.bananas, bananas)
 		ItemService.Client.GetOrb:Fire(player)
 		ItemService:RemoveGroundItem(itemModel)
 	end,
