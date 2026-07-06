@@ -115,15 +115,15 @@ local STATS_DISPLAY = {
 local META_UPGRADES = {
 	increasedAttackDamage = {
 		incrementValue = 5,
-		baseCost = 10,
+		baseCost = 20,
 		maxLevel = 20,
-		costMultiplier = 1.1,
+		costMultiplier = 1.15,
 	},
 	increasedAttackSpeed = {
 		incrementValue = 5,
 		baseCost = 20,
 		maxLevel = 20,
-		costMultiplier = 1.1,
+		costMultiplier = 1.2,
 	},
 	critChance = {
 		incrementValue = 2,

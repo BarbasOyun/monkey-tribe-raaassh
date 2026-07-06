@@ -28,7 +28,7 @@ local PLAYER_STRUCT = {
 	metaUpgradesCost = nil,
 	metaUpgrades = nil,
 	augments = nil,
-	weaponData = "",
+	weaponData = nil,
 	-- gearData
 }
 
@@ -133,7 +133,7 @@ local Actions = {
 		}
 	end,
 
-	-- Manage : Music, Currencies, Score, Level, Gear
+	-- Music, Currencies, Score, Level, Gear
 	PatchPlayer = function(userId, patch)
 		return {
 			type = "PatchPlayer",
@@ -208,7 +208,7 @@ local playerReducer = Rodux.createReducer({}, {
 
 			if not property then
 				warn("Key : " .. key .. " Doesn't exist in Player")
-				continue
+				-- continue
 			end
 
 			players[userId][key] = value
@@ -240,12 +240,14 @@ local playerReducer = Rodux.createReducer({}, {
 
 	SetMetaUpgrade = function(state, action)
 		local players = table.clone(state) or {}
+
+		local userId = action.userId
 		local upgradeType = action.upgradeType
 		local metaUpgrade = action.metaUpgrade
 
-		players[action.userId].metaUpgradesLevel[upgradeType] = metaUpgrade.level
-		players[action.userId].metaUpgradesCost[upgradeType] = metaUpgrade.cost
-		players[action.userId].metaUpgrades[upgradeType] = metaUpgrade.stat
+		players[userId].metaUpgradesLevel[upgradeType] = metaUpgrade.level
+		players[userId].metaUpgradesCost[upgradeType] = metaUpgrade.cost
+		players[userId].metaUpgrades[upgradeType] = metaUpgrade.stat
 		return players
 	end,
 

@@ -104,7 +104,8 @@ end
 -- 4) Attack Callback with server validation
 -- After Animation
 local function incrementCombo(player, weaponData)
-	comboIndexes[player.UserId] = (comboIndexes[player.UserId] + 1) % weaponData.maxCombo
+	local userId = player.UserId
+	comboIndexes[userId] = (comboIndexes[userId] + 1) % weaponData.maxCombo
 
 	-- Reset Combo Index -> after 2 sec of not Attacking
 	-- if playerStat.comboReset then
@@ -118,24 +119,25 @@ local function incrementCombo(player, weaponData)
 end
 
 local function attackCallback(player)
+	local userId = player.UserId
 	local state = store:getState()
 
-	local playerStats = state.players[player.UserId].stats
-	local weaponData = state.players[player.UserId].weaponData
+	local playerStats = state.players[userId].stats
+	local weaponData = state.players[userId].weaponData
 
 	local currentTime = tick()
-	local attackDelta = currentTime - lastAttacks[player.UserId] -- Time between last attack and now
+	local attackDelta = currentTime - lastAttacks[userId] -- Time between last attack and now
 
 	-- Validation -> Using setup on step 2)
-	if not expectingAttack[player.UserId] and attackDelta >= playerStats.animationTime then
+	if not expectingAttack[userId] and attackDelta >= playerStats.animationTime then
 		warn("Unexpected AttackHit from player: " .. player.Name)
 		return
 	end
 
 	-- Reset Player speed
 	player.Character.Humanoid.WalkSpeed = playerStats.mobility
-	expectingAttack[player.UserId] = nil
-	attackBuffer[player.UserId] = nil
+	expectingAttack[userId] = nil
+	attackBuffer[userId] = nil
 
 	if not weaponData then
 		return
@@ -148,10 +150,11 @@ end
 -- 2) Server Validation + Setup Expected Attack
 -- Player is asking to Attack using their Weapon
 local function attackValidation(player)
+	local userId = player.UserId
 	local state = store:getState()
 
-	local playerStats = state.players[player.UserId].stats
-	local weaponData = state.players[player.UserId].weaponData
+	local playerStats = state.players[userId].stats
+	local weaponData = state.players[userId].weaponData
 
 	if not playerStats or not weaponData then
 		-- warn("No playerStats or weaponData")
@@ -160,25 +163,25 @@ local function attackValidation(player)
 
 	-- TODO : Measure animations using frames instead of time
 	local currentTime = tick()
-	local attackDelta = currentTime - lastAttacks[player.UserId] -- Time between last attack and now
+	local attackDelta = currentTime - lastAttacks[userId] -- Time between last attack and now
 	local isAttackReady = attackDelta > playerStats.animationTime
 
 	local function startAttack()
 		-- print("Attack By : " .. player.Name .. " At : " .. tick())
-		lastAttacks[player.UserId] = tick()
-		expectingAttack[player.UserId] = true
+		lastAttacks[userId] = tick()
+		expectingAttack[userId] = true
 		player.Character.Humanoid.WalkSpeed *= 0.5 -- TODO : Half MS using stats instead
 
-		CombatService.Client.startAttack:Fire(player, comboIndexes[player.UserId] + 1, playerStats.attackSpeed)
+		CombatService.Client.startAttack:Fire(player, comboIndexes[userId] + 1, playerStats.attackSpeed)
 	end
 
 	if not isAttackReady then
 		-- Input Buffer
 		local missingTime = playerStats.animationTime - attackDelta -- Time to wait before attacking
 
-		if missingTime <= 0.1 and attackBuffer[player.UserId] == nil then
+		if missingTime <= 0.1 and attackBuffer[userId] == nil then
 			-- print("Attack Buffer: " .. player.Name)
-			attackBuffer[player.UserId] = true -- Lock Input Buffer
+			attackBuffer[userId] = true -- Lock Input Buffer
 			task.delay(missingTime, function()
 				startAttack()
 			end)
@@ -225,9 +228,11 @@ function CombatService:KnitStart()
 	end)
 
 	ItemService.UnequipWeapon:Connect(function(player)
-		expectingAttack[player.UserId] = nil
-		comboIndexes[player.UserId] = 0
-		comboReset[player.UserId] = nil
+		local userId = player.UserId
+
+		expectingAttack[userId] = nil
+		comboIndexes[userId] = 0
+		comboReset[userId] = nil
 	end)
 end
 

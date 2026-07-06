@@ -25,14 +25,17 @@ local META_UPRGADES = statsData.META_UPRGADES
 
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
-	StatsStore = MOD_STATS_STORE,
+	ModStatsStore = MOD_STATS_STORE,
 	PlayerAdded = Signal.new(),
 	PlayerRemoved = Signal.new(),
+	BananasChanged = Signal.new(),
+	MetaUpgradesChanged = Signal.new(),
 	Client = {
 		ReplicateStore = Knit.CreateSignal(),
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
 		BananasChanged = Knit.CreateSignal(),
+		MetaUpgradesChanged = Knit.CreateSignal(),
 		-- Hub
 		EnteringGame = Knit.CreateSignal(),
 		-- Game
@@ -44,49 +47,17 @@ local PlayerService = Knit.CreateService({
 
 local ItemService
 
+local MAX_BANANAS = 100_000
+
 -- Hub
--- DataStores
+-- DataStore
 local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
 
 -- TP to main Game instance
 local HUB_PLACE_ID = 95975992291805
-local GAME_PLACE_ID = 109804031798809
-
-local gamePlatforms = workspace.GamePlatforms
-
-local platforms = {
-	gamePlatforms.GamePlatform1.PlayerDetection,
-	gamePlatforms.GamePlatform2.PlayerDetection,
-	gamePlatforms.GamePlatform3.PlayerDetection,
-	gamePlatforms.GamePlatform4.PlayerDetection,
-}
-
-local platformsLabels = {
-	gamePlatforms.GamePlatform1.SurfacePart.SurfaceGui.TextLabel,
-	gamePlatforms.GamePlatform2.SurfacePart.SurfaceGui.TextLabel,
-	gamePlatforms.GamePlatform3.SurfacePart.SurfaceGui.TextLabel,
-	gamePlatforms.GamePlatform4.SurfacePart.SurfaceGui.TextLabel,
-}
-
-local platformsMaxPlayers = {
-	1,
-	2,
-	3,
-	4,
-}
-
-local platformsPlayers = {
-	{},
-	{},
-	{},
-	{},
-}
-
-local playersLoadingTp = {}
 
 -- Game
-local MAX_BANANAS = 10_000
-local MAX_DISTANCE = 250
+local MAX_DISTANCE = 250 -- TODO : Move to GameManger
 
 local deadPlayers = {}
 
@@ -153,23 +124,12 @@ end
 function PlayerService:AddPlayer(player, username)
 	local userId = player.UserId
 
+	-- Create Player
+
 	-- TODO : Create Player Data Struct
 	store:dispatch(storeActions.AddPlayer(userId, username))
 
-	-- Events
-	self.PlayerAdded:Fire(userId)
-	self.Client.PlayerAdded:FireAll(userId, username)
-
-	local state = store:getState()
-
-	-- Send the full store to the new player
-	-- local gameState = playerGameState(player)
-	self.Client.ReplicateStore:Fire(player, state)
-
-	-- Stats
-	self:GetBananasDb(player.UserId)
-	self:GetMetaUpgrades(player.UserId)
-
+	-- TODO : Move to GameManager
 	-- Set Current Life
 	local newState = store:getState()
 	local playerData = newState.players[userId]
@@ -177,10 +137,21 @@ function PlayerService:AddPlayer(player, username)
 
 	-- On Player Death
 	-- player:LoadCharacterAsync()
-	local character = player.Character
-	character.Humanoid.Died:Connect(function()
-		self:OnPlayerDeath(player)
-	end)
+	-- local character = player.Character
+	-- character.Humanoid.Died:Connect(function()
+	-- 	self:OnPlayerDeath(player)
+	-- end)
+
+	-- Stats
+	self:GetMetaUpgrades(userId)
+
+	-- Send the full store to the new player
+	local state = store:getState()
+	self.Client.ReplicateStore:Fire(player, state)
+
+	-- Events
+	self.PlayerAdded:Fire(userId)
+	self.Client.PlayerAdded:FireAll(userId, username)
 end
 
 function PlayerService:RemovePlayer(player)
@@ -193,172 +164,8 @@ function PlayerService:RemovePlayer(player)
 	self.Client.PlayerRemoved:FireAll(userId)
 end
 
--- Save Score & Meta Upgrades to Db
-function PlayerService:SaveToDb(userId)
-	local state = store:getState()
-	local playerData = state.players[userId]
-
-	print(playerData.username .. " Saving Meta Upgrades and Score to DB")
-
-	-- Bananas
-	local bananaCount = playerData.bananas
-	pcall(function()
-		PlayersDb:SetAsync(userId .. "_bananas", bananaCount)
-	end)
-
-	-- Meta Upgrades
-	for upgradeType, value in pairs(playerData.metaUpgradesLevel) do
-		pcall(function()
-			PlayersDb:SetAsync(userId .. "_" .. upgradeType, value)
-		end)
-	end
-end
-
-function PlayerService:IncrementDbBananas(userId, value)
-	if value <= 0 then
-		return
-	end
-
-	local success, newValue = pcall(function()
-		return PlayersDb:UpdateAsync(userId, function(oldValue)
-			local current = oldValue or 0
-			local nextValue = current + value
-			return math.clamp(nextValue, 0, MAX_BANANAS)
-		end)
-	end)
-end
-
-function PlayerService:GetBananasDb(userId)
-	local bananaCount = 0
-
-	local success, bananas = pcall(function()
-		return PlayersDb:GetAsync(userId .. "_bananas")
-	end)
-
-	if success and bananas then
-		bananaCount = bananas
-	end
-
-	store:dispatch(storeActions.PatchPlayer(userId, { bananas = bananaCount }))
-	-- TODO : Replicate to Client
-end
-
--- Debug func -> Delete Player's DB
-local function ResetPlayer(player)
-	local state = store:getState()
-	local userId = player.UserId
-	local playerData = state.players[userId]
-
-	-- Meta Upgrades
-	for upgradeType, value in pairs(playerData.metaUpgradesLevel) do
-		pcall(function()
-			PlayersDb:SetAsync(userId .. "_" .. upgradeType, 0)
-		end)
-	end
-
-	-- Bananas
-	pcall(function()
-		PlayersDb:SetAsync(userId .. "_" .. "bananas", 0)
-	end)
-end
-
 function PlayerService.Client:ToggleMusic(player, isEnabled)
 	store:dispatch(storeActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
-end
-
--- HUB
-
-local function createGameInstance(players)
-	Gears.joinTable(playersLoadingTp, players)
-
-	for _, player in ipairs(players) do
-		PlayerService.Client.EnteringGame:Fire(player) -- Feedback
-	end
-
-	-- Create Instance
-	print("Creating new Game Instance for players :")
-	print(players)
-
-	local newCode = TeleportService:ReserveServerAsync(GAME_PLACE_ID)
-	print("Reserved new server with code: " .. newCode)
-
-	-- Join Instance
-	local options = Instance.new("TeleportOptions")
-	options.ReservedServerAccessCode = newCode
-
-	task.spawn(function()
-		task.wait(TeleportService:TeleportAsync(GAME_PLACE_ID, players, options))
-		Gears.splitTable(playersLoadingTp, players)
-	end)
-end
-
-local function updatePlatformLabel(platformId)
-	platformsLabels[platformId].Text = "Raaassh ("
-		.. #platformsPlayers[platformId]
-		.. "/"
-		.. platformsMaxPlayers[platformId]
-		.. ")"
-end
-
-local function setupPlatforms()
-	for i, platform in ipairs(platforms) do
-		platform.Touched:Connect(function(hit)
-			local player = game.Players:GetPlayerFromCharacter(hit.Parent)
-
-			if not player or table.find(playersLoadingTp, player) or table.find(platformsPlayers[i], player) then
-				return
-			end
-
-			table.insert(platformsPlayers[i], player)
-			updatePlatformLabel(i)
-
-			-- if there is enough players on the Platform -> Launch Game
-			if #platformsPlayers[i] >= platformsMaxPlayers[i] then
-				createGameInstance(platformsPlayers[i])
-
-				table.clear(platformsPlayers[i])
-				updatePlatformLabel(i)
-			end
-		end)
-
-		platform.TouchEnded:Connect(function(hit)
-			local player = game.Players:GetPlayerFromCharacter(hit.Parent)
-
-			if not player or table.find(playersLoadingTp, player) then
-				return
-			end
-
-			local id = table.find(platformsPlayers[i], player)
-			table.remove(platformsPlayers[i], id)
-			updatePlatformLabel(i)
-		end)
-	end
-end
-
--- GAME
-
-function PlayerService:GameOver()
-	print("Game Over -> Saving Bananas & Going back to Hub")
-	local players = Players:GetPlayers()
-
-	-- TODO
-	for _, player in pairs(players) do
-		self:IncrementDbBananas(player.UserId, 0)
-	end
-
-	pcall(function()
-		return TeleportService:TeleportAsync(HUB_PLACE_ID, players)
-	end)
-end
-
-function PlayerService:OnPlayerDeath(player)
-	print(player.Name .. " died -> Waiting Next Stage to respawn...")
-	table.insert(deadPlayers, player)
-	-- Events.PlayerDied:FireClient(player) -- TODO
-
-	if #deadPlayers >= #Players:GetPlayers() then
-		self:GameOver()
-	end
 end
 
 -- Prevent Players from groing OOB
@@ -379,6 +186,145 @@ function PlayerService:LimitInBound(limit)
 	end)
 end
 
+-- DB
+
+-- Save Score & Meta Upgrades to Db
+function PlayerService:SaveToDb(userId)
+	local state = store:getState()
+	local playerData = state.players[userId]
+
+	warn(playerData.username .. " Saving Meta Upgrades and Score to DB")
+
+	-- Bananas
+	local bananaCount = playerData.bananas
+	-- warn("Bananas = " .. bananaCount)
+	pcall(function()
+		PlayersDb:SetAsync(userId .. "_bananas", bananaCount)
+	end)
+
+	-- Meta Upgrades
+	for upgradeType, level in pairs(playerData.metaUpgradesLevel) do
+		-- warn(upgradeType .. " Saving Level to DB : " .. level)
+		pcall(function()
+			PlayersDb:SetAsync(userId .. "_" .. upgradeType, level)
+		end)
+	end
+end
+
+function PlayerService:IncrementDbBananas(userId, value)
+	if value <= 0 then
+		return
+	end
+
+	local success, newValue = pcall(function()
+		return PlayersDb:UpdateAsync(userId, function(oldValue)
+			local current = oldValue or 0
+			local nextValue = current + value
+			return math.clamp(nextValue, 0, MAX_BANANAS)
+		end)
+	end)
+end
+
+-- Get
+function PlayerService:GetBananasDb(player)
+	local userId = player.UserId
+	local bananaCount = 0
+
+	local success, bananas = pcall(function()
+		return PlayersDb:GetAsync(userId .. "_bananas")
+	end)
+
+	if success and bananas then
+		bananaCount = bananas
+	end
+
+	local patch = { bananas = bananaCount }
+
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	self.Client.BananasChanged:Fire(player, patch)
+end
+
+function PlayerService:GetMetaUpgrades(userId)
+	-- Get Levels from DB or 0
+	local levels = {}
+	local costs = {}
+	local metaUpgrades = {}
+
+	local state = store:getState()
+	local playerData = state.players[userId]
+
+	for upgradeType, _ in pairs(playerData.metaUpgrades) do
+		local level = 0
+
+		local success, dbLevel = pcall(function()
+			return PlayersDb:GetAsync(userId .. "_" .. upgradeType)
+		end)
+
+		if success and dbLevel then
+			-- warn(upgradeType .. " Level from DB = " .. dbLevel)
+			level = dbLevel
+		end
+
+		local cost, stat = self:UpdateMetaUpgrade(level, upgradeType)
+
+		levels[upgradeType] = level
+		costs[upgradeType] = cost
+		metaUpgrades[upgradeType] = stat
+	end
+
+	local patch = { metaUpgradesLevel = levels, metaUpgradesCost = costs, metaUpgrades = metaUpgrades }
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
+
+	self:CalculateAllStats(userId)
+end
+
+-- Debug func -> Delete Player's DB
+local function ResetPlayer(player)
+	local state = store:getState()
+	local userId = player.UserId
+	local playerData = state.players[userId]
+
+	-- Bananas
+	pcall(function()
+		PlayersDb:SetAsync(userId .. "_" .. "bananas", 0)
+	end)
+
+	-- Meta Upgrades
+	for upgradeType, value in pairs(playerData.metaUpgradesLevel) do
+		pcall(function()
+			PlayersDb:SetAsync(userId .. "_" .. upgradeType, 0)
+		end)
+	end
+end
+
+-- GAME
+-- TODO : Move to GameManager
+
+function PlayerService:GameOver()
+	print("Game Over -> Saving Bananas & Going back to Hub")
+	local players = Players:GetPlayers()
+
+	-- TODO : Get Bananas Delta
+	for _, player in pairs(players) do
+		local bananasDelta = 0
+		PlayerService:IncrementDbBananas(player.UserId, bananasDelta)
+	end
+
+	pcall(function()
+		return TeleportService:TeleportAsync(HUB_PLACE_ID, players)
+	end)
+end
+
+function PlayerService:OnPlayerDeath(player)
+	print(player.Name .. " died -> Waiting Next Stage to respawn...")
+	table.insert(deadPlayers, player)
+	-- Events.PlayerDied:FireClient(player) -- TODO : Event
+
+	if #deadPlayers >= #Players:GetPlayers() then
+		self:GameOver()
+	end
+end
+
 -- CURRENCIES
 
 function PlayerService:GetBananas(state, userId)
@@ -387,27 +333,50 @@ function PlayerService:GetBananas(state, userId)
 	return if bananas ~= nil then bananas else 0
 end
 
--- Add To all Players
-function PlayerService:AddBananas(value)
-	if value <= 0 then
+local function updateBananas(state, player, value)
+	local userId = player.UserId
+
+	local bananas = PlayerService:GetBananas(state, userId)
+	local newValue = math.clamp(bananas + value, 0, MAX_BANANAS)
+
+	local patch = { bananas = newValue }
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
+
+	-- Replicate to Clients
+	PlayerService.Client.BananasChanged:Fire(player, patch)
+
+	-- For Managers
+	PlayerService.BananasChanged:Fire(player, value)
+end
+
+local function updateAllBananas(value)
+	if value == 0 then
 		return
 	end
 
 	local state = store:getState()
 
 	for _, player in Players:GetPlayers() do
-		local userId = player.UserId
-
-		local bananas = self:GetBananas(state, userId)
-		local newValue = math.min(bananas + value, MAX_BANANAS)
-		store:dispatch(storeActions.PatchPlayer(userId, { bananas = newValue }))
-
-		-- Replicate to Clients
-		self.Client.BananasChanged:FireAll(userId, newValue)
+		updateBananas(state, player, value)
 	end
 end
 
+-- Add To all Players
+function PlayerService:AddBananas(value)
+	assert(value > 0, "value must be positive")
+	updateAllBananas(value)
+end
+
+function PlayerService:SubtractBananas(player, value)
+	assert(value > 0, "value must be positive")
+
+	local state = store:getState()
+
+	updateBananas(state, player, -value)
+end
+
 -- LEVELS
+-- TODO : StatsService
 
 local function levelUp(state, player, currentXp)
 	print(player.Name .. " Leveling Up")
@@ -430,12 +399,9 @@ local function levelUp(state, player, currentXp)
 
 	-- PlayerService:GenerateAugments(player) -- > Generate augments for next Level
 
-	store.dispatch(
-		storeActions.PatchPlayer(
-			userId,
-			{ currentXp = overXp, xpRequired = newXpRequired, waitingLevel = newWaitingLevel }
-		)
-	)
+	local patch = { currentXp = overXp, xpRequired = newXpRequired, waitingLevel = newWaitingLevel }
+	store.dispatch(storeActions.PatchPlayer(userId, patch))
+
 	PlayerService.Client.LevelUp:Fire(player)
 end
 
@@ -476,14 +442,15 @@ function PlayerService:AddXpToPlayer(state, player, xp)
 end
 
 -- STATS
+-- TODO : StatsService
 
 -- Meta Upgrades
-local function updateMetaUpgrade(newLevel, upgradeType)
-	-- Calculate Cost & Stat after cahnging level
+function PlayerService:UpdateMetaUpgrade(newLevel, upgradeType)
+	-- Calculate Cost & Stat at a Level
 	local upgradeData = META_UPRGADES[upgradeType]
 
 	local totalMultiplier = math.pow(upgradeData.costMultiplier, newLevel)
-	local cost = math.floor(upgradeData.baseCost + upgradeData.baseCost * totalMultiplier)
+	local cost = math.floor(upgradeData.baseCost * totalMultiplier)
 
 	local stat = newLevel * upgradeData.incrementValue
 
@@ -491,14 +458,15 @@ local function updateMetaUpgrade(newLevel, upgradeType)
 end
 
 -- upgradeType = from MOD_STATS_STORE
-local function incrementMetaUpgrade(state, userId, upgradeType)
+local function incrementMetaUpgrade(state, player, upgradeType)
+	local userId = player.UserId
 	local playerData = state.players[userId]
 
 	-- Increment Update Level
 	local newLevel = playerData.metaUpgradesLevel[upgradeType] + 1
 
 	-- Calculate new Stats & Cost
-	local cost, stat = updateMetaUpgrade(newLevel, upgradeType)
+	local cost, stat = PlayerService:UpdateMetaUpgrade(newLevel, upgradeType)
 
 	local newUpgrade = {
 		level = newLevel,
@@ -508,6 +476,10 @@ local function incrementMetaUpgrade(state, userId, upgradeType)
 
 	-- Dispatch
 	store:dispatch(storeActions.SetMetaUpgrade(userId, upgradeType, newUpgrade))
+
+	-- Events
+	PlayerService.MetaUpgradesChanged:Fire(player, upgradeType, newUpgrade)
+	PlayerService.Client.MetaUpgradesChanged:Fire(player, upgradeType, newUpgrade)
 
 	-- Update Stat
 	local newState = store:getState()
@@ -521,7 +493,7 @@ function PlayerService.Client:BuyMetaUpgrade(player, upgradeType)
 
 	local playerData = state.players[userId]
 
-	if playerData.metaUpgradesLevel >= META_UPRGADES[upgradeType].maxLevel then
+	if playerData.metaUpgradesLevel[upgradeType] >= META_UPRGADES[upgradeType].maxLevel then
 		print(playerData.username .. " " .. upgradeType .. " Upgrade Max Level")
 	end
 
@@ -541,54 +513,18 @@ function PlayerService.Client:BuyMetaUpgrade(player, upgradeType)
 			.. " Bananas"
 	)
 
+	-- Handle Fail
 	if playerBananas < upgradeCost then
 		print(playerData.username .. " Not Enough Bananas to buy Upgrade")
 		return
 	end
 
-	-- Buy
+	-- Transaction
 	-- Grant Upgrade
-	incrementMetaUpgrade(state, userId, upgradeType)
+	incrementMetaUpgrade(state, player, upgradeType)
 
 	-- Subtract Cost from Bananas
-	local newBananas = math.max(0, playerBananas - upgradeCost)
-	store:dispatch(storeActions.PatchPlayer(userId, { bananas = newBananas }))
-end
-
-function PlayerService:GetMetaUpgrades(userId)
-	-- Get Levels from DB or 0
-	local levels = {}
-	local costs = {}
-	local metaUpgrades = {}
-
-	local state = store:getState()
-	local playerData = state.players[userId]
-
-	for upgradeType, _ in pairs(playerData.metaUpgrades) do
-		local level = 0
-
-		local success, lvl = pcall(function()
-			return PlayersDb:GetAsync(userId .. "_" .. upgradeType)
-		end)
-
-		if success and lvl then
-			level = lvl
-		end
-
-		local cost, stat = updateMetaUpgrade(level, upgradeType)
-
-		levels[upgradeType] = level
-		costs[upgradeType] = cost
-		metaUpgrades[upgradeType] = stat
-	end
-
-	store:dispatch(
-		storeActions.PatchPlayer(
-			userId,
-			{ metaUpgradesLevel = levels, metaUpgradesCost = costs, metaUpgrades = metaUpgrades }
-		)
-	)
-	-- TODO : Replicate to Client
+	PlayerService:SubtractBananas(player, upgradeCost)
 end
 
 -- Augments
@@ -752,30 +688,29 @@ end
 local function calcSumStat(state, userId, modStat)
 	local totalModStat = calcModStat(state, userId, modStat)
 
-	store:dispatch(storeActions.PatchStat(userId, { [modStat] = totalModStat }))
+	local patch = { [modStat] = totalModStat }
+	store:dispatch(storeActions.PatchStat(userId, patch))
 end
 
 local function calcMultStat(state, userId, modStat, calcStat, baseValue)
 	local totalModStat = calcModStat(state, userId, modStat)
 	local totalStat = baseValue * Gears.increaseToMultiplier(totalModStat)
 
-	store:dispatch(storeActions.PatchStat(userId, { [modStat] = totalModStat, [calcStat] = totalStat }))
+	local patch = { [modStat] = totalModStat, [calcStat] = totalStat }
+	store:dispatch(storeActions.PatchStat(userId, patch))
 end
 
 -- Every functions to calculate player stats
 local statsCalculation = {
 	-- Offense
 	attackDamage = function(state, userId)
-		local weaponData = state.players[userId].weaponData
-
-		if not weaponData then
-			return
-		end
-
 		local modStat = MOD_STATS_STORE.increasedAttackDamage
 		local calcStat = STATS_STORE.attackDamage
 
-		calcMultStat(state, userId, modStat, calcStat, weaponData.damage)
+		local weaponData = state.players[userId].weaponData
+		local weaponDamage = weaponData and weaponData.damage or 0
+
+		calcMultStat(state, userId, modStat, calcStat, weaponDamage)
 	end,
 
 	critChance = function(state, userId)
@@ -787,40 +722,44 @@ local statsCalculation = {
 	end,
 
 	attackSpeed = function(state, userId)
-		local weaponData = state.players[userId].weaponData
-
-		if not weaponData then
-			return
-		end
-
+		-- Get Values
 		local modStat = MOD_STATS_STORE.increasedAttackSpeed
 		local calcStat = STATS_STORE.attackSpeed
 
+		local weaponData = state.players[userId].weaponData
+		local weaponAttackSpeed = weaponData and weaponData.attackSpeed or 1
+
 		local totalModStat = calcModStat(state, userId, modStat)
-		local attackSpeed = weaponData.attackSpeed * Gears.increaseToMultiplier(totalModStat)
+
+		-- Calc
+		local attackSpeed = weaponAttackSpeed * Gears.increaseToMultiplier(totalModStat)
 		local animationTime = 1 / attackSpeed
 
-		store:dispatch(
-			storeActions.PatchStat(
-				userId,
-				{ [modStat] = totalModStat, [calcStat] = attackSpeed, animationTime = animationTime }
-			)
-		)
+		local patch = { [modStat] = totalModStat, [calcStat] = attackSpeed, animationTime = animationTime }
+		store:dispatch(storeActions.PatchStat(userId, patch))
 	end,
 
 	aoe = function(state, userId)
-		local weaponData = state.players[userId].weaponData
-
-		if not weaponData then
-			return
-		end
-
+		-- Get Values
 		local modStat = MOD_STATS_STORE.increasedAoe
 		local calcStat = STATS_STORE.aoe
 
+		local weaponData = state.players[userId].weaponData
+		local weaponAoe = weaponData and weaponData.aoe or 0
+
 		local totalIncreasedAoe = calcModStat(state, userId, modStat)
+
+		-- Calc
 		local aoeMultiplier = Gears.increaseToMultiplier(totalIncreasedAoe)
-		local totalAoe = weaponData.aoe * aoeMultiplier
+		local totalAoe = weaponAoe * aoeMultiplier
+
+		local patch = { [modStat] = totalIncreasedAoe, [calcStat] = totalAoe }
+		store:dispatch(storeActions.PatchStat(userId, patch))
+
+		warn(weaponData)
+		if not weaponData then
+			return
+		end
 
 		-- Adjust Weapon Size
 		local player = Players:GetPlayerByUserId(userId)
@@ -829,14 +768,13 @@ local statsCalculation = {
 		weaponModel:ScaleTo(weaponData.weaponSize * aoeMultiplier)
 
 		-- Attack VFX
-		local size = 2 * totalIncreasedAoe -- 2 = Base VFX Size
+		local baseSize = 0.5
+		local size = baseSize * totalIncreasedAoe
 		local keypoints = {
 			NumberSequenceKeypoint.new(0, size),
 			NumberSequenceKeypoint.new(1, size),
 		}
 		weaponData.attackVFX.Size = NumberSequence.new(keypoints)
-
-		store:dispatch(storeActions.PatchStat(userId, { [modStat] = totalIncreasedAoe, [calcStat] = totalAoe }))
 	end,
 
 	-- Defense
@@ -858,7 +796,7 @@ local statsCalculation = {
 
 		local lifeRegen = calcModStat(state, userId, modStat)
 
-		-- Start lifeRegen Update
+		-- Reset lifeRegen Update
 		if lifeRegenUpdates[userId] then
 			lifeRegenUpdates[userId]:Disconnect()
 			lifeRegenUpdates[userId] = nil
@@ -922,6 +860,7 @@ local statsCalculation = {
 -- statType = from STATS_STORE
 function PlayerService:CalculateStat(state, userId, statType)
 	statsCalculation[statType](state, userId)
+	-- TODO : dispatch
 end
 
 function PlayerService:CalculateAllStats(userId)
@@ -931,6 +870,7 @@ function PlayerService:CalculateAllStats(userId)
 		calculateStat(state, userId)
 	end
 
+	-- TODO : dispatch All
 	-- TODO : Replicate to Client -> Display on Client side character stats sheet
 end
 
@@ -998,8 +938,6 @@ end
 -- Start Service
 function PlayerService:KnitInit()
 	print("PlayerService Initialized")
-
-	setupPlatforms()
 end
 
 function PlayerService:KnitStart()

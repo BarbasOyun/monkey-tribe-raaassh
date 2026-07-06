@@ -225,7 +225,9 @@ end
 
 local function setWeapon(player, weapon)
 	-- print(player.Name .. " new Weapon Data")
-	store:dispatch(storeActions.PatchPlayer(player.UserId, { weaponData = weapon }))
+	local patch = { weaponData = weapon }
+	store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+
 	PlayerService:CalculateAllStats(player.UserId) -- TODO : Calculate Weapon Stats
 end
 

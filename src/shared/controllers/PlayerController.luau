@@ -194,8 +194,13 @@ local function setupPlayerService()
 	end)
 
 	-- Bananas
-	PlayerService.BananasChanged:Connect(function(userId, newValue)
-		store:dispatch(storeActions.PatchPlayer(userId, { bananas = newValue }))
+	PlayerService.BananasChanged:Connect(function(patch)
+		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+	end)
+
+	-- Meta Upgrades
+	PlayerService.MetaUpgradesChanged:Connect(function(upgradeType, newUpgrade)
+		store:dispatch(storeActions.SetMetaUpgrade(player.UserId, upgradeType, newUpgrade))
 	end)
 end
 
@@ -227,9 +232,9 @@ function PlayerController:KnitStart()
 
 	-- Start Music
 	local store = store:getState()
-	local isMusicEnabled = store.players[player.UserId].isMusicEnabled
+	local playerData = store.players[player.UserId]
 
-	if isMusicEnabled then
+	if playerData and playerData.isMusicEnabled then
 		music:Play()
 	end
 end
