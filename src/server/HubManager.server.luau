@@ -197,6 +197,7 @@ Players.PlayerAdded:Connect(function(player)
 	-- local userId = player.UserId
 	-- StatService:AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
 	-- PlayerService:AddBananas(100)
+	StatService:AddXpToAllPlayers(10)
 end)
 
 Players.PlayerRemoving:Connect(function(player)

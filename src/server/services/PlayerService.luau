@@ -37,6 +37,7 @@ local PLAYER_STRUCT = {
 	metaUpgradesCost = nil,
 	metaUpgrades = nil,
 	augments = nil,
+	currentAugments = {}, -- 3 choice cards
 	weaponData = nil,
 	-- gearData
 }
@@ -70,7 +71,7 @@ local PlayerService = Knit.CreateService({
 		ReplicateStore = Knit.CreateSignal(),
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
-		BananasChanged = Knit.CreateSignal(),
+		PatchPlayer = Knit.CreateSignal(),
 		-- Hub
 		EnteringGame = Knit.CreateSignal(),
 	},
@@ -272,7 +273,7 @@ function PlayerService:GetBananasDb(player)
 	local patch = { bananas = bananaCount }
 
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
-	self.Client.BananasChanged:Fire(player, patch)
+	self.Client.PatchPlayer:Fire(player, patch)
 end
 
 function PlayerService:GetMetaUpgrades(userId)
@@ -375,7 +376,7 @@ local function updateCurrency(state, player, currencyType, value)
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
 
 	-- Replicate to Clients
-	PlayerService.Client.BananasChanged:Fire(player, patch)
+	PlayerService.Client.PatchPlayer:Fire(player, patch)
 
 	-- For Managers
 	PlayerService.BananasChanged:Fire(player, value)

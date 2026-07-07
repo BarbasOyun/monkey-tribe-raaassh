@@ -190,13 +190,14 @@ local function setupPlayerService()
 		store:dispatch(storeActions.RemovePlayer(userId))
 	end)
 
-	PlayerService.EnteringGame:Connect(function()
-		enteringGameSound:Play()
+	-- Local Player
+
+	PlayerService.PatchPlayer:Connect(function(patch)
+		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 	end)
 
-	-- Bananas
-	PlayerService.BananasChanged:Connect(function(patch)
-		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+	PlayerService.EnteringGame:Connect(function()
+		enteringGameSound:Play()
 	end)
 end
 

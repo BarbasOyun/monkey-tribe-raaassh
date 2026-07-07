@@ -89,6 +89,12 @@ local STATS_STRUCT = {
 	pickupRange = 10,
 }
 
+local AUGMENT = {
+	modStat = "",
+	rarity = "",
+	value = "",
+}
+
 local StatService = Knit.CreateService({
 	Name = "StatService",
 	MOD_STATS_STORE = MOD_STATS_STORE,
@@ -106,7 +112,6 @@ local PlayerService
 local totalXp = 0 -- Add to joining players
 
 -- Picking Augments
-local currentAugments = {}
 local positionStart = {} -- Reset Player's Pos after picking augment
 
 -- Dynamic Stats
@@ -124,7 +129,7 @@ end
 -- LEVELS
 
 local function levelUp(state, player, currentXp)
-	print(player.Name .. " Leveling Up")
+	print(player.Name .. " Level Up")
 
 	local userId = player.UserId
 	local playerData = state.players[userId]
@@ -135,19 +140,17 @@ local function levelUp(state, player, currentXp)
 	local newXpRequired = playerData.xpRequired
 	local newWaitingLevel = playerData.waitingLevel
 
-	-- Manage Next LevelUps + Validate
+	-- Manage Additional LevelUps + Validate
 	while overXp >= newXpRequired do
 		overXp = overXp - newXpRequired
 		newXpRequired *= 1.1
 		newWaitingLevel += 1
 	end
 
-	-- StatService:GenerateAugments(player) -- > Generate augments for next Level
-
 	local patch = { currentXp = overXp, xpRequired = newXpRequired, waitingLevel = newWaitingLevel }
 	store.dispatch(storeActions.PatchPlayer(userId, patch))
 
-	StatService.Client.LevelUp:Fire(player)
+	PlayerService.Client.PatchPlayer:Fire(player, patch)
 end
 
 function StatService:AddXpToAllPlayers(xp)
@@ -182,7 +185,10 @@ function StatService:AddXpToPlayer(state, player, xp)
 	if newXp >= playerData.xpRequired then
 		levelUp(state, player, newXp)
 	else
-		store:dispatch(storeActions.PatchPlayer(userId, { currentXp = newXp }))
+		local patch = { currentXp = newXp }
+
+		store:dispatch(storeActions.PatchPlayer(userId, patch))
+		PlayerService.Client.PatchPlayer:Fire(player, patch)
 	end
 end
 
@@ -272,17 +278,37 @@ end
 
 -- AUGMENTS
 
-function StatService.Client:RerollAugment(player)
-	if not currentAugments[player.UserId] then
-		print(player.Name .. " No Augments ready ")
-		return
-	end
+-- Generate a patch of the specified augment
+local function augmentPatch(state, userId, modStat, value)
+	local playerData = state.players[userId]
 
+	-- Get stat
+	local stat = playerData.augments[modStat]
+	local newStat = stat + value
+
+	local patch = { [modStat] = newStat }
+	return patch
+end
+
+-- Debug func
+function StatService:AddAugmentStat(userId, modStat, value)
+	local state = store:getState()
+
+	local patch = augmentPatch(state, userId, modStat, value)
+	store:dispatch(storeActions.PatchAugment(userId, patch))
+end
+
+function StatService.Client:RerollAugment(player)
 	local state = store:getState()
 	local playerData = state.players[player.UserId]
 
+	if not playerData.currentAugments then
+		print(player.Name .. " No Augments ready")
+		return
+	end
+
 	if playerData.sticks.Value < 10 then
-		print(player.Name .. "Not enough Sticks")
+		print(player.Name .. " Not enough Sticks")
 		return
 	end
 
@@ -292,37 +318,100 @@ function StatService.Client:RerollAugment(player)
 	PlayerService:SubtractCurrency(player, PlayerService.CURRENCIES.sticks, 10)
 end
 
-function StatService.Client:PickAugment(index)
-	-- TODO
+local function finishAugmentPick(player)
+	local userId = player.UserId
+
+	-- Reset Player State
+	local patch = { state = PlayerService.PLAYER_STATE.playing }
+
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	PlayerService.Client.PatchPlayer:Fire(player, patch)
+
+	player.Character:MoveTo(positionStart[userId])
+	positionStart[userId] = nil
+
+	lifeRegenUpdates[userId]:Connect()
+end
+
+-- Send Augments to Client -> Display
+local function sendAugments(state, player)
+	local userId = player.UserId
+
+	local augmentChoices = state.players[userId].currentAugments
+
+	local patch = { currentAugments = augmentChoices }
+	PlayerService.Client.PatchPlayer:Fire(player, patch)
+end
+
+function StatService.Client:PickAugment(player, index)
+	local userId = player.UserId
+	local state = store:getState()
+	local playerData = state.players[userId]
+
+	-- Validation
+	local augment = playerData.currentAugments[index]
+	assert(augment, player.Name .. " Augment not ready")
+
+	local waitingLevel = playerData.waitingLevel
+	assert(waitingLevel > 0, player.Name .. " No waiting Level")
+
+	print(player.Name .. " Choosed : " .. index)
+
+	-- Level
+	local level = playerData.level
+	level += 1
+	waitingLevel -= 1
+
+	--Add Augment Stats
+	local augmentPatch = augmentPatch(state, userId, augment.modStat, augment.value)
+	store:dispatch(storeActions.PatchAugment(userId, augmentPatch))
+	-- Replicate to Client -> Display Augment stats client side
+
+	local patch = { level = level, waitingLevel = waitingLevel, currentAugments = nil }
+
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	PlayerService.Client.PatchPlayer:Fire(player, patch)
+
+	local newState = store:getState() -- needed?
+
+	-- Generate augments for next Level
+	StatService:GenerateAugments(newState, player)
+
+	local newState2 = store:getState() -- needed?
+
+	-- Additional Levels
+	if waitingLevel > 0 then
+		sendAugments(newState2, player)
+		return
+	end
+
+	finishAugmentPick(player)
 end
 
 -- Player start choosing Augment
 function StatService.Client:StartAugmentPick(player)
 	local userId = player.UserId
+	local state = store:getState()
+	local playerData = state.players[userId]
 
-	if not currentAugments[userId] then
-		print("No Augments ready for : " .. player.Name)
-		return
-	end
+	-- Validations
+	assert(playerData.currentAugments, player.Name .. " No Augments ready")
+
+	local waitingLevel = playerData.waitingLevel
+	assert(waitingLevel > 0, player.Name .. " No waiting Level")
 
 	-- print(player.Name .. " Is Picking Augment...")
-	positionStart[userId] = player.Character.HumanoidRootPart.CFrame.Position
+	-- Picking Augment State
+	positionStart[userId] = player.Character.HumanoidRootPart.CFrame.Position -- Movements are disabled client side
 
-	-- TODO : Disable LifeRegen
+	lifeRegenUpdates[userId]:Disconnect()
 
 	local patch = { state = PlayerService.PLAYER_STATE.pickingAugment }
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
-end
 
-function StatService:AddAugmentStat(userId, modStat, value)
-	local state = store:getState()
+	local newState = store:getState()
 
-	-- Get stat
-	local stat = state.players[userId].augments[modStat]
-	local newStat = stat + value
-
-	local patch = { [modStat] = newStat }
-	store:dispatch(storeActions.PatchAugment(userId, patch))
+	sendAugments(newState, player)
 end
 
 local function getWeights(luck)
@@ -349,11 +438,11 @@ local function getWeights(luck)
 	return weights
 end
 
-local function rollRarity()
-	local totalWeight = Gears.sumTable(weights)
+local function rollRarity(weights, totalWeight)
 	local roll = math.random(0, totalWeight)
 	local count = 1
 	local currentCheck = weights[1]
+
 	while roll > currentCheck do
 		count += 1
 		currentCheck += weights[count]
@@ -362,76 +451,61 @@ local function rollRarity()
 	return AUGMENTS.rarity[count]
 end
 
-local function getAugment()
-	local rarity = rollRarity()
+-- TODO : Ban list
+local function getAugment(rarity, banList)
+	-- Build Possible List
+	local possibleList = {}
 
-	-- FindAugment
-	local augmentRoll = math.random(1, #AUGMENTS.augmentType)
-	local augmentType = AUGMENTS.augmentType[augmentRoll]
-	local augmentValue = AUGMENTS[augmentType][rarity]
-
-	-- TODO Find List of Possible Augments
-	if not augmentValue then
-		-- print(augmentType .. " Doesn't have : " .. rarity .. " Version")
-		return FindAugment()
+	for _, modStat in MOD_STATS do
+		if not table.find(banList, modStat) and AUGMENTS[modStat][rarity] then
+			table.insert(possibleList, modStat)
+		end
 	end
 
-	return { augmentType, rarity, augmentValue }
-end
+	-- FindAugment
+	local augmentRoll = math.random(1, #possibleList)
+	local augmentType = possibleList[augmentRoll]
+	local augmentValue = AUGMENTS[augmentType][rarity]
 
-local function rollAugments(luck)
-	-- print("Rolling Augments with : " .. luck .. " Luck")
+	local augment = Gears.deepCopy(AUGMENT)
+	augment.modStat = augmentType
+	augment.rarity = rarity
+	augment.value = augmentValue
 
-	local weights = getWeights()
-
-	local augmentChoices = { getAugment(), getAugment(), getAugment() }
-
-	return augmentChoices
+	return augment
 end
 
 -- Make the next set of Augments available
-local function sendAugments(player)
-	local state = store:getState()
+function StatService:GenerateAugments(state, player)
 	local userId = player.UserId
 	local playerData = state.players[userId]
 
-	local augments = rollAugments(playerData.stats.luck)
-	currentAugments[userId] = augments
+	local weights = getWeights(playerData.stats.luck)
+	local totalWeight = Gears.sumTable(weights)
 
-	-- rerollEvent:FireClient(player, augments)
+	local banList = {} -- Avoid Generating the Same Augment Type
+
+	local augment1 = getAugment(rollRarity(weights, totalWeight))
+	table.insert(banList, augment1.modStat)
+
+	local augment2 = getAugment(rollRarity(weights, totalWeight), banList)
+	table.insert(banList, augment2.modStat)
+
+	local augment3 = getAugment(rollRarity(weights, totalWeight), banList)
+
+	local augmentChoices = {
+		augment1,
+		augment2,
+		augment3,
+	}
+
+	local patch = { currentAugments = augmentChoices }
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	-- TODO : Augment Generated Event(max rarity color)
 end
 
-local function AugmentPick(player, choiceNbr)
-	if not currentAugments[player.UserId] then
-		print("No Augments ready for : " .. player.Name)
-		return
-	end
-
-	-- Update Level
-	-- print(player.Name .. " Choosed : " .. choiceNbr)
-	local playerStat = playersStats[player.UserId]
-	playerStat.level += 1
-	playerStat.waitingLevel -= 1
-	augmentPick:FireClient(player, playerStat.level, playerStat.waitingLevel)
-
-	--Add Augment Stats
-	local augment = currentAugments[player.UserId][choiceNbr]
-	-- Check Augment Or Artifact -> #augment
-
-	playersStats.AddStat(player, playerStat, augment[1], augment[3]) -- Augment Type & Value
-	currentAugments[player.UserId] = nil
-
-	-- Additional Levels
-	if playerStat.waitingLevel > 0 then
-		playersStats.SendAugment(player, playerStat)
-		playerStat.lifeRegenUpdate:Disconnect() -- TODO : Refactor
-		return
-	end
-
-	player.Character:MoveTo(positionStart[player.UserId])
-	positionStart[player.UserId] = nil
-	playersStats[player.UserId].pickingAugment = false
-end
+-- ARTIFACTS
+-- ...
 
 -- CALCULATIONS
 
