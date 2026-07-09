@@ -1,5 +1,4 @@
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
@@ -8,6 +7,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 -- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
+local selectors = RoduxStore.Selectors
 -- local storeActions = RoduxStore.Actions
 
 local PlayerService
@@ -47,13 +47,37 @@ local function attackFeedback(weaponData, isCrit)
 	-- VFX
 	weaponData.attackVFX:Emit(5)
 
-	-- Attack SFX
+	-- SFX
 	if isCrit then
 		Gears.safePlaySound(weaponData.sounds.crit)
 		return
 	end
 
 	Gears.safePlaySound(weaponData.sounds.slash)
+end
+
+local function rollCrit(playerStats)
+	local isCrit = false
+	local critRoll = math.random(0, 100)
+	-- print("Crit roll : " .. critRoll .. " Crit Chance : " .. playerStats.critChance)
+
+	if critRoll <= playerStats.critChance then
+		isCrit = true
+	end
+
+	return isCrit
+end
+
+local function rollAttackDamage(playerStats, isCrit)
+	-- Attack Damage
+	local damage = playerStats.attackDamage
+
+	if isCrit then
+		damage *= Gears.increaseToMultiplier(playerStats.critMultiplier)
+		-- print("Crit " .. damage)
+	end
+
+	return damage
 end
 
 -- 5) HitDetection + Damage + Feeback
@@ -64,41 +88,32 @@ local function attackHit(player, playerStats, weaponData)
 	local playerPos = character.HumanoidRootPart.CFrame.Position
 
 	-- Hit Position
-	local closestEnemy = playersClosestEnemy[userId]
+	-- local closestEnemy = playersClosestEnemy[userId]
 
-	local playerToEnemyDirection = vector.normalize(closestEnemy.CFrame.Position - playerPos)
+	-- local playerToEnemyDirection = vector.normalize(closestEnemy.CFrame.Position - playerPos)
 
-	local hitDistance = vector.magnitude(weaponData.attackPoint.WorldCFrame.Position - playerPos)
-	local attackPosition = playerToEnemyDirection * hitDistance
-	-- local attackPosition = weaponData.attackPoint.WorldCFrame.Position
+	-- local hitDistance = vector.magnitude(weaponData.attackPoint.WorldCFrame.Position - playerPos)
+	-- local attackPosition = playerToEnemyDirection * hitDistance
+
+	local attackPosition = weaponData.attackPoint.WorldCFrame.Position
 
 	-- Hits Detection
 	local hits = workspace:GetPartBoundsInRadius(attackPosition, playerStats.aoe, weaponHitParam)
-	local humanoidsHit = {} -- Avoid hitting the same Enemy twice
 
 	-- Debug HitZone
 	Gears.executeFor(0.5, function()
 		Gears.drawSphere(attackPosition, playerStats.aoe)
 	end)
 
-	if #humanoidsHit <= 0 then
+	local isCrit = rollCrit(playerStats)
+
+	if #hits <= 0 then
+		attackFeedback(weaponData, isCrit)
 		return
 	end
 
-	-- Attack Damage
-	local damage = playerStats.attackDamage
-
-	-- Roll Crit
-	local isCrit = false
-	local critRoll = math.random(0, 100)
-	-- print("Crit roll : " .. critRoll .. " Crit Chance : " .. playerStats.critChance)
-
-	if critRoll <= playerStats.critChance then
-		damage *= Gears.increaseToMultiplier(playerStats.critMultiplier)
-		-- print("Crit " .. damage)
-		weaponData.sounds.crit:Play()
-		isCrit = true
-	end
+	local damage = rollAttackDamage(playerStats, isCrit)
+	local humanoidsHit = {} -- Avoid hitting the same Enemy twice
 
 	for _, hit in ipairs(hits) do
 		-- print("Hit Part: " .. hit.Name)
@@ -119,12 +134,9 @@ local function attackHit(player, playerStats, weaponData)
 		-- print(player.Name .. " Hit : " .. humanoid.Parent.Name)
 	end
 
-	-- Feedback
 	attackFeedback(weaponData, isCrit)
 end
 
--- 4) Attack Callback with server validation
--- After Animation
 local function incrementCombo(player, weaponData)
 	local userId = player.UserId
 	comboIndexes[userId] = (comboIndexes[userId] + 1) % weaponData.maxCombo
@@ -140,6 +152,8 @@ local function incrementCombo(player, weaponData)
 	-- end)
 end
 
+-- 4) Attack Callback with server validation
+-- After Animation
 local function attackCallback(player)
 	local userId = player.UserId
 	local state = store:getState()
@@ -173,17 +187,13 @@ end
 
 -- 2) Server Validation + Setup Expected Attack
 -- Player is asking to Attack using their Weapon
-local function attackValidation(player)
-	local userId = player.UserId
-	local state = store:getState()
-
-	local playerStats = state.players[userId].stats
-	local weaponData = state.players[userId].weaponData
-
+local function attackValidation(player, playerStats, weaponData)
 	if not playerStats or not weaponData then
 		-- warn("No playerStats or weaponData")
 		return
 	end
+
+	local userId = player.UserId
 
 	-- TODO : Measure animations using frames instead of time
 	local currentTime = tick()
@@ -218,17 +228,31 @@ local function attackValidation(player)
 	startAttack()
 end
 
+function CombatService.Client:AttackValidation(player)
+	local state = store:getState()
+	local playerData = state.players[player.UserId]
+	local playerStats, weaponData = selectors.PlayerStats(playerData)
+
+	attackValidation(player, playerStats, weaponData)
+end
+
 local function findClosestEnemies()
 	local playersDetections = PlayerService.PlayersDetections
 
 	for _, player in pairs(Players:GetPlayers()) do
 		local userId = player.UserId
 
+		local playerDetection = playersDetections[userId]
+
+		if not playerDetection then
+			return
+		end
+
 		-- Find Closest Enemy
 		local closestDistance = math.huge
 		local closestEnemy = nil
 
-		for enemy, distance in pairs(playersDetections[userId]) do
+		for enemy, distance in pairs(playerDetection) do
 			if distance < closestDistance then
 				closestDistance = distance
 				closestEnemy = enemy
@@ -245,11 +269,22 @@ local function autoTarget(state)
 		local userId = player.UserId
 		local closestEnemy = playersClosestEnemy[userId]
 
+		if not closestEnemy then
+			return
+		end
+
 		local character = player.Character or player.CharacterAdded:Wait()
 		local playerPos = character.HumanoidRootPart.CFrame.Position
 
 		-- Check closestDistance
 		-- > StartAttack
+		local targetDistance = closestEnemy.CFrame.Position - playerPos
+
+		local playerStats, weaponData = selectors.PlayerStats(state, player)
+
+		if weaponData and targetDistance <= playerStats.aoe then
+			-- attackValidation(player, playerStats, weaponData)
+		end
 	end
 end
 
@@ -264,7 +299,7 @@ function CombatService:KnitInit()
 	print("CombatService Init")
 
 	self.Client.startAttack:Connect(function(player)
-		attackValidation(player)
+		-- attackValidation(player)
 	end)
 
 	self.Client.finishAttack:Connect(function(player)

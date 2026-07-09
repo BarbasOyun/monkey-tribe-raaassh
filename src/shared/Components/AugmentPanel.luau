@@ -1,23 +1,28 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Roact = require(ReplicatedStorage.Shared.Roact)
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local Gears = require(ReplicatedStorage.Shared.Gears)
 
 local StatService = Knit.GetService("StatService")
 local PlayerController = Knit.GetController("PlayerController")
 local AUGMENTS = PlayerController.AUGMENTS
-local DISPLAY_TEXT = PlayerController.DISPLAY_TEXT
+local STATS_DISPLAY = PlayerController.STATS_DISPLAY
 
 local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
 
 local AugmentPanel = Roact.Component:extend("AugmentPanel")
 
+-- Rarity
+-- Value
+-- ModStat
 local function augmentCard(props)
 	local xSize = props.xSize
-	local size = UDim2.fromScale(xSize, 0.5)
+	local size = UDim2.fromScale(xSize, 0.75)
 
 	local color = props.color or AUGMENTS.colors[AUGMENTS.rarity.common]
-	local title = props.title or "Augment"
+	local rarity = props.rarity
 	local value = props.value or "0"
+	local modStat = props.modStat or "Augment"
 
 	local index = props.index
 
@@ -29,17 +34,30 @@ local function augmentCard(props)
 		Size = size,
 		Text = "",
 		[Roact.Event.MouseButton1Click] = onClick,
-		Font = Enum.Font.Bangers,
-		TextColor3 = Color3.new(),
 		BackgroundColor3 = color,
 		BorderColor3 = Color3.new(0.15, 0.1, 0.0),
-		BorderSizePixel = 10,
+		BorderSizePixel = 3,
 	}, {
-		Title = textLabel({
-			text = title,
+		Rarity = textLabel({
+			text = rarity,
+			textColor = Color3.new(0, 0, 0),
+			textStrokeTransparency = 1,
+			size = UDim2.fromScale(0.9, 0.2),
+			position = UDim2.fromScale(0.05, 0.1),
 		}),
 		Value = textLabel({
 			text = value,
+			textColor = Color3.new(0, 0, 0),
+			textStrokeTransparency = 1,
+			size = UDim2.fromScale(0.9, 0.35),
+			position = UDim2.fromScale(0.05, 0.3),
+		}),
+		ModStat = textLabel({
+			text = modStat,
+			textColor = Color3.new(0, 0, 0),
+			textStrokeTransparency = 1,
+			size = UDim2.fromScale(0.9, 0.35),
+			position = UDim2.fromScale(0.05, 0.65),
 		}),
 	})
 end
@@ -47,16 +65,19 @@ end
 function AugmentPanel:cardsPanel()
 	local augmentsCards = {}
 
-	local columns = #self.augments
-	local gapSize = 0.5
-	local cardXSize = columns + gapSize * (columns - 1)
+	local augments = self.state.augments
 
-	for index, augment in pairs(self.augments) do
+	local columns = #augments
+	local gapSize = 0.5
+	local cardXSize = Gears.elementXSize(false, columns, gapSize)
+
+	for index, augment in pairs(augments) do
 		local augmentCard = augmentCard({
 			xSize = cardXSize,
-			title = DISPLAY_TEXT[augment.modStat],
 			color = AUGMENTS.colors[augment.rarity],
+			rarity = augment.rarity,
 			value = augment.value,
+			modStat = STATS_DISPLAY[augment.modStat],
 			index = index,
 		})
 
@@ -64,12 +85,14 @@ function AugmentPanel:cardsPanel()
 	end
 
 	return Roact.createElement("Frame", {
-		Position = UDim2.fromScale(0.0, 0.0),
-		Size = UDim2.fromScale(1.0, 1.0),
+		Position = UDim2.fromScale(0.0, 0.3),
+		Size = UDim2.fromScale(1.0, 0.7),
+		BackgroundTransparency = 1,
 	}, {
 		Layout = Roact.createElement("UIListLayout", {
-			-- Props for UIListLayout...
-			-- gapSize = cardXSize * gapSize
+			FillDirection = "Horizontal",
+			VerticalAlignment = "Center",
+			Padding = UDim.new(cardXSize * gapSize),
 		}),
 		ListItems = Roact.createFragment(augmentsCards),
 	})
@@ -85,32 +108,45 @@ end
 function AugmentPanel:didMount()
 	local StatService = Knit.GetService("StatService")
 
-	self.eventConnection = StatService.NewAugments:Connect(function(patch)
+	self.startEventConnection = StatService.NewAugments:Connect(function(augmentChoices)
+		warn(augmentChoices)
 		self:setState({
 			isVisible = true,
-			augments = patch.currentAugments,
+			augments = augmentChoices,
+		})
+	end)
+
+	self.endEventConnection = StatService.FinishPickingAugments:Connect(function(patch)
+		self:setState({
+			isVisible = false,
 		})
 	end)
 end
 
 function AugmentPanel:willUnmount()
-	if self.eventConnection then
-		self.eventConnection:Disconnect()
+	if self.startEventConnection then
+		self.startEventConnection:Disconnect()
+	end
+
+	if self.endEventConnection then
+		self.endEventConnection:Disconnect()
 	end
 end
 
 function AugmentPanel:render()
+	-- Main Panel
 	return Roact.createElement("Frame", {
-		Position = UDim2.fromScale(0.125, 0.125),
-		Size = UDim2.fromScale(0.75, 0.75),
+		Position = UDim2.fromScale(0.125, 0.0),
+		Size = UDim2.fromScale(0.75, 0.9),
 		BackgroundTransparency = 1,
 	}, {
 		Title = self.state.isVisible and textLabel({
 			text = "Choose an Augment",
-			transparency = 1,
-			size = UDim2.fromScale(1, 1),
+			-- transparency = 1,
+			size = UDim2.fromScale(0.75, 0.25),
+			position = UDim2.fromScale(0.125, 0.0),
 		}),
-		CardsPanel = self.state.isVisible and AugmentPanel:cardsPanel(),
+		CardsPanel = self.state.isVisible and self:cardsPanel(),
 	})
 end
 

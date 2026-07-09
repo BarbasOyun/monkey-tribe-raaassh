@@ -81,9 +81,9 @@ local MULT_STATS_STORE = {
 local DEFAULT_STATS = {
 	-- Offense
 	increasedAttackDamage = 0,
+	increasedAttackSpeed = 0,
 	critChance = 5,
 	critMultiplier = 50,
-	increasedAttackSpeed = 0,
 	increasedAoe = 0,
 	-- Defense
 	maxLife = 100,
@@ -191,11 +191,11 @@ local AUGMENTS = {
 	baseLuckValue = 200,
 	luckPoints = { 0, 75, 150, 180, 195 },
 	rarity = {
-		common = "common",
-		uncommon = "uncommon",
-		rare = "rare",
-		epic = "epic",
-		legendary = "legendary",
+		"common",
+		"uncommon",
+		"rare",
+		"epic",
+		"legendary",
 	},
 	colors = {
 		common = Color3.fromRGB(155, 155, 155),

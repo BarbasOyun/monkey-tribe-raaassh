@@ -66,6 +66,27 @@ local Actions = {
 	end,
 }
 
+local Selectors = {
+	PlayerData = function(state, userId)
+		return state.players[userId]
+	end,
+
+	PlayerStats = function(playerData)
+		local playerStats = playerData.stats
+		local weaponData = playerData.weaponData
+
+		return playerStats, weaponData
+	end,
+
+	PlayerPowerSystems = function(playerData)
+		local augments = playerData.augments
+		local metaUpgrades = playerData.metaUpgrades
+		-- Gear
+
+		return augments, metaUpgrades
+	end,
+}
+
 -- RODUX REDUCERS
 
 local playerReducer = Rodux.createReducer({}, {
@@ -193,4 +214,5 @@ local store = Rodux.Store.new(masterReducer, nil, {
 return {
 	Store = store,
 	Actions = Actions,
+	Selectors = Selectors,
 }

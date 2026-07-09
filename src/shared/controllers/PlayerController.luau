@@ -1,4 +1,3 @@
--- local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
@@ -21,6 +20,8 @@ local ItemService
 
 local player = Players.LocalPlayer
 -- local camera = workspace.CurrentCamera
+local PlayerScripts = game.Players.LocalPlayer:WaitForChild("PlayerScripts")
+local Controls = require(PlayerScripts:WaitForChild("PlayerModule")):GetControls() -- Rojo error
 
 -- Character
 local character = player.Character or player.CharacterAdded:Wait()
@@ -30,6 +31,7 @@ local animationTracks = {}
 
 -- UI
 local playerGui = player:WaitForChild("PlayerGui")
+local blur = nil
 
 -- Sounds
 local soundFolder = playerGui.ClientSounds
@@ -116,7 +118,7 @@ local function setupControls()
 			isLClickDown = true
 		end
 
-		if input.KeyCode == Enum.KeyCode.A then
+		if input.KeyCode == Enum.KeyCode.Q then
 			StatService.StartAugmentPick()
 		end
 
@@ -146,7 +148,8 @@ local function setupAttack()
 	RunService.Heartbeat:Connect(function()
 		if isLClickDown then
 			-- print(player.Name .. " Ask Server to Attack")
-			CombatService.startAttack:Fire()
+			-- CombatService.startAttack:Fire()
+			CombatService:AttackValidation()
 		end
 	end)
 
@@ -157,7 +160,7 @@ local function setupAttack()
 	end)
 end
 
--- LINK SERVICES
+-- SERVICES
 
 function PlayerController:BuyUpgrade(upgradeType)
 	StatService:BuyMetaUpgrade(upgradeType)
@@ -221,11 +224,26 @@ local function setupStatService()
 	end)
 
 	-- Augments
-	StatService.NewAugments:Connect(function(patch)
-		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+	StatService.NewAugments:Connect(function(augmentChoices)
+		-- Picking Augment State
+		if not blur then
+			local lighting = game.Lighting
+			blur = Instance.new("BlurEffect")
+			blur.Size = 10
+			blur.Parent = lighting
+		end
+
+		-- augmentMenuSound:Play()
+
+		Controls:Disable()
+		-- store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 	end)
 
-	StatService.FinishPickingAugment:Connect(function(patch)
+	StatService.FinishPickingAugments:Connect(function(patch)
+		-- Playing State
+		blur:Destroy()
+		Controls:Enable()
+
 		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 	end)
 end

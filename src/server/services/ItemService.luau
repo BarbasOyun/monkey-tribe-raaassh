@@ -11,6 +11,16 @@ local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
 local storeActions = RoduxStore.Actions
 
+-- Get Items Data
+local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
+local itemDefinitions = itemDef.itemDefinitions
+local itemStore = itemDef.itemStore
+local itemTypes = itemDef.itemTypes
+local itemPrefabs = itemDef.itemPrefabs
+
+local PlayerService
+local StatService
+
 local ItemService = Knit.CreateService({
 	Name = "ItemService",
 	ItemStore = nil, -- Hold an ItemStore for other services -> ensure item spawn
@@ -23,16 +33,6 @@ local ItemService = Knit.CreateService({
 		UnequipWeapon = Knit.CreateSignal(),
 	},
 })
-
--- Get Items Data
-local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-local itemDefinitions = itemDef.itemDefinitions
-local itemStore = itemDef.itemStore
-local itemTypes = itemDef.itemTypes
-local itemPrefabs = itemDef.itemPrefabs
-
-local PlayerService
-local StatService
 
 -- ITEM SERVICE DEFINITIONS
 

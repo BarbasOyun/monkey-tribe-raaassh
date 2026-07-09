@@ -21,6 +21,8 @@ function gears.deepCopy(original)
 	return copy
 end
 
+-- TABLES
+
 function gears.joinTable(table1, table2)
 	for _, element in pairs(table2) do
 		table.insert(table1, element)
@@ -51,6 +53,16 @@ function gears.findWhere(table, condition)
 	end
 
 	return nil
+end
+
+function gears.tableSize(t)
+	local count = 0
+
+	for _ in pairs(t) do
+		count = count + 1
+	end
+
+	return count
 end
 
 -- INSTANCES / WORLD OBJECT
@@ -199,8 +211,9 @@ end
 -- y = 3, z = 0.5
 -- 1 = x * 3 + x * 0.5 * (3 - 1) -> 1 = 3x + 1x
 -- -> x = 1 / 4 = 0.25
-function gears.elementSize(hasSideGaps, columns, gapSize)
-	local elementXSize = hasSideGaps and columns + gapSize * (columns + 1) or columns + gapSize * (columns - 1)
+function gears.elementXSize(hasSideGaps, columns, gapSize)
+	local divisor = hasSideGaps and columns + gapSize * (columns + 1) or columns + gapSize * (columns - 1)
+	local elementXSize = 1 / divisor
 	return elementXSize
 end
 
