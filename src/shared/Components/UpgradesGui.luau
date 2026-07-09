@@ -5,10 +5,9 @@ local RoactRodux = require(ReplicatedStorage.Shared.RoactRodux)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
 local PlayerController = Knit.GetController("PlayerController")
--- local STATS_STORE = PlayerController.StatsStore
-local MOD_STATS_STORE = PlayerController.ModStatsStore
-local STATS_DISPLAY = PlayerController.StatsDisplay
-local META_UPRGADES = PlayerController.MetaUpgrades
+local MOD_STATS_STORE = PlayerController.MOD_STATS_STORE
+local STATS_DISPLAY = PlayerController.STATS_DISPLAY
+local META_UPRGADES = PlayerController.META_UPRGADES
 
 local upgradesBoard = workspace.Main.UpgradeBoard.Board
 local player = Players.LocalPlayer

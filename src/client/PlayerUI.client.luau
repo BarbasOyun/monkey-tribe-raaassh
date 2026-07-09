@@ -41,30 +41,7 @@ local function image(props)
 	})
 end
 
--- Controls
-local controlsText = textLabel({
-	text = "WASD = Movements\nSpace = Jump\n123... = Equip Weapon\nA = Open Augment Menu\nF = Center Camera\nT = Toggle Music",
-	size = UDim2.fromScale(1, 1),
-})
-
--- Wiki
--- ...
-
--- Shop
-local hundredDonationProps = {
-	text = "Donate\n100 Robux",
-	onClick = function()
-		MarketplaceService:PromptProductPurchase(player, hundredDonationId)
-	end,
-}
-
-local thousandDonationProps = {
-	text = "Donate\n1 000 Robux",
-	onClick = function()
-		MarketplaceService:PromptProductPurchase(player, thousandDonationId)
-	end,
-}
-
+-- Main Gui
 -- Bananas Count
 local bananaImageProps = {
 	position = UDim2.fromScale(0.77, 0),
@@ -90,6 +67,33 @@ end)(textLabel)
 
 local enteringGameLabel = require(ReplicatedStorage.Shared.Components.EnteringGame)
 
+local levelUpLabel = require(ReplicatedStorage.Shared.Components.LevelUpLabel)
+local augmentPanel = require(ReplicatedStorage.Shared.Components.AugmentPanel)
+
+-- Controls
+local controlsText = textLabel({
+	text = "WASD = Movements\nSpace = Jump\n123... = Equip Weapon\nA = Open Augment Menu\nF = Center Camera\nT = Toggle Music",
+	size = UDim2.fromScale(1, 1),
+})
+
+-- Wiki
+-- ...
+
+-- Shop
+local hundredDonationProps = {
+	text = "Donate\n100 Robux",
+	onClick = function()
+		MarketplaceService:PromptProductPurchase(player, hundredDonationId)
+	end,
+}
+
+local thousandDonationProps = {
+	text = "Donate\n1 000 Robux",
+	onClick = function()
+		MarketplaceService:PromptProductPurchase(player, thousandDonationId)
+	end,
+}
+
 -- FINAL GUIS
 
 local function mainGui()
@@ -97,6 +101,8 @@ local function mainGui()
 		EnteringGameLabel = Roact.createElement(enteringGameLabel),
 		Bananas = Roact.createElement(BananasMain),
 		BananaImage = image(bananaImageProps),
+		LevelUpLabel = Roact.createElement(levelUpLabel),
+		AugmentPanel = Roact.createElement(augmentPanel),
 	})
 end
 

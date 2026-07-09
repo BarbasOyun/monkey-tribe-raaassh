@@ -89,10 +89,10 @@ local STATS_STRUCT = {
 	pickupRange = 10,
 }
 
-local AUGMENT = {
+AUGMENT = {
 	modStat = "",
 	rarity = "",
-	value = "",
+	value = 0,
 }
 
 local StatService = Knit.CreateService({
@@ -104,6 +104,8 @@ local StatService = Knit.CreateService({
 	Client = {
 		MetaUpgradesChanged = Knit.CreateSignal(),
 		LevelUp = Knit.CreateSignal(),
+		NewAugments = Knit.CreateSignal(),
+		FinishPickingAugments = Knit.CreateSignal(),
 	},
 })
 
@@ -137,20 +139,21 @@ local function levelUp(state, player, currentXp)
 	-- Compute XP
 	local overXp = currentXp
 
-	local newXpRequired = playerData.xpRequired
 	local newWaitingLevel = playerData.waitingLevel
+	local newXpRequired = playerData.xpRequired
 
 	-- Manage Additional LevelUps + Validate
 	while overXp >= newXpRequired do
 		overXp = overXp - newXpRequired
-		newXpRequired *= 1.1
 		newWaitingLevel += 1
+		newXpRequired *= 1.1
 	end
 
-	local patch = { currentXp = overXp, xpRequired = newXpRequired, waitingLevel = newWaitingLevel }
-	store.dispatch(storeActions.PatchPlayer(userId, patch))
+	-- Patch
+	local patch = { waitingLevel = newWaitingLevel, currentXp = overXp, xpRequired = newXpRequired }
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
 
-	PlayerService.Client.PatchPlayer:Fire(player, patch)
+	StatService.Client.LevelUp:Fire(player, patch)
 end
 
 function StatService:AddXpToAllPlayers(xp)
@@ -322,15 +325,15 @@ local function finishAugmentPick(player)
 	local userId = player.UserId
 
 	-- Reset Player State
-	local patch = { state = PlayerService.PLAYER_STATE.playing }
-
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
-	PlayerService.Client.PatchPlayer:Fire(player, patch)
-
 	player.Character:MoveTo(positionStart[userId])
 	positionStart[userId] = nil
 
 	lifeRegenUpdates[userId]:Connect()
+
+	local patch = { state = PlayerService.PLAYER_STATE.playing }
+
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	StatService.Client.FinishPickingAugment:Fire(player, patch)
 end
 
 -- Send Augments to Client -> Display
@@ -340,7 +343,7 @@ local function sendAugments(state, player)
 	local augmentChoices = state.players[userId].currentAugments
 
 	local patch = { currentAugments = augmentChoices }
-	PlayerService.Client.PatchPlayer:Fire(player, patch)
+	StatService.Client.NewAugments:Fire(player, patch)
 end
 
 function StatService.Client:PickAugment(player, index)
@@ -501,7 +504,7 @@ function StatService:GenerateAugments(state, player)
 
 	local patch = { currentAugments = augmentChoices }
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
-	-- TODO : Augment Generated Event(max rarity color)
+	-- TODO : Augment Generated Event(maxRarityColor)
 end
 
 -- ARTIFACTS
@@ -650,7 +653,7 @@ local statsCalculation = {
 		end
 
 		if lifeRegen > 0 and playersLife[userId] then
-			lifeRegenUpdates[userId] = RunService.Heartbeat:Connect(function()
+			lifeRegenUpdates[userId] = RunService.Heartbeat:Connect(function() -- Put in PlayerServiceUpdate?
 				playersLife[userId] += lifeRegen / 60 -- 60 FPS
 			end)
 		end

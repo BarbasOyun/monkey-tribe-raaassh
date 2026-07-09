@@ -13,21 +13,6 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 
 -- Get Stats Authoring Data
 local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
--- stores
-local STATS_STORE = statsData.STATS_STORE
-local MOD_STATS_STORE = statsData.MOD_STATS_STORE
--- authoring data
-local STATS_DISPLAY = statsData.STATS_DISPLAY
-local META_UPRGADES = statsData.META_UPRGADES
-
-local PlayerController = Knit.CreateController({
-	Name = "PlayerController",
-	StatsStore = STATS_STORE,
-	ModStatsStore = MOD_STATS_STORE,
-	StatsDisplay = STATS_DISPLAY,
-	MetaUpgrades = META_UPRGADES,
-})
-PlayerController.store = store
 
 local PlayerService
 local StatService
@@ -35,7 +20,9 @@ local CombatService
 local ItemService
 
 local player = Players.LocalPlayer
-local camera = workspace.CurrentCamera
+-- local camera = workspace.CurrentCamera
+
+-- Character
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local animator = humanoid:WaitForChild("Animator")
@@ -54,6 +41,17 @@ local music = soundFolder.Music
 -- Controls
 -- TODO : StateMachine -> States define controls
 local isLClickDown = false
+
+local PlayerController = Knit.CreateController({
+	Name = "PlayerController",
+	-- Stores
+	STATS_STORE = statsData.STATS_STORE,
+	MOD_STATS_STORE = statsData.MOD_STATS_STORE,
+	-- Authoring Data
+	STATS_DISPLAY = statsData.STATS_DISPLAY,
+	META_UPRGADES = statsData.META_UPRGADES,
+	AUGMENTS = statsData.AUGMENTS,
+})
 
 -- ANIMATIONS -> AnimationController
 
@@ -96,6 +94,17 @@ end
 
 -- CONTROLS
 
+local function toggleMusic(isEnabled)
+	if isEnabled then
+		music:Play()
+	else
+		music:Stop()
+	end
+
+	store:dispatch(storeActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
+	PlayerService:ToggleMusic(isEnabled)
+end
+
 local function setupControls()
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		--print("Input detected: " .. tostring(input.UserInputType) .. "Game processed: " .. tostring(gameProcessed))
@@ -107,18 +116,17 @@ local function setupControls()
 			isLClickDown = true
 		end
 
+		if input.KeyCode == Enum.KeyCode.A then
+			StatService.StartAugmentPick()
+		end
+
+		-- TODO : F = Reset Camera
+		-- Camera.CFrame = CFrame.new(newPosition)
+
 		if input.KeyCode == Enum.KeyCode.T then
 			local state = store:getState()
 			local isEnabled = not state.players[player.UserId].isMusicEnabled
-
-			if isEnabled then
-				music:Play()
-			else
-				music:Stop()
-			end
-
-			store:dispatch(storeActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
-			PlayerService:ToggleMusic(isEnabled)
+			toggleMusic(isEnabled)
 		end
 	end)
 
@@ -190,7 +198,7 @@ local function setupPlayerService()
 		store:dispatch(storeActions.RemovePlayer(userId))
 	end)
 
-	-- Local Player
+	-- Self Data
 
 	PlayerService.PatchPlayer:Connect(function(patch)
 		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
@@ -202,12 +210,24 @@ local function setupPlayerService()
 end
 
 local function setupStatService()
+	-- Level
+	StatService.LevelUp:Connect(function(patch)
+		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+	end)
+
 	-- Meta Upgrades
 	StatService.MetaUpgradesChanged:Connect(function(upgradeType, newUpgrade)
 		store:dispatch(storeActions.SetMetaUpgrade(player.UserId, upgradeType, newUpgrade))
 	end)
 
 	-- Augments
+	StatService.NewAugments:Connect(function(patch)
+		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+	end)
+
+	StatService.FinishPickingAugment:Connect(function(patch)
+		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+	end)
 end
 
 local function setupItemService()

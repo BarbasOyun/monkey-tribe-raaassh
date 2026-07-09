@@ -191,11 +191,11 @@ local AUGMENTS = {
 	baseLuckValue = 200,
 	luckPoints = { 0, 75, 150, 180, 195 },
 	rarity = {
-		common = "Common",
-		uncommon = "Uncommon",
-		rare = "Rare",
-		epic = "Epic",
-		legendary = "Legendary",
+		common = "common",
+		uncommon = "uncommon",
+		rare = "rare",
+		epic = "epic",
+		legendary = "legendary",
 	},
 	colors = {
 		common = Color3.fromRGB(155, 155, 155),

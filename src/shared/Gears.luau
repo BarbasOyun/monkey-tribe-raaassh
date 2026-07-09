@@ -180,6 +180,30 @@ end
 
 -- MATH
 
+function gears.squaredMagnitude(vector3)
+	return (vector3.X * vector3.X) + (vector3.Y * vector3.Y) + (vector3.Z * vector3.Z)
+end
+
+-- Placing Elements + Offsets/Gaps in a frame :
+-- Goal = find cellSize for perfect fit
+-- x = cellSize, y = columns, z -> offset size = cellSize * z%, Frame horizontal space = 1
+-- 1 = x * y + x * z * y -> Solve equation for x
+
+-- 1] Side Offsets
+-- 1 = x * y + x * z * (y + 1)
+
+-- 2] No Side Offsets
+-- 1 = x * y + x * z * (y - 1)
+
+-- eg : No Side Offsets 3 Elements
+-- y = 3, z = 0.5
+-- 1 = x * 3 + x * 0.5 * (3 - 1) -> 1 = 3x + 1x
+-- -> x = 1 / 4 = 0.25
+function gears.elementSize(hasSideGaps, columns, gapSize)
+	local elementXSize = hasSideGaps and columns + gapSize * (columns + 1) or columns + gapSize * (columns - 1)
+	return elementXSize
+end
+
 function gears.increaseToMultiplier(increaseValue)
 	-- eg 10% Increase -> 1.1
 	return 1 + increaseValue / 100

@@ -1,3 +1,5 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
@@ -8,30 +10,33 @@ local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
 -- local storeActions = RoduxStore.Actions
 
-local CombatService = Knit.CreateService({
-	Name = "CombatService",
-	Client = {
-		startAttack = Knit.CreateSignal(), -- Func
-		finishAttack = Knit.CreateSignal(),
-	},
-})
-
-local PlayerService = nil
-local EnemyService = nil
+local PlayerService
+local EnemyService
 
 local weaponHitParam = OverlapParams.new()
 weaponHitParam.FilterType = Enum.RaycastFilterType.Include
 weaponHitParam.FilterDescendantsInstances = { workspace.WeaponHit }
 weaponHitParam.MaxParts = 100
 
--- Per Player Combat Data
+-- Per Player Dynamic Data
+local playersClosestEnemy = {}
+
 local expectingAttack = {}
 local attackBuffer = {}
 local lastAttacks = {}
 local comboIndexes = {} -- For Weapon Animation
 local comboReset = {}
 
--- ATTACK STEPS
+local CombatService = Knit.CreateService({
+	Name = "CombatService",
+	PlayersClosestEnemy = playersClosestEnemy,
+	Client = {
+		startAttack = Knit.CreateSignal(), -- Func
+		finishAttack = Knit.CreateSignal(),
+	},
+})
+
+-- ATTACK
 -- 1) Client : Player Input -> Ask Server to Attack
 -- 2) Server : Validation + Setup Expected Attack -> startAttack Event
 -- 3) Clients : Animation
@@ -54,8 +59,36 @@ end
 -- 5) HitDetection + Damage + Feeback
 -- Context = After Validation
 local function attackHit(player, playerStats, weaponData)
-	-- Damage
+	local userId = player.UserId
+	local character = player.Character or player.CharacterAdded:Wait()
+	local playerPos = character.HumanoidRootPart.CFrame.Position
+
+	-- Hit Position
+	local closestEnemy = playersClosestEnemy[userId]
+
+	local playerToEnemyDirection = vector.normalize(closestEnemy.CFrame.Position - playerPos)
+
+	local hitDistance = vector.magnitude(weaponData.attackPoint.WorldCFrame.Position - playerPos)
+	local attackPosition = playerToEnemyDirection * hitDistance
+	-- local attackPosition = weaponData.attackPoint.WorldCFrame.Position
+
+	-- Hits Detection
+	local hits = workspace:GetPartBoundsInRadius(attackPosition, playerStats.aoe, weaponHitParam)
+	local humanoidsHit = {} -- Avoid hitting the same Enemy twice
+
+	-- Debug HitZone
+	Gears.executeFor(0.5, function()
+		Gears.drawSphere(attackPosition, playerStats.aoe)
+	end)
+
+	if #humanoidsHit <= 0 then
+		return
+	end
+
+	-- Attack Damage
 	local damage = playerStats.attackDamage
+
+	-- Roll Crit
 	local isCrit = false
 	local critRoll = math.random(0, 100)
 	-- print("Crit roll : " .. critRoll .. " Crit Chance : " .. playerStats.critChance)
@@ -66,17 +99,6 @@ local function attackHit(player, playerStats, weaponData)
 		weaponData.sounds.crit:Play()
 		isCrit = true
 	end
-
-	-- Hit Detection
-	local attackPosition = weaponData.attackPoint.WorldCFrame.Position
-
-	local hits = workspace:GetPartBoundsInRadius(attackPosition, playerStats.aoe, weaponHitParam)
-	local humanoidsHit = {} -- Avoid hitting the same Enemy twice
-
-	-- Debug HitZone
-	Gears.executeFor(0.5, function()
-		Gears.drawSphere(attackPosition, playerStats.aoe)
-	end)
 
 	for _, hit in ipairs(hits) do
 		-- print("Hit Part: " .. hit.Name)
@@ -121,9 +143,10 @@ end
 local function attackCallback(player)
 	local userId = player.UserId
 	local state = store:getState()
+	local playerData = state.players[userId]
 
-	local playerStats = state.players[userId].stats
-	local weaponData = state.players[userId].weaponData
+	local playerStats = playerData.stats
+	local weaponData = playerData.weaponData
 
 	local currentTime = tick()
 	local attackDelta = currentTime - lastAttacks[userId] -- Time between last attack and now
@@ -135,7 +158,8 @@ local function attackCallback(player)
 	end
 
 	-- Reset Player speed
-	player.Character.Humanoid.WalkSpeed = playerStats.mobility
+	-- player.Character.Humanoid.WalkSpeed = playerStats.mobility
+
 	expectingAttack[userId] = nil
 	attackBuffer[userId] = nil
 
@@ -170,7 +194,7 @@ local function attackValidation(player)
 		-- print("Attack By : " .. player.Name .. " At : " .. tick())
 		lastAttacks[userId] = tick()
 		expectingAttack[userId] = true
-		player.Character.Humanoid.WalkSpeed *= 0.5 -- TODO : Half MS using stats instead
+		-- player.Character.Humanoid.WalkSpeed *= 0.5
 
 		CombatService.Client.startAttack:Fire(player, comboIndexes[userId] + 1, playerStats.attackSpeed)
 	end
@@ -192,6 +216,46 @@ local function attackValidation(player)
 
 	-- print("Attack non buffer: " .. player.Name)
 	startAttack()
+end
+
+local function findClosestEnemies()
+	local playersDetections = PlayerService.PlayersDetections
+
+	for _, player in pairs(Players:GetPlayers()) do
+		local userId = player.UserId
+
+		-- Find Closest Enemy
+		local closestDistance = math.huge
+		local closestEnemy = nil
+
+		for enemy, distance in pairs(playersDetections[userId]) do
+			if distance < closestDistance then
+				closestDistance = distance
+				closestEnemy = enemy
+			end
+		end
+
+		playersClosestEnemy[userId] = closestEnemy
+	end
+end
+
+-- Make Players AutoTarget and Attack Closest Enemy
+local function autoTarget(state)
+	for _, player in pairs(Players:GetPlayers()) do
+		local userId = player.UserId
+		local closestEnemy = playersClosestEnemy[userId]
+
+		local character = player.Character or player.CharacterAdded:Wait()
+		local playerPos = character.HumanoidRootPart.CFrame.Position
+
+		-- Check closestDistance
+		-- > StartAttack
+	end
+end
+
+local function combatServiceUpdate(state)
+	findClosestEnemies()
+	autoTarget(state)
 end
 
 -- COMBAT SERVICE
@@ -234,6 +298,8 @@ function CombatService:KnitStart()
 		comboIndexes[userId] = 0
 		comboReset[userId] = nil
 	end)
+
+	PlayerService.StateUpdate:Connect(combatServiceUpdate)
 end
 
 return CombatService

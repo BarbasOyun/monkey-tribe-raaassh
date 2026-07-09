@@ -60,23 +60,6 @@ local MAX_CURRENCIES = {
 	stones = 10_000,
 }
 
-local PlayerService = Knit.CreateService({
-	Name = "PlayerService",
-	PlayerAdded = Signal.new(),
-	PlayerRemoved = Signal.new(),
-	BananasChanged = Signal.new(),
-	PLAYER_STATE = PLAYER_STATE,
-	CURRENCIES = CURRENCIES,
-	Client = {
-		ReplicateStore = Knit.CreateSignal(),
-		PlayerAdded = Knit.CreateSignal(),
-		PlayerRemoved = Knit.CreateSignal(),
-		PatchPlayer = Knit.CreateSignal(),
-		-- Hub
-		EnteringGame = Knit.CreateSignal(),
-	},
-})
-
 local StatService
 local ItemService
 
@@ -86,11 +69,6 @@ local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
 -- TP to main Game instance
 local HUB_PLACE_ID = 95975992291805
 
--- Game
--- TODO : Move to GameManager
-local MAX_DISTANCE = 250
-local deadPlayers = {}
-
 -- PickupRange Parameters
 local autoPickupParam = OverlapParams.new()
 autoPickupParam.FilterType = Enum.RaycastFilterType.Include
@@ -99,6 +77,43 @@ autoPickupParam.MaxParts = 50
 
 local AUTO_PICKUP_FRAME = 5 -- AutoPickup every X Frame
 local frameCount = 0
+
+-- Enemies Detection
+local ENEMIES_DETECTION_FRAMES = 3
+local enemiesDetectionFrameCount = 0
+
+local detectionParam = OverlapParams.new()
+detectionParam.FilterType = Enum.RaycastFilterType.Include
+detectionParam.FilterDescendantsInstances = { workspace.WeaponHit }
+detectionParam.MaxParts = 50
+
+-- List with key = userId of tables : key = enemy, Value = squared distance
+-- TODO : Flatten -> playersDetectionCount
+local playersDetections = {}
+
+-- Game
+-- TODO : Move to GameManager
+local MAX_DISTANCE = 250
+local deadPlayers = {}
+
+local PlayerService = Knit.CreateService({
+	Name = "PlayerService",
+	PlayerAdded = Signal.new(),
+	PlayerRemoved = Signal.new(),
+	BananasChanged = Signal.new(),
+	PLAYER_STATE = PLAYER_STATE,
+	CURRENCIES = CURRENCIES,
+	PlayersDetections = playersDetections,
+	StateUpdate = Signal.new(),
+	Client = {
+		ReplicateStore = Knit.CreateSignal(),
+		PlayerAdded = Knit.CreateSignal(),
+		PlayerRemoved = Knit.CreateSignal(),
+		PatchPlayer = Knit.CreateSignal(),
+		-- Hub
+		EnteringGame = Knit.CreateSignal(),
+	},
+})
 
 -- PLAYERS
 
@@ -409,6 +424,44 @@ end
 -- Sticks
 -- Stones
 
+-- UPDATES
+
+-- Enemies Detection
+local function enemiesDetection(state)
+	if enemiesDetectionFrameCount < ENEMIES_DETECTION_FRAMES then
+		enemiesDetectionFrameCount += 1
+		return
+	end
+
+	enemiesDetectionFrameCount = 0
+
+	for _, player in pairs(Players:GetPlayers()) do
+		local userId = player.UserId
+
+		playersDetections[userId] = {}
+
+		local playerData = state.players[player.userId]
+
+		if not playerData then
+			continue
+		end
+
+		local character = player.Character or player.CharacterAdded:Wait()
+		local playerPos = character.HumanoidRootPart.CFrame.Position
+
+		-- DEBUG
+		-- Gears.DisplayHitBox(position, 10, 0.1)
+
+		-- Get the Squared Distance Player -> Enemy
+		local detectedEnemies = workspace:GetPartBoundsInRadius(playerPos, 10, detectionParam)
+
+		for _, enemy in pairs(detectedEnemies) do
+			local playerToEnemyDirection = enemy.CFrame.Position - playerPos
+			local playerToEnemyDistanceSquared = Gears.squaredMagnitude(playerToEnemyDirection)
+			playersDetections[userId][enemy] = playerToEnemyDistanceSquared
+		end
+	end
+end
 -- Auto Pickup
 local function autoPickup(player, itemModel)
 	if not itemModel.Parent or itemModel.Parent ~= workspace.AutoPickup then
@@ -436,15 +489,13 @@ local function autoPickup(player, itemModel)
 	ItemService:PickupItem(player, itemModel)
 end
 
-local function autoPickupRange()
+local function autoPickupRange(state)
 	if frameCount < AUTO_PICKUP_FRAME then
 		frameCount += 1
 		return
 	end
 
 	frameCount = 0
-
-	local state = store:getState()
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		local playerData = state.players[player.userId]
@@ -453,11 +504,9 @@ local function autoPickupRange()
 			continue
 		end
 
-		local playerStats = playerData.stats
 		local character = player.Character or player.CharacterAdded:Wait()
-
 		local playerPos = character.HumanoidRootPart.CFrame.Position
-		local pickupRange = playerStats.pickupRange
+		local pickupRange = playerData.stats.pickupRange
 
 		-- DEBUG
 		-- Gears.DisplayHitBox(position, pickupRange, 0.1)
@@ -470,6 +519,15 @@ local function autoPickupRange()
 	end
 end
 
+local function stateUpdate()
+	local state = store:getState() -- Get state once every frame
+
+	PlayerService.StateUpdate:Fire(state)
+
+	autoPickupRange(state)
+	enemiesDetection(state)
+end
+
 -- Start Service
 function PlayerService:KnitInit()
 	print("PlayerService Initialized")
@@ -479,7 +537,7 @@ function PlayerService:KnitStart()
 	StatService = Knit.GetService("StatService")
 	ItemService = Knit.GetService("ItemService")
 
-	RunService.Heartbeat:Connect(autoPickupRange)
+	RunService.Heartbeat:Connect(stateUpdate)
 end
 
 return PlayerService
