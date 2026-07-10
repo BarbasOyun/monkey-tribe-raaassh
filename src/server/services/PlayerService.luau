@@ -421,9 +421,6 @@ function PlayerService:SubtractCurrency(player, currencyType, value)
 	updateCurrency(state, player, currencyType, -value)
 end
 
--- Sticks
--- Stones
-
 -- UPDATES
 
 -- Enemies Detection
@@ -453,7 +450,7 @@ local function enemiesDetection(state)
 		-- Gears.DisplayHitBox(position, 10, 0.1)
 
 		-- Get the Squared Distance Player -> Enemy
-		local detectedEnemies = workspace:GetPartBoundsInRadius(playerPos, 10, detectionParam)
+		local detectedEnemies = workspace:GetPartBoundsInRadius(playerPos, 15, detectionParam)
 
 		for _, enemy in pairs(detectedEnemies) do
 			local playerToEnemyDirection = enemy.CFrame.Position - playerPos

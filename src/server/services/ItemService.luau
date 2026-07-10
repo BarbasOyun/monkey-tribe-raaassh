@@ -88,7 +88,7 @@ local function createWeaponData(itemDefinition, weaponModel)
 		-- Utility
 		aoe = itemDefinition.range,
 		-- Misc
-		attackVFX = handle.AttackPoint.AttackHitVFX,
+		attackVFX = handle.VFXPoint.AttackHitVFX,
 		maxCombo = itemDefinition.maxCombo,
 		-- Modifiers
 		-- Rarity = "Common",
@@ -179,10 +179,6 @@ function ItemService:GenerateLoot(player, enemyHumanoid)
 end
 
 function ItemService:RemoveGroundItem(itemModel, instanceId)
-	-- if instanceId then
-	-- 	groundInstanceItems[instanceId] = nil
-	-- end
-
 	-- TODO : Object Pooling
 	itemModel:Destroy()
 end
@@ -278,7 +274,8 @@ local function onUnequipped(weaponModel)
 
 	print("Unequip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
 
-	local playerData = store.getState(store).players[player.UserId]
+	local state = store.getState(store)
+	local playerData = state.players[player.UserId]
 
 	if not playerData then
 		return

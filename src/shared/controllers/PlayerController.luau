@@ -37,6 +37,8 @@ local blur = nil
 local soundFolder = playerGui.ClientSounds
 local getOrbSound = soundFolder.GetOrb
 local enteringGameSound = soundFolder.EnteringGame
+local levelUpSound = soundFolder.LevelUp
+local augmentPanelSound = soundFolder.AugmentMenu
 
 local music = soundFolder.Music
 
@@ -46,6 +48,7 @@ local isLClickDown = false
 
 local PlayerController = Knit.CreateController({
 	Name = "PlayerController",
+	SoundFolder = soundFolder,
 	-- Stores
 	STATS_STORE = statsData.STATS_STORE,
 	MOD_STATS_STORE = statsData.MOD_STATS_STORE,
@@ -66,7 +69,8 @@ local function loadAnimation(animationId)
 
 	animationTrack:GetMarkerReachedSignal("AttackHit"):Connect(function()
 		--print("Hit Event Triggered by player: " .. player.Name)
-		CombatService.finishAttack:Fire()
+		-- CombatService.finishAttack:Fire()
+		CombatService:AttackCallback()
 	end)
 
 	return animationTrack
@@ -148,7 +152,6 @@ local function setupAttack()
 	RunService.Heartbeat:Connect(function()
 		if isLClickDown then
 			-- print(player.Name .. " Ask Server to Attack")
-			-- CombatService.startAttack:Fire()
 			CombatService:AttackValidation()
 		end
 	end)
@@ -215,6 +218,7 @@ end
 local function setupStatService()
 	-- Level
 	StatService.LevelUp:Connect(function(patch)
+		levelUpSound:Play()
 		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 	end)
 
@@ -225,6 +229,11 @@ local function setupStatService()
 
 	-- Augments
 	StatService.NewAugments:Connect(function(augmentChoices)
+		-- warn(augmentChoices)
+
+		local patch = { state = "PickingAugment", currentAugments = augmentChoices }
+		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+
 		-- Picking Augment State
 		if not blur then
 			local lighting = game.Lighting
@@ -233,17 +242,16 @@ local function setupStatService()
 			blur.Parent = lighting
 		end
 
-		-- augmentMenuSound:Play()
-
+		augmentPanelSound:Play()
 		Controls:Disable()
-		-- store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 	end)
 
-	StatService.FinishPickingAugments:Connect(function(patch)
+	StatService.FinishPickingAugments:Connect(function()
 		-- Playing State
 		blur:Destroy()
 		Controls:Enable()
 
+		local patch = { state = "Playing", currentAugments = nil }
 		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 	end)
 end

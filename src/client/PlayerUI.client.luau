@@ -69,8 +69,24 @@ end)(textLabel)
 
 local enteringGameLabel = require(ReplicatedStorage.Shared.Components.EnteringGame)
 
--- local levelUpLabel = require(ReplicatedStorage.Shared.Components.LevelUpLabel)
 local augmentPanel = require(ReplicatedStorage.Shared.Components.AugmentPanel)
+
+AugmentPanel = RoactRodux.connect(function(state, props)
+	local isVisible = false
+	local augments = {}
+
+	local playerData = selectors.PlayerData(state, player.UserId)
+
+	if playerData then
+		isVisible = playerData.state == "PickingAugment"
+		augments = playerData.currentAugments
+	end
+
+	return {
+		isVisible = isVisible,
+		augments = augments,
+	}
+end)(augmentPanel)
 
 local function levelUpLabel(props)
 	if not props.isVisible then
@@ -82,14 +98,12 @@ local function levelUpLabel(props)
 	return Roact.createElement("Frame", {
 		Position = UDim2.fromScale(0.0, 0.8),
 		Size = UDim2.fromScale(0.15, 0.2),
-		-- BackgroundColor3 = Color3.new(0.75, 0.75, 0.0),
-		BackgroundTransparency = 1,
+		BackgroundColor3 = Color3.new(0.75, 0.75, 0.0),
 	}, {
 		Label = textLabel({
 			text = "Lvl Up (A) +" .. waitingLevel,
 			textColor = Color3.new(0, 0, 0),
-			transparency = 0,
-			backgroundColor = Color3.new(0.75, 0.75, 0.0),
+			transparency = 1,
 			position = UDim2.fromScale(0.05, 0.05),
 			size = UDim2.fromScale(0.9, 0.9),
 			textStrokeTransparency = 1,
@@ -145,9 +159,8 @@ local function mainGui()
 		EnteringGameLabel = Roact.createElement(enteringGameLabel),
 		Bananas = Roact.createElement(BananasMain),
 		BananaImage = image(bananaImageProps),
-		-- LevelUpLabel = Roact.createElement(levelUpLabel),
 		LevelUpLabel = Roact.createElement(LevelUpLabel),
-		AugmentPanel = Roact.createElement(augmentPanel),
+		AugmentPanel = Roact.createElement(AugmentPanel),
 	})
 end
 

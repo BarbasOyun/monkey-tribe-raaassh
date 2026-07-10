@@ -10,7 +10,8 @@ local STATS_DISPLAY = PlayerController.STATS_DISPLAY
 
 local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
 
-local AugmentPanel = Roact.Component:extend("AugmentPanel")
+local playerController = Knit.GetController("PlayerController")
+local augmentPickSound = playerController.SoundFolder.AugmentPick
 
 -- Rarity
 -- Value
@@ -27,6 +28,7 @@ local function augmentCard(props)
 	local index = props.index
 
 	local onClick = function()
+		augmentPickSound:Play()
 		StatService:PickAugment(index)
 	end
 
@@ -62,10 +64,10 @@ local function augmentCard(props)
 	})
 end
 
-function AugmentPanel:cardsPanel()
-	local augmentsCards = {}
+local function cardsPanel(props)
+	local augments = props.augments
 
-	local augments = self.state.augments
+	local augmentsCards = {}
 
 	local columns = #augments
 	local gapSize = 0.5
@@ -98,56 +100,27 @@ function AugmentPanel:cardsPanel()
 	})
 end
 
-function AugmentPanel:init()
-	self:setState({
-		isVisible = false,
-		augments = {},
-	})
-end
-
-function AugmentPanel:didMount()
-	local StatService = Knit.GetService("StatService")
-
-	self.startEventConnection = StatService.NewAugments:Connect(function(augmentChoices)
-		warn(augmentChoices)
-		self:setState({
-			isVisible = true,
-			augments = augmentChoices,
-		})
-	end)
-
-	self.endEventConnection = StatService.FinishPickingAugments:Connect(function(patch)
-		self:setState({
-			isVisible = false,
-		})
-	end)
-end
-
-function AugmentPanel:willUnmount()
-	if self.startEventConnection then
-		self.startEventConnection:Disconnect()
+local function augmentPanel(props)
+	if not props.isVisible then
+		return nil
 	end
 
-	if self.endEventConnection then
-		self.endEventConnection:Disconnect()
-	end
-end
+	local cardsPanelProps = {
+		augments = props.augments,
+	}
 
-function AugmentPanel:render()
-	-- Main Panel
 	return Roact.createElement("Frame", {
 		Position = UDim2.fromScale(0.125, 0.0),
 		Size = UDim2.fromScale(0.75, 0.9),
 		BackgroundTransparency = 1,
 	}, {
-		Title = self.state.isVisible and textLabel({
+		Title = textLabel({
 			text = "Choose an Augment",
-			-- transparency = 1,
 			size = UDim2.fromScale(0.75, 0.25),
 			position = UDim2.fromScale(0.125, 0.0),
 		}),
-		CardsPanel = self.state.isVisible and self:cardsPanel(),
+		CardsPanel = cardsPanel(cardsPanelProps),
 	})
 end
 
-return AugmentPanel
+return augmentPanel

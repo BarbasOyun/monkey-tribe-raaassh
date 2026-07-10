@@ -31,8 +31,7 @@ local CombatService = Knit.CreateService({
 	Name = "CombatService",
 	PlayersClosestEnemy = playersClosestEnemy,
 	Client = {
-		startAttack = Knit.CreateSignal(), -- Func
-		finishAttack = Knit.CreateSignal(),
+		startAttack = Knit.CreateSignal(),
 	},
 })
 
@@ -80,30 +79,62 @@ local function rollAttackDamage(playerStats, isCrit)
 	return damage
 end
 
+-- Return a table of every unique humanoid in a Sphere
+local function hitsDetection(position, radius, param, charactersBanned)
+	local hits = workspace:GetPartBoundsInRadius(position, radius, param)
+	local humanoidsHit = {} -- Unique Humanoids
+
+	-- Debug HitZone
+	Gears.executeFor(0.5, function()
+		Gears.drawSphere(position, radius)
+	end)
+
+	if #hits <= 0 then
+		return humanoidsHit
+	end
+
+	for _, hit in ipairs(hits) do
+		-- print("Hit Part: " .. hit.Name)
+		local humanoid = Gears.FindHumanoidFromPart(hit)
+
+		if not humanoid or table.find(humanoidsHit, humanoid) or table.find(charactersBanned, humanoid.Parent) then
+			continue
+		end
+
+		-- Enemy Hit
+		table.insert(humanoidsHit, humanoid)
+	end
+
+	return humanoidsHit
+end
+
 -- 5) HitDetection + Damage + Feeback
 -- Context = After Validation
 local function attackHit(player, playerStats, weaponData)
+	-- warn("Attack Hit AOE = " .. playerStats.aoe)
+
 	local userId = player.UserId
 	local character = player.Character or player.CharacterAdded:Wait()
 	local playerPos = character.HumanoidRootPart.CFrame.Position
 
 	-- Hit Position
-	-- local closestEnemy = playersClosestEnemy[userId]
-
-	-- local playerToEnemyDirection = vector.normalize(closestEnemy.CFrame.Position - playerPos)
-
-	-- local hitDistance = vector.magnitude(weaponData.attackPoint.WorldCFrame.Position - playerPos)
-	-- local attackPosition = playerToEnemyDirection * hitDistance
-
 	local attackPosition = weaponData.attackPoint.WorldCFrame.Position
 
-	-- Hits Detection
-	local hits = workspace:GetPartBoundsInRadius(attackPosition, playerStats.aoe, weaponHitParam)
+	-- Aim toward Closet Enemy
+	local closestEnemy = playersClosestEnemy[userId]
 
-	-- Debug HitZone
-	Gears.executeFor(0.5, function()
-		Gears.drawSphere(attackPosition, playerStats.aoe)
-	end)
+	if closestEnemy then
+		local playerToEnemyDirection = vector.normalize(closestEnemy.CFrame.Position - playerPos)
+
+		local hitDistance = vector.magnitude(weaponData.attackPoint.WorldCFrame.Position - playerPos)
+		attackPosition = playerPos + playerToEnemyDirection * hitDistance
+	end
+
+	local localPosition = weaponData.attackVFX.Parent.Parent.CFrame:PointToObjectSpace(attackPosition)
+	weaponData.attackVFX.Parent.CFrame = CFrame.new(localPosition)
+
+	-- Hits Detection
+	local hits = hitsDetection(attackPosition, playerStats.aoe, weaponHitParam, { player.Character })
 
 	local isCrit = rollCrit(playerStats)
 
@@ -113,25 +144,9 @@ local function attackHit(player, playerStats, weaponData)
 	end
 
 	local damage = rollAttackDamage(playerStats, isCrit)
-	local humanoidsHit = {} -- Avoid hitting the same Enemy twice
 
-	for _, hit in ipairs(hits) do
-		-- print("Hit Part: " .. hit.Name)
-		local humanoid = Gears.FindHumanoidFromPart(hit)
-
-		if not humanoid or humanoid.Parent == player.Character or humanoidsHit[humanoid] == true then
-			continue
-		end
-
-		-- Enemy Hit
-		humanoidsHit[humanoid] = true
-
-		-- local impulseDirection = humanoid.Parent.PrimaryPart.CFrame.Position
-		-- 	- player.Character.PrimaryPart.CFrame.Position
-		-- humanoid.Parent:ApplyImpulse(impulseDirection * 50) -- TODO : Per Weapon
-
+	for _, humanoid in pairs(hits) do
 		EnemyService:DamageEnemy(player, humanoid, damage)
-		-- print(player.Name .. " Hit : " .. humanoid.Parent.Name)
 	end
 
 	attackFeedback(weaponData, isCrit)
@@ -154,7 +169,7 @@ end
 
 -- 4) Attack Callback with server validation
 -- After Animation
-local function attackCallback(player)
+function CombatService.Client:AttackCallback(player)
 	local userId = player.UserId
 	local state = store:getState()
 	local playerData = state.players[userId]
@@ -278,12 +293,14 @@ local function autoTarget(state)
 
 		-- Check closestDistance
 		-- > StartAttack
-		local targetDistance = closestEnemy.CFrame.Position - playerPos
+		local targetDistance = vector.magnitude(closestEnemy.CFrame.Position - playerPos)
 
-		local playerStats, weaponData = selectors.PlayerStats(state, player)
+		local playerData = selectors.PlayerData(state, userId)
+		local playerStats, weaponData = selectors.PlayerStats(playerData)
+		local isInRange = targetDistance <= playerStats.aoe * 2
 
-		if weaponData and targetDistance <= playerStats.aoe then
-			-- attackValidation(player, playerStats, weaponData)
+		if weaponData and isInRange then
+			attackValidation(player, playerStats, weaponData)
 		end
 	end
 end
@@ -298,13 +315,13 @@ end
 function CombatService:KnitInit()
 	print("CombatService Init")
 
-	self.Client.startAttack:Connect(function(player)
-		-- attackValidation(player)
-	end)
+	-- self.Client.startAttack:Connect(function(player)
+	-- 	attackValidation(player)
+	-- end)
 
-	self.Client.finishAttack:Connect(function(player)
-		attackCallback(player)
-	end)
+	-- self.Client.finishAttack:Connect(function(player)
+	-- 	attackCallback(player)
+	-- end)
 end
 
 function CombatService:KnitStart()

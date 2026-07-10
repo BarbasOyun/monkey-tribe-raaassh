@@ -362,7 +362,6 @@ local function getAugment(rarity, banList)
 	-- Remove Augments :
 	-- Already Generated
 	-- Don't have Rarity Value
-
 	if banList then
 		for index = #MOD_STATS_INDEX, 1, -1 do
 			local modStat = MOD_STATS_INDEX[index]
@@ -432,9 +431,19 @@ function StatService:GenerateAugments(player)
 		augment3,
 	}
 
+	-- local rarest = "Common"
+
+	-- for _, augment in pairs(augmentChoices) do
+	-- 	if table.find(AUGMENTS.rarity, augment.rarity) > table.find(AUGMENTS.rarity, rarest) then
+	-- 		rarest = augment.rarity
+	-- 	end
+	-- end
+
+	-- local rarestColor = AUGMENTS.colors[rarest]
+
 	local patch = { currentAugments = augmentChoices }
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
-	-- TODO : Augment Generated Event(maxRarityColor)
+	-- TODO : Augment Generated Event(rarestColor)
 end
 
 -- 2] Augment Pick State
@@ -464,7 +473,7 @@ local function finishAugmentPick(player)
 	local patch = { state = PlayerService.PLAYER_STATE.playing }
 
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
-	StatService.Client.FinishPickingAugments:Fire(player, patch)
+	StatService.Client.FinishPickingAugments:Fire(player)
 end
 
 -- Player start choosing Augment
