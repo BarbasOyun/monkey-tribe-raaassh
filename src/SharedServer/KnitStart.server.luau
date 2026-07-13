@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
 -- Start All Services -> Avoid race conditions
-Knit.AddServices(ServerScriptService.Server.Services)
+Knit.AddServices(ServerScriptService.SharedServer.Services)
 
 -- Start Knit Engine
 Knit.Start():catch(warn)

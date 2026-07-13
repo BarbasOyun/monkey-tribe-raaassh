@@ -261,11 +261,11 @@ Roact.mount(app, playerGui)
 
 -- AFTER UI IS CREATED
 
+-- LifeBar Update
 local lBar = playerGui.RoactTree.MainGui.LifeBar[2]
 local lifeText = playerGui.RoactTree.MainGui.LifeBar[1]
 
-PlayerController.LifeUpdate:Connect(function(life)
-	local state = store:getState()
+PlayerController.LifeUpdate:Connect(function(state, life)
 	local playerData = selectors.PlayerData(state, player.UserId)
 
 	if not playerData then
@@ -277,5 +277,5 @@ PlayerController.LifeUpdate:Connect(function(life)
 	local percentage = life / maxLife
 	lBar.Size = UDim2.fromScale(percentage, 1)
 
-	lifeText.Text = "Life : " .. math.floor(life) .. " / " .. maxLife
+	lifeText.Text = "Life : " .. math.ceil(life) .. " / " .. maxLife
 end)

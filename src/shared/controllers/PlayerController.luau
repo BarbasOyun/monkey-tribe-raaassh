@@ -52,6 +52,7 @@ local PlayerController = Knit.CreateController({
 	Name = "PlayerController",
 	SoundFolder = soundFolder,
 	LifeUpdate = Signal.new(),
+	StateUpdate = Signal.new(),
 	-- Stores
 	STATS_STORE = statsData.STATS_STORE,
 	MOD_STATS_STORE = statsData.MOD_STATS_STORE,
@@ -262,14 +263,6 @@ local function setupStatService()
 		local patch = { state = "Playing", currentAugments = nil }
 		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 	end)
-
-	-- Update
-	RunService.Heartbeat:Connect(function(dt)
-		visualLife = math.lerp(visualLife, serverLife, 0.1)
-
-		-- Apply to UI
-		PlayerController.LifeUpdate:Fire(visualLife)
-	end)
 end
 
 local function setupItemService()
@@ -277,6 +270,17 @@ local function setupItemService()
 	ItemService.GetOrb:Connect(function()
 		getOrbSound:Play()
 	end)
+end
+
+local function stateUpdate()
+	local state = store:getState() -- Get state once every frame
+
+	PlayerController.StateUpdate:Fire(state)
+
+	visualLife = math.lerp(visualLife, serverLife, 0.1)
+
+	-- Apply to UI
+	PlayerController.LifeUpdate:Fire(state, visualLife)
 end
 
 -- Start Controller
@@ -307,6 +311,8 @@ function PlayerController:KnitStart()
 	if playerData and playerData.isMusicEnabled then
 		music:Play()
 	end
+
+	RunService.Heartbeat:Connect(stateUpdate)
 end
 
 return PlayerController
