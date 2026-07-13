@@ -16,6 +16,7 @@ return function(props)
 	local backgroundColor = props.backgroundColor or Color3.new(1, 1, 1)
 	local borderPixels = props.borderPixels or 1
 	local TextStrokeTransparency = props.textStrokeTransparency or 0
+	local ZIndex = props.zIndex or 1
 
 	return Roact.createElement("TextLabel", {
 		-- Text
@@ -32,5 +33,6 @@ return function(props)
 		Size = size,
 		TextStrokeColor3 = Color3.new(0, 0, 0),
 		TextStrokeTransparency = TextStrokeTransparency,
+		ZIndex = ZIndex,
 	})
 end

@@ -79,6 +79,8 @@ local Selectors = {
 	end,
 
 	PlayerPowerSystems = function(playerData)
+		assert(playerData, "PlayerData is Nil")
+
 		local augments = playerData.augments
 		local metaUpgrades = playerData.metaUpgrades
 		-- Gear

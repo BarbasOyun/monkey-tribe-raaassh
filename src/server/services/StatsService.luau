@@ -114,11 +114,13 @@ local StatService = Knit.CreateService({
 	MOD_STATS = MOD_STATS,
 	STATS_STRUCT = STATS_STRUCT,
 	MetaUpgradesChanged = Signal.new(),
+	XpGained = Signal.new(),
 	Client = {
 		MetaUpgradesChanged = Knit.CreateSignal(),
 		LevelUp = Knit.CreateSignal(),
 		NewAugments = Knit.CreateSignal(),
 		FinishPickingAugments = Knit.CreateSignal(),
+		LifeUpdate = Knit.CreateSignal(),
 	},
 })
 
@@ -133,6 +135,9 @@ local positionStart = {} -- Reset Player's Pos after picking augment
 local playersLife = {}
 local lifeRegenUpdates = {}
 
+-- LIFE
+-- TODO = Fuse StatService + Enemy takeDamage function
+
 function StatService:RegisterLife(player)
 	local userId = player.UserId
 	local state = store:getState()
@@ -140,7 +145,13 @@ function StatService:RegisterLife(player)
 	local playerData = state.players[userId]
 	playersLife[userId] = playerData.stats.maxLife
 
-	self:CalculateStat(state, player, MOD_STATS_STORE.lifeRegen)
+	self:CalculateStat(state, userId, MOD_STATS_STORE.lifeRegen)
+end
+
+function StatService:DamagePlayer(player, damage)
+	local userId = player.UserId
+
+	playersLife[userId] -= damage
 end
 
 -- LEVELS
@@ -161,7 +172,7 @@ local function levelUp(state, player, currentXp)
 	while overXp >= newXpRequired do
 		overXp = overXp - newXpRequired
 		newWaitingLevel += 1
-		newXpRequired *= 1.1
+		newXpRequired = math.floor(newXpRequired + 3 * 1.1)
 	end
 
 	-- Patch
@@ -251,7 +262,7 @@ local function incrementMetaUpgrade(state, player, upgradeType)
 	-- Update Stat
 	local newState = store:getState()
 	local statType = TO_STAT_OBJECT[upgradeType]
-	StatService:CalculateStat(newState, player, statType)
+	StatService:CalculateStat(newState, userId, statType)
 end
 
 function StatService.Client:BuyMetaUpgrade(player, upgradeType)
@@ -570,6 +581,20 @@ end
 
 -- CALCULATIONS
 
+local function restartLifeRegen(userId, lifeRegen)
+	if lifeRegenUpdates[userId] then
+		lifeRegenUpdates[userId]:Disconnect()
+		lifeRegenUpdates[userId] = nil
+	end
+
+	if lifeRegen > 0 and playersLife[userId] then
+		lifeRegenUpdates[userId] = PlayerService.StateUpdate:Connect(function(state)
+			local playerData = selectors.PlayerData(state, userId)
+			playersLife[userId] = math.min(playersLife[userId] + lifeRegen / 60, playerData.stats.maxLife) -- 60 FPS
+		end)
+	end
+end
+
 -- Sum modStats from each Power Systems
 local function calcModStat(metaUpgrades, augments, modStat)
 	local metaUpgradeStat = metaUpgrades[modStat]
@@ -726,17 +751,7 @@ local statsCalculation = {
 
 		local totalLifeRegen = calcModStat(metaUpgrades, augments, modStat)
 
-		-- Reset lifeRegen Update
-		if lifeRegenUpdates[userId] then
-			lifeRegenUpdates[userId]:Disconnect()
-			lifeRegenUpdates[userId] = nil
-		end
-
-		if totalLifeRegen > 0 and playersLife[userId] then
-			lifeRegenUpdates[userId] = RunService.Heartbeat:Connect(function() -- Put in StateUpdate?
-				playersLife[userId] += totalLifeRegen / 60 -- 60 FPS
-			end)
-		end
+		restartLifeRegen(userId, totalLifeRegen)
 
 		local patch = { [modStat] = totalLifeRegen }
 
@@ -862,6 +877,16 @@ end
 
 function StatService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
+
+	PlayerService.ThrottledUpdate:Connect(function(state)
+		for _, player in pairs(Players:GetPlayers()) do
+			local playerLife = playersLife[player.UserId]
+
+			if playerLife then
+				self.Client.LifeUpdate:Fire(player, playerLife)
+			end
+		end
+	end)
 end
 
 return StatService

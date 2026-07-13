@@ -8,7 +8,7 @@ local store = RoduxStore.Store
 local storeActions = RoduxStore.Actions
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
---  Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 -- Get Stats Authoring Data
 local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
@@ -32,6 +32,8 @@ local animationTracks = {}
 -- UI
 local playerGui = player:WaitForChild("PlayerGui")
 local blur = nil
+local visualLife = 0
+local serverLife = 0
 
 -- Sounds
 local soundFolder = playerGui.ClientSounds
@@ -49,6 +51,7 @@ local isLClickDown = false
 local PlayerController = Knit.CreateController({
 	Name = "PlayerController",
 	SoundFolder = soundFolder,
+	LifeUpdate = Signal.new(),
 	-- Stores
 	STATS_STORE = statsData.STATS_STORE,
 	MOD_STATS_STORE = statsData.MOD_STATS_STORE,
@@ -216,6 +219,11 @@ local function setupPlayerService()
 end
 
 local function setupStatService()
+	-- Resource Bars
+	StatService.LifeUpdate:Connect(function(life)
+		serverLife = life
+	end)
+
 	-- Level
 	StatService.LevelUp:Connect(function(patch)
 		levelUpSound:Play()
@@ -253,6 +261,14 @@ local function setupStatService()
 
 		local patch = { state = "Playing", currentAugments = nil }
 		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+	end)
+
+	-- Update
+	RunService.Heartbeat:Connect(function(dt)
+		visualLife = math.lerp(visualLife, serverLife, 0.1)
+
+		-- Apply to UI
+		PlayerController.LifeUpdate:Fire(visualLife)
 	end)
 end
 

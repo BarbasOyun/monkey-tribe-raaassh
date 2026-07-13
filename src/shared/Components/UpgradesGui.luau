@@ -58,6 +58,7 @@ local function currentStat(statType)
 			text = currentStat,
 			textScaled = true,
 			textColor = Color3.new(0, 0, 0),
+			textStrokeTransparency = 0.6,
 		}
 	end)(textLabel)
 end
@@ -78,6 +79,7 @@ local function cost(statType)
 			text = "Cost: " .. cost .. " Bananas",
 			textScaled = true,
 			textColor = Color3.new(0, 0, 0),
+			textStrokeTransparency = 0.9,
 		}
 	end)(textLabel)
 end

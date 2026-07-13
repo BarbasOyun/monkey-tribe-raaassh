@@ -12,6 +12,8 @@ local Roact = require(ReplicatedStorage.Shared.Roact)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await() -- Wait for KnitControllersStart
 
+local PlayerController = Knit.GetController("PlayerController")
+
 local player = Players.LocalPlayer
 local playerGui = Players.LocalPlayer.PlayerGui
 
@@ -27,6 +29,7 @@ local thousandDonationId = 3607471867
 
 local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
 local textButton = require(ReplicatedStorage.Shared.Components.TextButton)
+local resourceBar = require(ReplicatedStorage.Shared.Components.ResourceBar)
 
 -- Image Component : ImageId, Pos, Size
 local function image(props)
@@ -44,6 +47,7 @@ local function image(props)
 end
 
 -- Main Gui
+
 -- Bananas Count
 local bananaImageProps = {
 	position = UDim2.fromScale(0.77, 0),
@@ -69,6 +73,7 @@ end)(textLabel)
 
 local enteringGameLabel = require(ReplicatedStorage.Shared.Components.EnteringGame)
 
+-- Augments Panel + LevelUp
 local augmentPanel = require(ReplicatedStorage.Shared.Components.AugmentPanel)
 
 AugmentPanel = RoactRodux.connect(function(state, props)
@@ -128,6 +133,49 @@ LevelUpLabel = RoactRodux.connect(function(state, props)
 	}
 end)(levelUpLabel)
 
+-- Resource Bars
+XpBar = RoactRodux.connect(function(state, props)
+	local currentXp = 0
+	local xpRequired = 10
+
+	local playerData = selectors.PlayerData(state, player.UserId)
+
+	if playerData then
+		currentXp = playerData.currentXp
+		xpRequired = playerData.xpRequired
+	end
+
+	return {
+		-- Background
+		position = UDim2.fromScale(0.35, 0.8),
+		size = UDim2.fromScale(0.3, 0.025),
+		value = currentXp,
+		maxValue = xpRequired,
+		backgroundTransparency = 0.5,
+		borderPixels = 5,
+		-- Bar
+		barColor = Color3.fromRGB(0, 157, 255),
+		barTransparency = 0.2,
+		-- Text
+		resourceName = "Xp",
+	}
+end)(resourceBar)
+
+local lifeBar = resourceBar({
+	-- Background
+	position = UDim2.fromScale(0.35, 0.76),
+	size = UDim2.fromScale(0.3, 0.025),
+	value = 100,
+	maxValue = 100,
+	backgroundTransparency = 0.5,
+	borderPixels = 5,
+	-- Bar
+	barColor = Color3.fromRGB(255, 10, 10),
+	barTransparency = 0.2,
+	-- Text
+	resourceName = "Life",
+})
+
 -- Controls
 local controlsText = textLabel({
 	text = "WASD = Movements\nSpace = Jump\n123... = Equip Weapon\nA = Open Augment Menu\nF = Center Camera\nT = Toggle Music",
@@ -161,6 +209,8 @@ local function mainGui()
 		BananaImage = image(bananaImageProps),
 		LevelUpLabel = Roact.createElement(LevelUpLabel),
 		AugmentPanel = Roact.createElement(AugmentPanel),
+		XpBar = Roact.createElement(XpBar),
+		LifeBar = lifeBar,
 	})
 end
 
@@ -208,3 +258,24 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 })
 
 Roact.mount(app, playerGui)
+
+-- AFTER UI IS CREATED
+
+local lBar = playerGui.RoactTree.MainGui.LifeBar[2]
+local lifeText = playerGui.RoactTree.MainGui.LifeBar[1]
+
+PlayerController.LifeUpdate:Connect(function(life)
+	local state = store:getState()
+	local playerData = selectors.PlayerData(state, player.UserId)
+
+	if not playerData then
+		return
+	end
+
+	local maxLife = playerData.stats.maxLife
+
+	local percentage = life / maxLife
+	lBar.Size = UDim2.fromScale(percentage, 1)
+
+	lifeText.Text = "Life : " .. math.floor(life) .. " / " .. maxLife
+end)

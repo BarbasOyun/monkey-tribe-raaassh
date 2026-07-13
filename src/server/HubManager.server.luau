@@ -199,6 +199,8 @@ Players.PlayerAdded:Connect(function(player)
 	-- PlayerService:AddBananas(100)
 	StatService:GenerateAugments(player)
 	StatService:AddXpToAllPlayers(25)
+	StatService:RegisterLife(player)
+	StatService:DamagePlayer(player, 50)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
