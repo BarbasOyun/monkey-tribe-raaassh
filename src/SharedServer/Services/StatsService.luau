@@ -221,7 +221,7 @@ function StatService:AddXpToPlayer(state, player, xp)
 	end
 end
 
--- CALCULATIONS
+-- #region CALCULATIONS
 
 local function stopLifeRegen(userId)
 	if lifeRegenUpdates[userId] then
@@ -230,11 +230,19 @@ local function stopLifeRegen(userId)
 	end
 end
 
-local function restartLifeRegen(userId, lifeRegen)
+local function startLifeRegen(userId, lifeRegen)
 	if lifeRegen > 0 and playersLife[userId] then
 		lifeRegenUpdates[userId] = PlayerService.StateUpdate:Connect(function(state)
 			local playerData = selectors.PlayerData(state, userId)
-			playersLife[userId] = math.min(playersLife[userId] + lifeRegen / 60, playerData.stats.maxLife) -- 60 FPS
+
+			if not playerData then
+				stopLifeRegen(userId)
+			end
+
+			local maxLife = playerData.stats.maxLife
+			local lifeUpdate = playersLife[userId] + lifeRegen / 60 -- 60 FPS
+
+			playersLife[userId] = math.min(lifeUpdate, maxLife)
 		end)
 	end
 end
@@ -396,7 +404,7 @@ local statsCalculation = {
 		local totalLifeRegen = calcModStat(metaUpgrades, augments, modStat)
 
 		stopLifeRegen(userId)
-		restartLifeRegen(userId, totalLifeRegen)
+		startLifeRegen(userId, totalLifeRegen)
 
 		local patch = { [modStat] = totalLifeRegen }
 
@@ -515,7 +523,9 @@ function StatService:CalculateAllStats(userId)
 	-- Replicate to Client -> Display on Client side character stats sheet
 end
 
--- META UPGRADES
+-- #endregion
+
+-- #region META UPGRADES
 
 function StatService:UpdateMetaUpgrade(newLevel, upgradeType)
 	-- Calculate Cost & Stat at a Level
@@ -601,7 +611,9 @@ function StatService.Client:BuyMetaUpgrade(player, upgradeType)
 	PlayerService:SubtractCurrency(player, PlayerService.CURRENCIES.bananas, upgradeCost)
 end
 
--- AUGMENTS
+-- #endregion
+
+-- #region AUGMENTS
 
 -- Generate a patch of the specified augment
 local function augmentPatch(state, userId, modStat, value)
@@ -774,7 +786,7 @@ local function finishAugmentPick(player)
 	player.Character:MoveTo(positionStart[userId])
 	positionStart[userId] = nil
 
-	restartLifeRegen(userId, playerData.stats.lifeRegen)
+	startLifeRegen(userId, playerData.stats.lifeRegen)
 
 	local patch = { state = PlayerService.PLAYER_STATE.playing }
 
@@ -866,6 +878,8 @@ function StatService.Client:PickAugment(player, index)
 
 	finishAugmentPick(player)
 end
+
+-- #endregion
 
 -- ARTIFACTS
 -- ...

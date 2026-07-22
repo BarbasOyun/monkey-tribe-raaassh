@@ -3,7 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+-- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 -- Entities
 local entitiesId = {}
@@ -12,17 +12,12 @@ local versions = {}
 
 local disabledEntitiesFolder = ServerStorage.DisabledEntities
 
--- TODO : Move to HubManager
-local dummy1 = workspace.WeaponHit[1]
-local dummy2 = workspace.WeaponHit[2]
-
 -- Systems
 -- local systemCount = 0
 
 -- Metatable
 local system = {
 	id = 0,
-	isDisabled = {},
 	sparse = {},
 	entities = {},
 	clearComponents = function(self)
@@ -34,6 +29,11 @@ local system = {
 
 		table.insert(self.sparse, entityId, componentId)
 		table.insert(self.entities, entityId)
+
+		return componentId
+	end,
+	updateComponent = function(self, entityId)
+		-- implement in child tables
 	end,
 	removeComponent = function(self, entityId)
 		local componentId = self.sparse[entityId]
@@ -46,58 +46,132 @@ local system = {
 	getComponentId = function(self, entityId)
 		return self.sparse[entityId]
 	end,
-	enableComponent = function(self, entityId)
-		local componentId = self.sparse[entityId]
-		self.isDisabled[componentId] = false
-	end,
-	disableComponent = function(self, entityId)
-		local componentId = self.sparse[entityId]
-		self.isDisabled[componentId] = true
-	end,
 }
 system.__index = system
 
 local gameObjectSystem = {
+	id = 1,
 	gameObjects = {},
 	clearComponents = function(self)
-		self:clearComponents()
+		system:clearComponents()
+
+		-- Destroy All Entities Gameobjects
+		for i = 1, #self.gameObjects, 1 do
+			self.gameObjects[i]:Destroy()
+		end
+
 		table.clear(self.gameObjects)
 	end,
 	addComponentToEntity = function(self, entityId, gameobject)
-		self:addComponentToEntity(entityId)
-		table.insert(self.gameObjects, gameobject)
+		local componentId = system:addComponentToEntity(entityId)
+
+		gameobject:SetAttribute("EntityId", entityId)
+		gameobject:SetAttribute("Version", versions[entityId])
+
+		-- table.insert(self.gameObjects, gameobject)
+
+		return componentId
 	end,
 	removeComponent = function(self, entityId)
-		local componentId = self:removeComponent(entityId)
+		local componentId = system:removeComponent(entityId)
 		table.remove(self.gameObjects, componentId)
 	end,
 }
 
 setmetatable(gameObjectSystem, system)
 
+local unitSystem = {
+	id = 2,
+	definitionId = {},
+	life = {},
+	lifeBar = {},
+	deathEvent = {},
+	clearComponents = function(self)
+		system:clearComponents()
+
+		table.clear(self.life)
+		table.clear(self.lifeBar)
+		table.clear(self.deathEvent)
+	end,
+	addComponentToEntity = function(self, entityId, definitionId, life, lifeBar, deathEvent)
+		local componentId = system:addComponentToEntity(entityId)
+
+		table.insert(self.definitionId, definitionId)
+		table.insert(self.life, life)
+		table.insert(self.lifeBar, lifeBar)
+		table.insert(self.deathEvent, deathEvent)
+
+		return componentId
+	end,
+	updateComponent = function(self, entityId, life)
+		local componentId = system:getComponentId(entityId)
+		self.life[componentId] = life
+	end,
+	removeComponent = function(self, entityId)
+		local componentId = system:removeComponent(entityId)
+
+		table.remove(self.life, componentId)
+		table.remove(self.lifeBar, componentId)
+		table.remove(self.deathEvent, componentId)
+	end,
+}
+
+setmetatable(unitSystem, system)
+
+-- TODO : MobBehaviorSystem
+
 local systems = {
 	gameObjectSystem,
+	unitSystem,
 }
 
 -- Archetypes
 -- struct
-local archetype = {
-	name = "",
-	systems = {},
-	startIndex = 0,
-	maxEntities = 100,
+-- local archetype = {
+-- 	name = "",
+-- 	systems = {},
+-- 	startIndex = 0,
+-- 	maxEntities = 100,
+-- 	activeCount = 0,
+-- }
+
+-- TODO : Combine Archetype + Enemy Definition
+local dummyArchetype = {
+	name = "Dummy",
+	systemsId = {
+		1,
+		2,
+	},
+	startIndex = 1,
+	endIndex = 100,
 	activeCount = 0,
 }
 
--- TODO : Archetypes : Dummy, RobotMob
+local robotMobArchetype = {
+	name = "Robot",
+	systemsId = {
+		1,
+		2,
+		-- 3,
+	},
+	startIndex = 101,
+	endIndex = 200,
+	activeCount = 0,
+}
 
-local archetypes = {}
-local archetypesTotalSize = 0
+local archetypesTotalSize = 200
+
+local archetypes = {
+	dummyArchetype,
+	robotMobArchetype,
+}
 
 local EcsService = Knit.CreateService({
 	Name = "EcsService",
 	SystemMetatable = system,
-	Archetype = archetype,
+	-- Archetype = archetype,
+	GameobjectSystem = gameObjectSystem,
+	UnitSystem = unitSystem,
 	-- Client = {},
 })
 
@@ -131,6 +205,7 @@ function EcsService:CreateEntity()
 
 	table.insert(entitiesId, entityId)
 	table.insert(entitiesBitmask, 0)
+	table.insert(versions, 0)
 
 	return entityId
 end
@@ -147,6 +222,7 @@ function EcsService:RemoveEntity(entityId)
 end
 
 function EcsService:ClearEntities()
+	-- Clear all components
 	for i = 1, #systems, 1 do
 		systems[i]:clearComponents()
 	end
@@ -159,24 +235,28 @@ end
 
 -- #region ENTITIES ARCHETYPES / POOLING
 
+local function createPools()
+	for i = 1, #archetypes, 1 do
+		EcsService:CreatePool(archetypes[i])
+	end
+end
+
 -- Create a pool of Entity of an Archetype
 function EcsService:CreatePool(archetype)
-	for i = 0, archetype.maxEntities, 1 do
+	for i = archetype.startIndex, archetype.endIndex, 1 do
 		local entityId = EcsService:CreateEntity()
 
 		-- Add a Component of Every Archertype's Systems to each Entity
-		for j = 0, #archetype.systems, 1 do
+		for j = 1, #archetype.systems, 1 do
 			archetype.systems[j].addComponentToEntity(entityId)
 		end
 	end
-
-	table.insert(archetypes, archetype)
 end
 
 function EcsService:GetArchetype(entityId)
 	for i = 1, #archetypes, 1 do
-		if entityId <= archetype[i].maxEntities then
-			return archetype[i]
+		if entityId <= archetypes[i].maxEntities then
+			return archetypes[i]
 		end
 	end
 
@@ -185,29 +265,26 @@ end
 
 -- Enable an Entity of an Archetype
 function EcsService:EnableEntity(archetypeId)
-	local indexCount = 0
-	local archetype = nil
+	-- local archetype = nil
 
-	for i = 1, #archetypes, 1 do
-		if i == archetypeId then
-			archetype = archetypes[i]
-			break
-		end
-
-		indexCount += archetypes[i].maxEntities
-	end
+	-- for i = 1, #archetypes, 1 do
+	-- 	if i == archetypeId then
+	-- 		archetype = archetypes[i]
+	-- 		break
+	-- 	end
+	-- end
 
 	-- Enable Last Entity
-	local entityId = indexCount + archetype.currentEntities
+	-- local entityId = archetype.startIndex + archetype.activeCount
 
-	for i = 1, #systems, 1 do
-		if EcsService:HasComponent(entityId, i) then
-			systems[i]:enableComponent(entityId)
-		end
-	end
+	-- Enable GameObject
+	local gameObjectId = gameObjectSystem:getComponentId(entitiesId)
+	gameObjectSystem.gameObjects[gameObjectId].parent = workspace.WeaponHit
+
+	-- TODO : Define Default Entity / Archetype -> Reset Entity
 end
 
--- Disable an Entity and Move the Last Entity of an Archetype to its place
+-- Archetype : Swap Entity -> Last Entity
 function EcsService:DisableEntity(entityId)
 	if not EcsService:HasComponent(entityId, 1) then
 		warn(entityId .. " Doesn't have Gameobject Component")
@@ -228,30 +305,25 @@ function EcsService:DisableEntity(entityId)
 	local archetype = EcsService:GetArchetype(entityId)
 
 	-- Update Version
-	versions[entityId] += 1
-	archetype.activeCount -= 1
-
-	-- Swap Last Entity to entityId
-	-- TODO : Optimize
 	local lastEntityIndex = archetype.startIndex + archetype.activeCount
+
+	versions[entityId] += 1
+	versions[lastEntityIndex] += 1
+	archetype.activeCount -= 1
 
 	if entityId == lastEntityIndex then
 		return
 	end
 
-	-- TODO : per system
+	-- Swap Last Entity to entityId
 	local otherGameObjectId = gameObjectSystem:getComponentId(lastEntityIndex)
-	-- local movedEntity = gameObjectSystem.gameObjects[otherGameObjectId]
 	gameObjectSystem.entities[otherGameObjectId] = entityId
-
 	gameObjectSystem.entities[gameObjectId] = lastEntityIndex
 
-	--             // Update Entity
-	--             if (movedEnemy.TryGetComponent(out Entity entity))
-	--             {
-	--                 entity.index = indexToRemove;
-	--                 entity.version = state.versions[indexToRemove];
-	--             }
+	-- Update Other GameObject
+	local otherGameObject = gameObjectSystem.gameObjects[otherGameObjectId]
+	otherGameObject:SetAttribute("EntityId", entityId)
+	otherGameObject:SetAttribute("Version", versions[entityId])
 end
 
 -- #endregion
@@ -276,6 +348,8 @@ function EcsService:KnitInit()
 	print("EcsService Initialized")
 end
 
-function EcsService:KnitStart() end
+function EcsService:KnitStart()
+	-- createPools()
+end
 
 return EcsService
