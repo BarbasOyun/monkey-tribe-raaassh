@@ -259,7 +259,7 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 
 Roact.mount(app, playerGui)
 
--- AFTER UI IS CREATED
+-- #region AFTER UI IS CREATED
 
 -- LifeBar Update
 local lBar = playerGui.RoactTree.MainGui.LifeBar[2]
@@ -279,3 +279,5 @@ PlayerController.LifeUpdate:Connect(function(state, life)
 
 	lifeText.Text = "Life : " .. math.ceil(life) .. " / " .. maxLife
 end)
+
+--#endregion
