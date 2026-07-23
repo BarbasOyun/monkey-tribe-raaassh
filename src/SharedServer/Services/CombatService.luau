@@ -108,16 +108,11 @@ local function hitsDetection(position, radius, param, charactersBanned)
 	return humanoidsHit
 end
 
--- 5) HitDetection + Damage + Feeback
--- Context = After Validation
-local function attackHit(player, playerStats, weaponData)
-	-- warn("Attack Hit AOE = " .. playerStats.aoe)
-
+local function getAttackPosition(player, weaponData)
 	local userId = player.UserId
 	local character = player.Character or player.CharacterAdded:Wait()
 	local playerPos = character.HumanoidRootPart.CFrame.Position
 
-	-- Hit Position
 	local attackPosition = weaponData.attackPoint.WorldCFrame.Position
 
 	-- Aim toward Closet Enemy
@@ -130,11 +125,23 @@ local function attackHit(player, playerStats, weaponData)
 		attackPosition = playerPos + playerToEnemyDirection * hitDistance
 	end
 
+	-- Adjust VFX pos
 	local localPosition = weaponData.attackVFX.Parent.Parent.CFrame:PointToObjectSpace(attackPosition)
 	weaponData.attackVFX.Parent.CFrame = CFrame.new(localPosition)
 
+	return attackPosition
+end
+
+-- 5) HitDetection + Damage + Feeback
+-- Context = After Validation
+local function attackHit(player, playerStats, weaponData)
+	-- warn("Attack Hit AOE = " .. playerStats.aoe)
+
+	local character = player.Character or player.CharacterAdded:Wait()
+	local attackPosition = getAttackPosition(player, weaponData)
+
 	-- Hits Detection
-	local hits = hitsDetection(attackPosition, playerStats.aoe, weaponHitParam, { player.Character })
+	local hits = hitsDetection(attackPosition, playerStats.aoe, weaponHitParam, { character })
 
 	local isCrit = rollCrit(playerStats)
 
@@ -143,10 +150,12 @@ local function attackHit(player, playerStats, weaponData)
 		return
 	end
 
+	-- Damage
 	local damage = rollAttackDamage(playerStats, isCrit)
 
 	for _, humanoid in pairs(hits) do
-		EnemyService:DamageEnemy(player, humanoid, damage)
+		-- EnemyService:DamageEnemy(player, humanoid, damage)
+		EnemyService:DamageEnemy(player, humanoid.Parent:GetAttribute("EntityId"), humanoid, damage)
 	end
 
 	attackFeedback(weaponData, isCrit)
