@@ -21,6 +21,8 @@ local EnemyService = Knit.CreateService({
 })
 
 local dummySetup = function(character, entityId)
+	warn("Dummy Setup : " .. character.Name .. " EntityID = " .. entityId)
+
 	local function onDeath(player)
 		-- Feedback
 		-- print(character.Name .. " Died")
@@ -34,12 +36,18 @@ local dummySetup = function(character, entityId)
 
 		task.wait(1)
 		EnemyService:SpawnEnemy(enemyStore.Dummy, character:GetPivot().Position) -- Re spawn Dummy
-		EcsService:RemoveEntity(entityId)
+		EcsService:RemoveEntity(character:GetAttribute("EntityId"))
 		-- TODO : DisableEntity
 	end
 
-	local unitId = EcsService.UnitSystem:getComponentId(entityId)
-	EcsService.UnitSystem.deathEvent[unitId]:Connect(onDeath)
+	local unitSystem = EcsService:GetUnitSystem()
+	local unitId = unitSystem:getComponentId(entityId)
+
+	-- for i = 1, #EcsService.UnitSystem.deathEvent, 1 do
+	-- 	EcsService.UnitSystem.deathEvent[i]:DisconnectAll()
+	-- end
+
+	unitSystem.deathEvent[unitId]:Connect(onDeath)
 end
 
 -- TODO : robotSetup
@@ -70,8 +78,8 @@ function EnemyService:CreateEnemy(character, enemyId)
 	end
 
 	-- Add Components : Gameobject, Unit
-	EcsService.GameobjectSystem:addComponentToEntity(entityId, character)
-	EcsService.UnitSystem:addComponentToEntity(entityId, enemyId, enemyDefinition.MaxLife, lifeBar)
+	EcsService:GetGameobjectsSystem():addComponentToEntity(entityId, character)
+	EcsService:GetUnitSystem():addComponentToEntity(entityId, enemyId, enemyDefinition.MaxLife, lifeBar)
 
 	-- Per Enemy type setup
 	enemySetup[enemyId](character, entityId)
@@ -82,6 +90,7 @@ function EnemyService:SpawnEnemy(enemyId, position)
 	-- Spawn Model
 	local character = enemyPrefabs[enemyId]:Clone() -- TODO : Object Pooling
 	character:PivotTo(CFrame.new(position))
+	character.Name = "Dummy3"
 
 	self:CreateEnemy(character, enemyId)
 end
@@ -98,8 +107,15 @@ local function updateLifeBar(lifeBar, lifePercent)
 end
 
 function EnemyService:DamageEnemy(player, entityId, humanoid, damage)
-	local unitSystem = EcsService.UnitSystem
+	local unitSystem = EcsService.GetUnitSystem()
 	local unitId = unitSystem:getComponentId(entityId)
+
+	-- warn(
+	-- 	"Damage Enemy : Entity ID = "
+	-- 		.. entityId
+	-- 		.. ", GameObject ComponentID = "
+	-- 		.. EcsService:GetGameobjectsSystem():getComponentId(entityId)
+	-- )
 
 	if damage <= 0 then
 		return
@@ -131,9 +147,11 @@ function EnemyService:KillEnemy(player, entityId, humanoid, overKillDamage)
 	ItemService:GenerateLoot(player, humanoid)
 
 	-- UnitData
-	local unitSystem = EcsService.UnitSystem
+	local unitSystem = EcsService:GetUnitSystem()
 	local unitId = unitSystem:getComponentId(entityId)
 	local deathEvent = unitSystem.deathEvent[unitId]
+
+	warn("Death Event : EntityID  = " .. entityId .. " UnitID = " .. unitId)
 
 	-- Trigger Death Event
 	if deathEvent then

@@ -15,10 +15,18 @@ local EcsService = Knit.CreateService({
 	Name = "EcsService",
 	SystemMetatable = nil,
 	-- Archetype = archetype,
-	GameobjectSystem = nil,
-	UnitSystem = nil,
 	-- Client = {},
 })
+
+local function swapTableElements(t, index1, index2)
+	local element1 = table.remove(t, index1)
+	local element2 = table.remove(t, index2 - 1)
+
+	table.insert(t, index1, element2)
+	table.insert(t, index2, element1)
+
+	return element1, element2
+end
 
 -- Systems
 -- local systemCount = 0
@@ -40,7 +48,7 @@ local system = {
 		local componentId = self.sparse[entityId]
 
 		if componentId == 0 then
-			warn("EntityId = " .. entityId .. " Doesn't have Component Id = " .. self.id)
+			warn("EntityId = " .. entityId .. " Doesn't have Component " .. self.name)
 		end
 
 		return componentId
@@ -53,10 +61,13 @@ local system = {
 
 		-- Update Entities
 		table.remove(self.entities, componentId)
+		for i = componentId, #self.entities, 1 do
+			self.entities[i] -= 1
+		end
 
 		-- Update Sparse
 		self.sparse[entityId] = 0
-		for i = entityId + 1, #self.sparse, 1 do
+		for i = entityId, #self.sparse, 1 do
 			if self.sparse[i] > 0 then
 				self.sparse[i] -= 1
 			end
@@ -67,32 +78,43 @@ local system = {
 
 		return componentId
 	end,
+	removeEntity = function(self, entityId)
+		local componentId = self.sparse[entityId]
+
+		-- Update Entities
+		table.remove(self.entities, componentId)
+		for i = componentId, #self.entities, 1 do
+			self.entities[i] -= 1
+		end
+
+		-- Update Sparse
+		table.remove(self.sparse, entityId)
+		for i = entityId, #self.sparse, 1 do
+			self.sparse[i] -= 1
+		end
+
+		return componentId
+	end,
 	clearComponents = function(self)
 		table.clear(self.sparse)
 		table.clear(self.entities)
 	end,
 	swapLast = function(self, entityId)
-		local lastEntityIndex = #self.entities
-
 		local componentId = self.sparse[entityId]
-		local lastComponentId = self.sparse[entityId]
+		local lastComponentId = self.sparse[#self.sparse]
 
-		-- Swap Entities
-		self.entities[componentId] = lastEntityIndex
-		self.entities[lastComponentId] = entityId
-
-		-- Swap Sparse
-		self.sparse[entityId] = lastComponentId
-		self.sparse[lastEntityIndex] = componentId
+		swapTableElements(self.entities, componentId, lastComponentId)
+		swapTableElements(self.sparse, entityId, #self.sparse)
 
 		return componentId, lastComponentId
 	end,
 }
 system.__index = system
 
-function system.new(id)
+function system.new(id, name)
 	local self = {
 		id = id,
+		name = name,
 		sparse = {},
 		entities = {},
 	}
@@ -102,7 +124,7 @@ function system.new(id)
 end
 
 -- Gameobject System
-local gameObjectSystem = system.new(1)
+local gameObjectSystem = system.new(1, "GameObjectSystem")
 gameObjectSystem.gameObjects = {}
 
 function gameObjectSystem:addComponentToEntity(entityId, gameobject)
@@ -119,21 +141,31 @@ end
 function gameObjectSystem:swapLast(entityId)
 	local componentId, lastComponentId = system.swapLast(self, entityId)
 
-	local gameobjects = self.gameObjects
+	-- local gameObject, otherGameObject = swapTableElements(self.gameObjects, componentId, lastComponentId)
 
-	local otherGameObject = gameObjectSystem.gameObjects[lastComponentId]
-	gameobjects[lastComponentId] = gameobjects[componentId]
-	gameobjects[componentId] = otherGameObject
+	local otherGameObject = self.gameObjects[lastComponentId]
+
+	warn("EntityId = " .. otherGameObject:GetAttribute("EntityId") .. " Swap to : " .. entityId)
 
 	-- Update Moved Entity
 	otherGameObject:SetAttribute("EntityId", entityId)
 	otherGameObject:SetAttribute("Version", versions[entityId])
 end
 
-function gameObjectSystem:removeComponent(entityId)
+function gameObjectSystem:removeComponent(entityId) end
+
+function gameObjectSystem:removeEntity(entityId)
 	local componentId = system.removeComponent(self, entityId)
+
+	warn("Delete Gameobject Component : EntityId = " .. entityId .. " componentId = " .. componentId)
+
 	self.gameObjects[componentId]:Destroy()
 	table.remove(self.gameObjects, componentId)
+
+	for i = entityId, #self.entities, 1 do
+		self.gameObjects[i]:SetAttribute("EntityId", self.entities[i])
+		-- self.gameObjects[i]:SetAttribute("Version", versions[entityId])
+	end
 end
 
 function gameObjectSystem:clearComponents()
@@ -148,7 +180,7 @@ function gameObjectSystem:clearComponents()
 end
 
 -- Unit System
-local unitSystem = system.new(2)
+local unitSystem = system.new(2, "UnitSystem")
 unitSystem.definitionId = {}
 unitSystem.life = {}
 unitSystem.lifeBar = {}
@@ -171,15 +203,27 @@ function unitSystem:updateComponent(entityId, life)
 end
 
 function unitSystem:swapLast(entityId)
-	-- TODO : Swap Values
+	local componentId, lastComponentId = system.swapLast(self, entityId)
+
+	-- swapTableElements(self.definitionId, componentId, lastComponentId)
+	-- swapTableElements(self.life, componentId, lastComponentId)
+	-- swapTableElements(self.lifeBar, componentId, lastComponentId)
+	-- swapTableElements(self.deathEvent, componentId, lastComponentId)
 end
 
-function unitSystem:removeComponent(entityId)
+function unitSystem:removeComponent(entityId) end
+
+function unitSystem:removeEntity(entityId)
 	local componentId = system.removeComponent(self, entityId)
+
+	warn("Delete Unit Component : EntityId = " .. entityId .. " componentId = " .. componentId)
+	-- warn(self.deathEvent)
 
 	table.remove(self.life, componentId)
 	table.remove(self.lifeBar, componentId)
 	table.remove(self.deathEvent, componentId)
+
+	-- warn(self.deathEvent)
 end
 
 function unitSystem:clearComponents()
@@ -232,6 +276,14 @@ local archetypes = {
 
 -- #region SYSTEMS
 
+function EcsService:GetGameobjectsSystem()
+	return gameObjectSystem
+end
+
+function EcsService:GetUnitSystem()
+	return unitSystem
+end
+
 -- Register a System + Return SystemId
 function EcsService:RegisterSystem(system)
 	table.insert(system)
@@ -248,7 +300,8 @@ function EcsService:AddMask(entityMask, systemMask)
 end
 
 function EcsService:RemoveMask(entityMask, systemMask)
-	return bit32.band(entityMask, systemMask)
+	local inverseMask = bit32.bnot(systemMask)
+	return bit32.band(entityMask, inverseMask)
 end
 
 -- #endregion
@@ -274,33 +327,44 @@ function EcsService:SwapLast(entityId)
 		return
 	end
 
-	local lastEntityBitmask = entitiesBitmask[#entitiesBitmask]
-	entitiesBitmask[entityId] = lastEntityBitmask
-
+	-- Swap Components
 	for i = 1, #systems, 1 do
 		if EcsService:HasComponent(lastEntityIndex, i) then
 			systems[i]:swapLast(entityId)
 		end
 	end
+
+	-- Swap Entity
+	local lastEntityId = entitiesId[#entitiesId]
+	entitiesId[entityId] = lastEntityId
+
+	local lastEntityBitmask = entitiesBitmask[#entitiesBitmask]
+	entitiesBitmask[entityId] = lastEntityBitmask
 end
 
 function EcsService:RemoveEntity(entityId)
+	warn("Remove Entity : " .. entityId)
+
 	-- 1] Swap Entity -> Last Entity
-	EcsService:SwapLast(entityId)
+	-- EcsService:SwapLast(entityId)
 
 	-- 2] Delete now Last Entity
-	local lastEntityIndex = #entitiesId
+	-- local lastEntityIndex = entitiesId[#entitiesId]
 
 	-- Remove components
 	for i = 1, #systems, 1 do
-		if EcsService:HasComponent(lastEntityIndex, i) then
-			systems[i]:removeComponent(lastEntityIndex)
+		warn("EntityID = " .. entityId .. " Has Component = " .. systems[i].name .. " = ")
+		warn(EcsService:HasComponent(entityId, i))
+
+		if EcsService:HasComponent(entityId, i) then
+			systems[i]:removeEntity(entityId)
 		end
 	end
 
-	table.remove(entitiesId, lastEntityIndex)
-	table.remove(entitiesBitmask, lastEntityIndex)
-	table.remove(versions, lastEntityIndex)
+	-- Remove Entity
+	table.remove(entitiesId, entityId) -- TODO : Fix
+	table.remove(entitiesBitmask, entityId)
+	table.remove(versions, entityId)
 end
 
 function EcsService:ClearEntities()
@@ -367,6 +431,7 @@ function EcsService:EnableEntity(archetypeId)
 end
 
 -- Archetype : Disable Entity Replace with Last Entity
+-- Use RemoveComponent
 function EcsService:DisableEntity(entityId)
 	if not EcsService:HasComponent(entityId, 1) then
 		warn(entityId .. " Doesn't have Gameobject Component")
@@ -409,7 +474,8 @@ function EcsService:HasComponent(entityId, systemId)
 	local entityMask = entitiesBitmask[entityId]
 	local systemMask = EcsService:GetSystemMask(systemId)
 
-	return bit32.band(entityMask, systemMask) ~= 0
+	-- return bit32.band(entityMask, systemMask) ~= 0
+	return bit32.btest(entityMask, systemMask)
 end
 
 function EcsService:RemoveComponent(entityId, systemId)
@@ -423,8 +489,6 @@ function EcsService:KnitInit()
 	print("EcsService Initialized")
 
 	EcsService.SystemMetatable = systems
-	EcsService.GameobjectSystem = gameObjectSystem
-	EcsService.UnitSystem = unitSystem
 end
 
 function EcsService:KnitStart()

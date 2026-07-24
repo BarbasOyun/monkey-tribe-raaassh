@@ -901,6 +901,10 @@ function StatService:KnitStart()
 			end
 		end
 	end)
+
+	PlayerService.PlayerRemoved:Connect(function(userId)
+		stopLifeRegen(userId)
+	end)
 end
 
 return StatService

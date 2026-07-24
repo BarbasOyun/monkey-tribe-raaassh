@@ -93,7 +93,7 @@ local function hitsDetection(position, radius, param, charactersBanned)
 		return humanoidsHit
 	end
 
-	for _, hit in ipairs(hits) do
+	for _, hit in pairs(hits) do
 		-- print("Hit Part: " .. hit.Name)
 		local humanoid = Gears.FindHumanoidFromPart(hit)
 
@@ -154,7 +154,6 @@ local function attackHit(player, playerStats, weaponData)
 	local damage = rollAttackDamage(playerStats, isCrit)
 
 	for _, humanoid in pairs(hits) do
-		-- EnemyService:DamageEnemy(player, humanoid, damage)
 		EnemyService:DamageEnemy(player, humanoid.Parent:GetAttribute("EntityId"), humanoid, damage)
 	end
 
