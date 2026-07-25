@@ -28,6 +28,11 @@ local function swapTableElements(t, index1, index2)
 	return element1, element2
 end
 
+local function moveLastElement(t, index)
+	local lastElement = table.remove(t, #t)
+	t[index] = lastElement
+end
+
 -- Systems
 -- local systemCount = 0
 
@@ -61,17 +66,9 @@ local system = {
 
 		-- Update Entities
 		table.remove(self.entities, componentId)
-		for i = componentId, #self.entities, 1 do
-			self.entities[i] -= 1
-		end
 
 		-- Update Sparse
 		self.sparse[entityId] = 0
-		for i = entityId, #self.sparse, 1 do
-			if self.sparse[i] > 0 then
-				self.sparse[i] -= 1
-			end
-		end
 
 		-- Update Entity Bitmask
 		entitiesBitmask[entityId] = EcsService:RemoveMask(entitiesBitmask[entityId], EcsService:GetSystemMask(self.id))
@@ -94,6 +91,29 @@ local system = {
 		end
 
 		return componentId
+	end,
+	removeEntity2 = function(self, entityId)
+		local componentId = self.sparse[entityId]
+		local lastCompId = self.sparse[#self.sparse]
+		local hasComp = lastCompId == 0
+
+		-- Update Entities
+		table.remove(self.entities, lastCompId)
+
+		-- Delete Comp if last Entity doesn't have it, else keep
+		if not hasComp then
+			table.remove(self.entities, entityId)
+			self.sparse[entityId] = 0
+
+			for i = entityId, #self.entities, 1 do
+				self.sparse[self.entities[i]] -= 1
+			end
+		end
+
+		-- Update Sparse
+		table.remove(self.sparse, #self.sparse)
+
+		return componentId, lastCompId, hasComp
 	end,
 	clearComponents = function(self)
 		table.clear(self.sparse)
@@ -155,7 +175,7 @@ end
 function gameObjectSystem:removeComponent(entityId) end
 
 function gameObjectSystem:removeEntity(entityId)
-	local componentId = system.removeComponent(self, entityId)
+	local componentId = system.removeEntity(self, entityId)
 
 	warn("Delete Gameobject Component : EntityId = " .. entityId .. " componentId = " .. componentId)
 
@@ -166,6 +186,28 @@ function gameObjectSystem:removeEntity(entityId)
 		self.gameObjects[i]:SetAttribute("EntityId", self.entities[i])
 		-- self.gameObjects[i]:SetAttribute("Version", versions[entityId])
 	end
+end
+
+function gameObjectSystem:removeEntity2(entityId)
+	local componentId, lastCompId, hasComp = system.removeEntity2(self, entityId)
+
+	warn("Delete2 Gameobject Comp : EntityId = " .. entityId)
+
+	self.gameObjects[componentId]:Destroy()
+
+	if not hasComp then
+		-- Delete at compId
+		table.remove(self.gameObjects, componentId)
+		return
+	end
+
+	-- Swap Values + Delete Last
+	local lastGameObject = table.remove(self.gameObjects, lastCompId)
+	self.gameObjects[componentId] = lastGameObject
+
+	-- Update GameObject EntityId
+	lastGameObject:SetAttribute("EntityId", entityId)
+	-- lastGameObject:SetAttribute("Version", versions[entityId])
 end
 
 function gameObjectSystem:clearComponents()
@@ -214,16 +256,32 @@ end
 function unitSystem:removeComponent(entityId) end
 
 function unitSystem:removeEntity(entityId)
-	local componentId = system.removeComponent(self, entityId)
+	local componentId = system.removeEntity(self, entityId)
 
 	warn("Delete Unit Component : EntityId = " .. entityId .. " componentId = " .. componentId)
-	-- warn(self.deathEvent)
 
 	table.remove(self.life, componentId)
 	table.remove(self.lifeBar, componentId)
 	table.remove(self.deathEvent, componentId)
+end
 
-	-- warn(self.deathEvent)
+function unitSystem:removeEntity2(entityId)
+	local componentId, lastCompId, hasComp = system.removeEntity2(self, entityId)
+
+	warn("Delete2 Unit Component : EntityId = " .. entityId .. " componentId = " .. componentId)
+
+	if not hasComp then
+		-- Delete at compId
+		table.remove(self.life, componentId)
+		table.remove(self.lifeBar, componentId)
+		table.remove(self.deathEvent, componentId)
+		return
+	end
+
+	-- Swap Values + Delete Last
+	moveLastElement(self.life, componentId)
+	moveLastElement(self.lifeBar, componentId)
+	moveLastElement(self.deathEvent, componentId)
 end
 
 function unitSystem:clearComponents()
@@ -319,7 +377,7 @@ function EcsService:CreateEntity()
 end
 
 -- Swap Entity with the last
--- Only update the LastEntity
+-- Only update the Original LastEntity
 function EcsService:SwapLast(entityId)
 	local lastEntityIndex = #entitiesId
 
@@ -353,11 +411,10 @@ function EcsService:RemoveEntity(entityId)
 
 	-- Remove components
 	for i = 1, #systems, 1 do
-		warn("EntityID = " .. entityId .. " Has Component = " .. systems[i].name .. " = ")
-		warn(EcsService:HasComponent(entityId, i))
-
 		if EcsService:HasComponent(entityId, i) then
+			-- warn("EntityID = " .. entityId .. " Has Component = " .. systems[i].name)
 			systems[i]:removeEntity(entityId)
+			-- systems[i]:removeEntity2(entityId)
 		end
 	end
 
@@ -365,6 +422,10 @@ function EcsService:RemoveEntity(entityId)
 	table.remove(entitiesId, entityId) -- TODO : Fix
 	table.remove(entitiesBitmask, entityId)
 	table.remove(versions, entityId)
+
+	-- moveLastElement(entitiesId, entityId)
+	-- moveLastElement(entitiesBitmask, entityId)
+	-- moveLastElement(versions, entityId)
 end
 
 function EcsService:ClearEntities()
@@ -474,7 +535,6 @@ function EcsService:HasComponent(entityId, systemId)
 	local entityMask = entitiesBitmask[entityId]
 	local systemMask = EcsService:GetSystemMask(systemId)
 
-	-- return bit32.band(entityMask, systemMask) ~= 0
 	return bit32.btest(entityMask, systemMask)
 end
 

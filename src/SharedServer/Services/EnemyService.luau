@@ -43,10 +43,6 @@ local dummySetup = function(character, entityId)
 	local unitSystem = EcsService:GetUnitSystem()
 	local unitId = unitSystem:getComponentId(entityId)
 
-	-- for i = 1, #EcsService.UnitSystem.deathEvent, 1 do
-	-- 	EcsService.UnitSystem.deathEvent[i]:DisconnectAll()
-	-- end
-
 	unitSystem.deathEvent[unitId]:Connect(onDeath)
 end
 
@@ -110,12 +106,7 @@ function EnemyService:DamageEnemy(player, entityId, humanoid, damage)
 	local unitSystem = EcsService.GetUnitSystem()
 	local unitId = unitSystem:getComponentId(entityId)
 
-	-- warn(
-	-- 	"Damage Enemy : Entity ID = "
-	-- 		.. entityId
-	-- 		.. ", GameObject ComponentID = "
-	-- 		.. EcsService:GetGameobjectsSystem():getComponentId(entityId)
-	-- )
+	-- warn("Damage Enemy : Entity ID = " .. entityId)
 
 	if damage <= 0 then
 		return
@@ -151,10 +142,9 @@ function EnemyService:KillEnemy(player, entityId, humanoid, overKillDamage)
 	local unitId = unitSystem:getComponentId(entityId)
 	local deathEvent = unitSystem.deathEvent[unitId]
 
-	warn("Death Event : EntityID  = " .. entityId .. " UnitID = " .. unitId)
-
 	-- Trigger Death Event
 	if deathEvent then
+		-- warn("Death Event : EntityID  = " .. entityId .. " UnitID = " .. unitId)
 		deathEvent:Fire(player) -- overKillDamage
 	end
 end
