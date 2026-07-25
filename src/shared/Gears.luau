@@ -23,6 +23,16 @@ end
 
 -- TABLES
 
+function gears.swapTableElements(t, index1, index2)
+	local element1 = table.remove(t, index1)
+	local element2 = table.remove(t, index2 - 1)
+
+	table.insert(t, index1, element2)
+	table.insert(t, index2, element1)
+
+	return element1, element2
+end
+
 function gears.joinTable(table1, table2)
 	for _, element in pairs(table2) do
 		table.insert(table1, element)

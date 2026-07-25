@@ -107,6 +107,7 @@ function EnemyService:DamageEnemy(player, entityId, humanoid, damage)
 	local unitId = unitSystem:getComponentId(entityId)
 
 	-- warn("Damage Enemy : Entity ID = " .. entityId)
+	-- warn("Damage Enemy : Entity ID = " .. entityId .. ", Unit ID = " .. unitId)
 
 	if damage <= 0 then
 		return
