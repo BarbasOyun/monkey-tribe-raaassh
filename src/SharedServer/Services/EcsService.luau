@@ -3,6 +3,7 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Entities
 local entitiesId = {}
@@ -15,6 +16,7 @@ local EcsService = Knit.CreateService({
 	Name = "EcsService",
 	SystemMetatable = nil,
 	-- Archetype = archetype,
+	-- FinishedLoadingECSystems = Signal:New()
 	-- Client = {},
 })
 
@@ -37,7 +39,7 @@ local system = {
 		self.sparse[entityId] = componentId
 
 		-- Update Entity Bitmask
-		entitiesBitmask[entityId] = EcsService:AddMask(entitiesBitmask[entityId], EcsService:GetSystemMask(self.id))
+		entitiesBitmask[entityId] = Gears:AddMask(entitiesBitmask[entityId], Gears:GetMask(self.id))
 
 		return componentId
 	end,
@@ -67,7 +69,7 @@ local system = {
 		self.sparse[entityId] = 0
 
 		-- Update Entity Bitmask
-		entitiesBitmask[entityId] = EcsService:RemoveMask(entitiesBitmask[entityId], EcsService:GetSystemMask(self.id))
+		entitiesBitmask[entityId] = Gears:RemoveMask(entitiesBitmask[entityId], Gears:GetMask(self.id))
 
 		return componentId
 	end,
@@ -147,7 +149,9 @@ function gameObjectSystem:addComponentToEntity(entityId, gameobject)
 	return componentId
 end
 
-function gameObjectSystem:removeComponent(entityId) end
+function gameObjectSystem:removeComponent(entityId)
+	-- TODO
+end
 
 --[[
 function gameObjectSystem:removeEntity(entityId)
@@ -223,7 +227,9 @@ function unitSystem:updateComponent(entityId, life)
 	self.life[componentId] = life
 end
 
-function unitSystem:removeComponent(entityId) end
+function unitSystem:removeComponent(entityId)
+	-- TODO
+end
 
 function unitSystem:removeEntity(entityId)
 	local componentId, lastCompId, hasComp = system.removeEntity(self, entityId)
@@ -302,24 +308,11 @@ function EcsService:GetUnitSystem()
 	return unitSystem
 end
 
--- Register a System + Return SystemId
 function EcsService:RegisterSystem(system)
+	-- TODO : Get State
 	table.insert(system)
-	return #systems
-end
-
-function EcsService:GetSystemMask(system_id)
-	return bit32.lshift(1, system_id)
-end
-
--- Add a SystemMask to an Entity's bitmask
-function EcsService:AddMask(entityMask, systemMask)
-	return bit32.bor(entityMask, systemMask)
-end
-
-function EcsService:RemoveMask(entityMask, systemMask)
-	local inverseMask = bit32.bnot(systemMask)
-	return bit32.band(entityMask, inverseMask)
+	local systemId = #systems
+	return systemId
 end
 
 -- #endregion
@@ -339,30 +332,6 @@ function EcsService:CreateEntity()
 	end
 
 	return entityId
-end
-
--- Swap Entity with the last
--- Only update the Original LastEntity
-function EcsService:SwapLast(entityId)
-	local lastEntityIndex = #entitiesId
-
-	if entityId == lastEntityIndex then
-		return
-	end
-
-	-- Swap Components
-	for i = 1, #systems, 1 do
-		if EcsService:HasComponent(lastEntityIndex, i) then
-			systems[i]:swapLast(entityId)
-		end
-	end
-
-	-- Swap Entity
-	local lastEntityId = entitiesId[#entitiesId]
-	entitiesId[entityId] = lastEntityId
-
-	local lastEntityBitmask = entitiesBitmask[#entitiesBitmask]
-	entitiesBitmask[entityId] = lastEntityBitmask
 end
 
 function EcsService:RemoveEntity(entityId)
@@ -487,9 +456,18 @@ end
 
 function EcsService:HasComponent(entityId, systemId)
 	local entityMask = entitiesBitmask[entityId]
-	local systemMask = EcsService:GetSystemMask(systemId)
+	local systemMask = Gears:GetMask(systemId)
 
 	return bit32.btest(entityMask, systemMask)
+end
+
+function EcsService:AddComponent(entityId, systemId)
+	if EcsService:HasComponent(entityId, systemId) then
+		warn("Entity = " .. entityId .. " Already has = " .. systemId)
+		return
+	end
+
+	systems[systemId]:addComponentToEntity(entityId)
 end
 
 function EcsService:RemoveComponent(entityId, systemId)
@@ -501,12 +479,11 @@ end
 -- Start Service
 function EcsService:KnitInit()
 	print("EcsService Initialized")
-
-	EcsService.SystemMetatable = systems
 end
 
 function EcsService:KnitStart()
 	-- createPools()
+	EcsService.SystemMetatable = systems
 end
 
 return EcsService

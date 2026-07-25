@@ -5,7 +5,7 @@ local RunService = game:GetService("RunService")
 
 local gears = {}
 
--- DATA
+-- #region DATA
 
 function gears.deepCopy(original)
 	local copy = {}
@@ -21,7 +21,33 @@ function gears.deepCopy(original)
 	return copy
 end
 
--- TABLES
+-- #endregion
+
+-- #region BITWISE OPERATIONS
+
+function gears:GetMask(system_id)
+	return bit32.lshift(1, system_id)
+end
+
+function gears:AddMask(entityMask, systemMask)
+	return bit32.bor(entityMask, systemMask)
+end
+
+function gears:RemoveMask(entityMask, systemMask)
+	local inverseMask = bit32.bnot(systemMask)
+	return bit32.band(entityMask, inverseMask)
+end
+
+-- #endregion
+
+-- #region TABLES
+
+function gears.moveLastElement(t, index)
+	local lastElement = table.remove(t, #t)
+	t[index] = lastElement
+
+	return lastElement
+end
 
 function gears.swapTableElements(t, index1, index2)
 	local element1 = table.remove(t, index1)
@@ -75,7 +101,9 @@ function gears.tableSize(t)
 	return count
 end
 
--- INSTANCES / WORLD OBJECT
+-- #endregion
+
+-- #region INSTANCES / WORLD OBJECT
 
 function gears.getPartCount(parentObject)
 	local count = 0
@@ -99,7 +127,9 @@ function gears.FindHumanoidFromPart(part)
 	return nil
 end
 
--- AUDIO
+-- #endregion
+
+-- #region AUDIO
 
 function gears.safePlaySound(sound)
 	sound:Stop()
@@ -116,7 +146,9 @@ function gears.safePlaySoundClone(soundPrefab, parent)
 	game.Debris:AddItem(sound, sound.TimeLength + 0.01)
 end
 
--- ASYNC LOGIC
+-- #endregion
+
+-- #region ASYNC LOGIC
 
 function gears.executeFor(duration, lambda)
 	local execute = RunService.Heartbeat:Connect(function()
@@ -144,7 +176,9 @@ function gears.waitUntil(condition)
 	return true
 end
 
--- DEBUG & PERF
+-- #endregion
+
+-- #region DEBUG & PERF
 
 -- Simple test
 function gears.performanceTest(lambda)
@@ -200,7 +234,9 @@ function gears.drawSphere(position, radius, color)
 	game.Debris:AddItem(adorn, 0.01)
 end
 
--- MATH
+-- #endregion
+
+-- #region MATH
 
 function gears.squaredMagnitude(vector3)
 	return (vector3.X * vector3.X) + (vector3.Y * vector3.Y) + (vector3.Z * vector3.Z)
@@ -307,5 +343,7 @@ function gears.spherePos(latitude, longitude, radius)
 	local z = math.cos(latitude) * radius
 	return Vector3.new(x, y, z) -- Add to a position
 end
+
+-- #endregion
 
 return gears

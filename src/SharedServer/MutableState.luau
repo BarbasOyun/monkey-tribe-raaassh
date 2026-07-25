@@ -1,0 +1,3 @@
+-- Dynamic State
+-- > Data is Mutable != RoduxStore
+-- For High Frequency Data eg ECS Components

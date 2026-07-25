@@ -184,10 +184,11 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 })
 
--- STORE
+-- STORE / STATE
 
 local rootReducer = Rodux.combineReducers({
 	players = playerReducer,
+	-- ECSystems
 	-- Other game data
 })
 

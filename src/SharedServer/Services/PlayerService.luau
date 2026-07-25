@@ -15,6 +15,7 @@ local storeActions = RoduxStore.Actions
 
 -- Rodux hold a table of players
 -- key = player.UserId
+-- TODO : Move to Store
 local PLAYER_STRUCT = {
 	username = "",
 	state = "Playing",
@@ -180,14 +181,6 @@ function PlayerService:AddPlayer(player, username)
 	local playerData = createPlayerData(player)
 	store:dispatch(storeActions.AddPlayer(userId, playerData))
 
-	-- TODO : Move to GameManager
-	-- On Player Death
-	-- player:LoadCharacterAsync()
-	-- local character = player.Character
-	-- character.Humanoid.Died:Connect(function()
-	-- 	self:OnPlayerDeath(player)
-	-- end)
-
 	-- Stats
 	self:GetMetaUpgrades(userId)
 
@@ -214,7 +207,7 @@ function PlayerService.Client:ToggleMusic(player, isEnabled)
 	store:dispatch(storeActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
 end
 
--- Prevent Players from groing OOB
+-- Prevent Players from going OOB
 function PlayerService:LimitInBound(limit)
 	RunService.Heartbeat:Connect(function()
 		for _, player in pairs(Players:GetPlayers()) do

@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -892,6 +891,7 @@ end
 function StatService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 
+	-- LifeRegen
 	PlayerService.ThrottledUpdate:Connect(function(state)
 		for _, player in pairs(Players:GetPlayers()) do
 			local playerLife = playersLife[player.UserId]
