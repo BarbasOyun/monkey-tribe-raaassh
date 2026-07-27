@@ -1,5 +1,5 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerStorage = game:GetService("ServerStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
@@ -20,6 +20,7 @@ local EcsService = Knit.CreateService({
 	-- Client = {},
 })
 
+-- Replace index with Last Element
 local function moveLastElement(t, index)
 	local lastElement = table.remove(t, #t)
 	t[index] = lastElement

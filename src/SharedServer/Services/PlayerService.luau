@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
@@ -8,101 +9,30 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
+-- Get Constants
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+
 -- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
 local storeActions = RoduxStore.Actions
+-- local selectors = RoduxStore.Selectors
 
--- Rodux hold a table of players
--- key = player.UserId
--- TODO : Move to Store
-local PLAYER_STRUCT = {
-	username = "",
-	state = "Playing",
-	isMusicEnabled = true,
-	-- Currencies
-	bananas = 0,
-	sticks = 0,
-	stones = 0,
-	-- Score
-	kills = 0,
-	destruction = 0,
-	-- Level
-	level = 1,
-	waitingLevel = 0,
-	currentXp = 0,
-	xpRequired = 10,
-	-- Stats
-	stats = nil,
-	metaUpgradesLevel = nil,
-	metaUpgradesCost = nil,
-	metaUpgrades = nil,
-	augments = nil,
-	currentAugments = {}, -- 3+ choice cards
-	weaponData = nil,
-	-- gearData
-}
-
-local PLAYER_STATE = {
-	playing = "Playing",
-	pickingAugment = "PickingAugment",
-	-- menuing
-}
-
-local CURRENCIES = {
-	bananas = "bananas",
-	sticks = "sticks",
-	stones = "stones",
-}
-
-local MAX_CURRENCIES = {
-	bananas = 100_000,
-	sticks = 10_000,
-	stones = 10_000,
-}
+-- Get Mutable State
+local MutState = require(ServerScriptService.SharedServer.MutableState)
 
 local StatService
 local ItemService
 
--- DataStore
+-- Get DataStore
 local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
-
--- TP to main Game instance
-local HUB_PLACE_ID = 95975992291805
-
--- GlobalUpdate
-local THROTTLED_UPDATE_FRAMES = 5
-local frameCount = 0
-
--- PickupRange Parameters
-local autoPickupParam = OverlapParams.new()
-autoPickupParam.FilterType = Enum.RaycastFilterType.Include
-autoPickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
-autoPickupParam.MaxParts = 50
-
--- Enemies Detection
-local detectionParam = OverlapParams.new()
-detectionParam.FilterType = Enum.RaycastFilterType.Include
-detectionParam.FilterDescendantsInstances = { workspace.WeaponHit }
-detectionParam.MaxParts = 50
-
--- List with key = userId of tables : key = enemy, Value = squared distance
--- TODO : Flatten -> playersDetectionCount
-local playersDetections = {}
-
--- Game
--- TODO : Move to GameManager
-local MAX_DISTANCE = 250
-local deadPlayers = {}
 
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
+	MutState = MutState,
 	PlayerAdded = Signal.new(),
 	PlayerRemoved = Signal.new(),
 	BananasChanged = Signal.new(),
-	PLAYER_STATE = PLAYER_STATE,
-	CURRENCIES = CURRENCIES,
-	PlayersDetections = playersDetections,
 	StateUpdate = Signal.new(),
 	ThrottledUpdate = Signal.new(),
 	Client = {
@@ -115,9 +45,9 @@ local PlayerService = Knit.CreateService({
 	},
 })
 
--- PLAYERS
+-- #region PLAYERS
 
--- Per Player Custom GameState -> Remove useless Data
+-- Custom Game State for Clients -> Remove Useless Data
 local function playerGameState(player)
 	local state = store:getState()
 	local players = {}
@@ -155,31 +85,12 @@ local function playerGameState(player)
 	return gameState
 end
 
-local function createPlayerData(player)
-	local playerData = Gears.deepCopy(PLAYER_STRUCT)
-
-	playerData.username = player.Name
-
-	local statsStruct = StatService.STATS_STRUCT
-	local modStatsStruct = StatService.MOD_STATS
-
-	-- Stats
-	playerData.stats = Gears.deepCopy(statsStruct)
-	playerData.metaUpgradesLevel = Gears.deepCopy(modStatsStruct)
-	playerData.metaUpgradesCost = Gears.deepCopy(modStatsStruct)
-	playerData.metaUpgrades = Gears.deepCopy(modStatsStruct)
-	playerData.augments = Gears.deepCopy(modStatsStruct)
-
-	return playerData
-end
-
 -- TODO : AddHubPlayer
 function PlayerService:AddPlayer(player, username)
 	local userId = player.UserId
 
 	-- Create Player
-	local playerData = createPlayerData(player)
-	store:dispatch(storeActions.AddPlayer(userId, playerData))
+	store:dispatch(storeActions.AddPlayer(userId, username))
 
 	-- Stats
 	self:GetMetaUpgrades(userId)
@@ -217,7 +128,7 @@ function PlayerService:LimitInBound(limit)
 			local pos = root.Position
 			local flatPos = Vector2.new(pos.X, pos.Z) -- Check 2D distance
 
-			if flatPos.Magnitude > MAX_DISTANCE then -- TODO : Squared Magnitude
+			if flatPos.Magnitude > CONSTANTS.MAX_DISTANCE then -- TODO : Squared Magnitude
 				character:PivotTo(CFrame.new(Vector3.zero))
 				root.AssemblyLinearVelocity = Vector3.zero -- Reset momentum
 			end
@@ -225,7 +136,9 @@ function PlayerService:LimitInBound(limit)
 	end)
 end
 
--- DB
+-- #endregion
+
+-- #region DB
 
 -- Save Score & Meta Upgrades to Db
 function PlayerService:SaveToDb(userId)
@@ -259,7 +172,7 @@ function PlayerService:IncrementDbBananas(userId, value)
 		return PlayersDb:UpdateAsync(userId, function(oldValue)
 			local current = oldValue or 0
 			local nextValue = current + value
-			return math.clamp(nextValue, 0, MAX_CURRENCIES[CURRENCIES.bananas])
+			return math.clamp(nextValue, 0, CONSTANTS.MAX_CURRENCIES[CONSTANTS.CURRENCIES.bananas])
 		end)
 	end)
 end
@@ -336,6 +249,8 @@ local function ResetPlayer(player)
 	end
 end
 
+-- #endregion
+
 -- GAME
 -- TODO : Move to GameManager
 
@@ -350,21 +265,36 @@ function PlayerService:GameOver()
 	end
 
 	pcall(function()
-		return TeleportService:TeleportAsync(HUB_PLACE_ID, players)
+		return TeleportService:TeleportAsync(CONSTANTS.HUB_PLACE_ID, players)
 	end)
 end
 
 function PlayerService:OnPlayerDeath(player)
 	print(player.Name .. " died -> Waiting Next Stage to respawn...")
-	table.insert(deadPlayers, player)
+	local userId = player.UserId
+
 	-- Events.PlayerDied:FireClient(player) -- TODO : Event
 
-	if #deadPlayers >= #Players:GetPlayers() then
+	local patch = { isDead = true }
+	store:dispatch(storeActions.PatchPlayer(userId, patch))
+
+	local state = store:getState()
+	local players = state.players
+
+	local deadPlayersCount = 0
+
+	for i = 1, #players, 1 do
+		if players[i].isDead then
+			deadPlayersCount += 1
+		end
+	end
+
+	if deadPlayersCount >= #players then
 		self:GameOver()
 	end
 end
 
--- CURRENCIES
+-- #region CURRENCIES
 
 -- currencyType = from CURRENCIES
 function PlayerService:GetCurrency(state, userId, currencyType)
@@ -377,7 +307,7 @@ local function updateCurrency(state, player, currencyType, value)
 	local userId = player.UserId
 
 	local currency = PlayerService:GetCurrency(state, userId, currencyType)
-	local newValue = math.clamp(currency + value, 0, MAX_CURRENCIES[currencyType])
+	local newValue = math.clamp(currency + value, 0, CONSTANTS.MAX_CURRENCIES[currencyType])
 
 	local patch = { [currencyType] = newValue }
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
@@ -399,7 +329,6 @@ local function updateCurrencyToAllPlayers(currencyType, value)
 	end
 end
 
--- Add To all Players
 function PlayerService:AddCurrencyToAllPlayers(currencyType, value)
 	assert(value > 0, "value must be positive")
 	updateCurrencyToAllPlayers(currencyType, value)
@@ -413,16 +342,17 @@ function PlayerService:SubtractCurrency(player, currencyType, value)
 	updateCurrency(state, player, currencyType, -value)
 end
 
--- UPDATES
+-- #endregion
+
+-- #region UPDATES
 
 -- Enemies Detection
 local function enemiesDetection(state)
 	for _, player in pairs(Players:GetPlayers()) do
 		local userId = player.UserId
-
-		playersDetections[userId] = {}
-
 		local playerData = state.players[player.userId]
+
+		MutState.playersDetections[userId] = {}
 
 		if not playerData then
 			continue
@@ -435,16 +365,17 @@ local function enemiesDetection(state)
 		-- Gears.DisplayHitBox(position, 10, 0.1)
 
 		-- Get the Squared Distance Player -> Enemy
-		local detectedEnemies = workspace:GetPartBoundsInRadius(playerPos, 15, detectionParam)
+		local detectedEnemies = workspace:GetPartBoundsInRadius(playerPos, 15, CONSTANTS.DETECTION_PARAM)
 
 		for _, enemy in pairs(detectedEnemies) do
 			local playerToEnemyDirection = enemy.CFrame.Position - playerPos
 			local playerToEnemyDistanceSquared = Gears.squaredMagnitude(playerToEnemyDirection)
-			playersDetections[userId][enemy] = playerToEnemyDistanceSquared
+			MutState.playersDetections[userId][enemy] = playerToEnemyDistanceSquared
 		end
 	end
 end
--- Auto Pickup
+
+-- Auto Pickup XP Per Player
 local function autoPickup(player, itemModel)
 	if not itemModel.Parent or itemModel.Parent ~= workspace.AutoPickup then
 		return
@@ -473,7 +404,8 @@ end
 
 local function autoPickupRange(state)
 	for _, player in ipairs(Players:GetPlayers()) do
-		local playerData = state.players[player.userId]
+		local userId = player.UserId
+		local playerData = state.players[userId]
 
 		if not playerData then
 			continue
@@ -486,7 +418,7 @@ local function autoPickupRange(state)
 		-- DEBUG
 		-- Gears.DisplayHitBox(position, pickupRange, 0.1)
 
-		local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, autoPickupParam)
+		local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, CONSTANTS.AUTO_PICKUP_PARAM)
 
 		for _, itemModel in ipairs(autoPickupItems) do
 			autoPickup(player, itemModel)
@@ -495,22 +427,24 @@ local function autoPickupRange(state)
 end
 
 local function stateUpdate()
-	frameCount += 1
-
 	local state = store:getState() -- Get state once every frame
 
 	PlayerService.StateUpdate:Fire(state)
 
 	-- Throttled Update
-	if frameCount > THROTTLED_UPDATE_FRAMES then
+	MutState.frameCount += 1
+
+	if MutState.frameCount > CONSTANTS.THROTTLED_UPDATE_FRAMES then
 		PlayerService.ThrottledUpdate:Fire(state)
 
 		autoPickupRange(state)
 		enemiesDetection(state)
 
-		frameCount = 0
+		MutState.frameCount = 0
 	end
 end
+
+-- #endregion
 
 -- Start Service
 function PlayerService:KnitInit()

@@ -1,7 +1,40 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local Gears = require(script.Parent.Gears)
 local Rodux = require(ReplicatedStorage.Shared.Rodux)
 
--- RODUX ACTIONS
+-- local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+
+-- #region SELECTORS
+
+local Selectors = {
+	PlayerData = function(state, userId)
+		return state.players[userId]
+	end,
+
+	PlayerStats = function(playerData)
+		local playerStats = playerData.stats
+		local weaponData = playerData.weaponData
+
+		return playerStats, weaponData
+	end,
+
+	PlayerPowerSystems = function(playerData)
+		assert(playerData, "PlayerData is Nil")
+
+		local augments = playerData.augments
+		local metaUpgrades = playerData.metaUpgrades
+		-- Gear
+
+		return augments, metaUpgrades
+	end,
+}
+
+-- #endregion
+
+-- #region RODUX ACTIONS
 
 local Actions = {
 	SetGameState = function(gameState, userId)
@@ -13,11 +46,11 @@ local Actions = {
 	end,
 
 	-- Players
-	AddPlayer = function(userId, playerData)
+	AddPlayer = function(userId, username)
 		return {
 			type = "AddPlayer",
 			userId = userId,
-			playerData = playerData,
+			username = username,
 		}
 	end,
 
@@ -66,39 +99,20 @@ local Actions = {
 	end,
 }
 
-local Selectors = {
-	PlayerData = function(state, userId)
-		return state.players[userId]
-	end,
+-- #endregion
 
-	PlayerStats = function(playerData)
-		local playerStats = playerData.stats
-		local weaponData = playerData.weaponData
-
-		return playerStats, weaponData
-	end,
-
-	PlayerPowerSystems = function(playerData)
-		assert(playerData, "PlayerData is Nil")
-
-		local augments = playerData.augments
-		local metaUpgrades = playerData.metaUpgrades
-		-- Gear
-
-		return augments, metaUpgrades
-	end,
-}
-
--- RODUX REDUCERS
+-- #region RODUX REDUCERS
 
 local playerReducer = Rodux.createReducer({}, {
 	AddPlayer = function(state, action)
 		local players = table.clone(state) or {}
 
 		local userId = action.userId
-		local playerData = action.playerData
+		local username = action.username
 
-		players[userId] = playerData
+		-- TODO : Player Constructor
+		players[userId] = Gears.deepCopy(statsDefinition.DEFAULT_PLAYER)
+		players[userId].username = username
 
 		return players
 	end,
@@ -184,12 +198,13 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 })
 
--- STORE / STATE
+-- #endregion
+
+-- #region STORE / STATE
 
 local rootReducer = Rodux.combineReducers({
 	players = playerReducer,
-	-- ECSystems
-	-- Other game data
+	-- ... Others game data
 })
 
 local function masterReducer(state, action)
@@ -213,6 +228,8 @@ end
 local store = Rodux.Store.new(masterReducer, nil, {
 	Rodux.loggerMiddleware,
 })
+
+-- #endregion
 
 return {
 	Store = store,

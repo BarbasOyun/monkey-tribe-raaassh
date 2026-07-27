@@ -1,6 +1,9 @@
+local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 local Gears = require(ReplicatedStorage.Shared.Gears)
+
+local MutState = ServerScriptService.SharedServer.MutableState
 
 -- local systemCount = 0
 
@@ -127,10 +130,11 @@ function systemData.new(id, name)
 	return self
 end
 
+-- GameObject System Struct
 local gameObjectSystemData = systemData.new(1, "GameObjectSystem")
 gameObjectSystemData.gameObjects = {}
 
--- Gameobject System
+-- GameObject System Impl
 -- TODO : Function / Logic Only
 local gameObjectSystem = system.new(1, "GameObjectSystem")
 gameObjectSystem.gameObjects = {}

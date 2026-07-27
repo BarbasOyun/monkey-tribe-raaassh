@@ -1,29 +1,32 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
+-- Get Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
 local storeActions = RoduxStore.Actions
 
--- Get Items Data
+-- Get Const
+local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+
 local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
 local itemDefinitions = itemDef.itemDefinitions
 local itemStore = itemDef.itemStore
 local itemTypes = itemDef.itemTypes
 local itemPrefabs = itemDef.itemPrefabs
 
+-- Get Services
 local PlayerService
 local StatService
 
 local ItemService = Knit.CreateService({
 	Name = "ItemService",
-	ItemStore = nil, -- Hold an ItemStore for other services -> ensure item spawn
 	EquipWeapon = Signal.new(),
 	UnequipWeapon = Signal.new(),
 	Client = {
@@ -41,7 +44,7 @@ local usablesLogicDefinition = {
 	-- Small XP Orb
 	["Small XP Orb"] = function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
-		-- StatService:AddXpToAllPlayers(itemDefinition.xp)
+		StatService:AddXpToAllPlayers(itemDefinition.xp)
 		ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
 		ItemService:RemoveGroundItem(itemModel)
 	end,
@@ -66,7 +69,7 @@ local usablesLogicDefinition = {
 	end,
 }
 
--- CREATE ITEMS
+-- #region CREATE ITEMS
 
 -- Weapon Definition -> WeaponStats Data Struct instance
 local function createWeaponData(itemDefinition, weaponModel)
@@ -77,7 +80,7 @@ local function createWeaponData(itemDefinition, weaponModel)
 	local handle = weaponModel.Handle
 
 	-- Dynamic Data / Instance
-	local weaponData = {
+	local weaponData: statsDefinition.WeaponData = {
 		name = itemDefinition.name,
 		-- Model
 		weaponSize = weaponModel:GetScale(),
@@ -98,7 +101,9 @@ local function createWeaponData(itemDefinition, weaponModel)
 	return weaponData
 end
 
--- SPAWN ITEMS MODELS
+-- #endregion
+
+-- #region SPAWN ITEMS MODELS
 
 -- Spawn model at Position
 local function spawnItemDef(itemDefinitionId, position)
@@ -183,7 +188,9 @@ function ItemService:RemoveGroundItem(itemModel, instanceId)
 	itemModel:Destroy()
 end
 
--- ITEM PICKUP
+-- #endregion
+
+-- #region ITEM PICKUP
 
 function ItemService:PickupItem(player, itemModel)
 	-- TODO : Validations :
@@ -204,7 +211,9 @@ function ItemService:PickupItem(player, itemModel)
 	usablesLogicDefinition[itemDefinition.name](player, itemDefinition, itemModel)
 end
 
--- WEAPON : SETUP & EQUIP
+-- #endregion
+
+-- #region WEAPON : SETUP & EQUIP
 
 function ItemService:EquipDefaultWeapon(player)
 	local humanoid = player.Character:FindFirstChild("Humanoid")
@@ -331,12 +340,12 @@ local function SetupWeaponType(weaponType)
 	end)
 end
 
+-- #endregion
+
 -- KNIT SERVICE
 
 function ItemService:KnitInit()
 	print("ItemService Init")
-
-	self.ItemStore = itemStore
 end
 
 function ItemService:KnitStart()

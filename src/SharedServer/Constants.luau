@@ -1,0 +1,86 @@
+-- Gather all Server Side Game Constants
+-- eg Authoring Data
+
+-- local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Get Authoring Data
+-- local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+
+-- #region Player
+
+local PLAYER_STATES = {
+	playing = "Playing",
+	pickingAugment = "PickingAugment",
+	-- menuing
+}
+
+local CURRENCIES = {
+	bananas = "bananas",
+	sticks = "sticks",
+	stones = "stones",
+}
+
+local MAX_CURRENCIES = {
+	bananas = 100_000,
+	sticks = 10_000,
+	stones = 10_000,
+}
+
+-- PickupRange Parameters
+local AUTO_PICKUP_PARAM = OverlapParams.new()
+AUTO_PICKUP_PARAM.FilterType = Enum.RaycastFilterType.Include
+AUTO_PICKUP_PARAM.FilterDescendantsInstances = { workspace.AutoPickup }
+AUTO_PICKUP_PARAM.MaxParts = 50
+
+-- Enemies Detection
+local DETECTION_PARAM = OverlapParams.new()
+DETECTION_PARAM.FilterType = Enum.RaycastFilterType.Include
+DETECTION_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
+DETECTION_PARAM.MaxParts = 50
+
+-- #endregion
+
+-- Combat
+local WEAPON_HIT_PARAM = OverlapParams.new()
+WEAPON_HIT_PARAM.FilterType = Enum.RaycastFilterType.Include
+WEAPON_HIT_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
+WEAPON_HIT_PARAM.MaxParts = 100
+
+-- Enemies
+local WEAPON_HIT_FOLDER = workspace.WeaponHit
+
+type Constants = {
+	HUB_PLACE_ID: number,
+	THROTTLED_UPDATE_FRAMES: number,
+	MAX_DISTANCE: number,
+	-- Overlap Param
+	AUTO_PICKUP_PARAM: OverlapParams,
+	DETECTION_PARAM: OverlapParams,
+	WEAPON_HIT_PARAM: OverlapParams,
+	-- Enums
+	PLAYER_STATES: { string },
+	CURRENCIES: { string },
+	MAX_CURRENCIES: { number },
+	-- Slices
+	-- statsDefinition: {},
+	WEAPON_HIT_FOLDER: Folder,
+}
+
+local CONSTANTS: Constants = {
+	HUB_PLACE_ID = 95975992291805,
+	THROTTLED_UPDATE_FRAMES = 5,
+	MAX_DISTANCE = 250,
+	-- Overlap Param
+	AUTO_PICKUP_PARAM = AUTO_PICKUP_PARAM,
+	DETECTION_PARAM = DETECTION_PARAM,
+	WEAPON_HIT_PARAM = WEAPON_HIT_PARAM,
+	-- Enums
+	PLAYER_STATES = PLAYER_STATES,
+	CURRENCIES = CURRENCIES,
+	MAX_CURRENCIES = MAX_CURRENCIES,
+	-- Slices
+	-- statsDefinition = statsDefinition,
+	WEAPON_HIT_FOLDER = WEAPON_HIT_FOLDER,
+}
+
+return CONSTANTS

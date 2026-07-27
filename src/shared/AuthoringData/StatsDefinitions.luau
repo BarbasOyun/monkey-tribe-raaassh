@@ -1,4 +1,187 @@
--- STORES (Lookup tables)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Gears = require(ReplicatedStorage.Shared.Gears)
+
+-- TODO : PlayerDefinition = Client Side, StatsDefinition = ServerSide
+
+-- #region DATA STRUCTS
+
+export type Stats = {
+	-- Offensive
+	increasedAttackDamage: number,
+	-- moreAttackDamageLayers = {}
+	attackDamage: number,
+	increasedAttackSpeed: number,
+	attackSpeed: number, -- Attacks / Second
+	animationTime: number, -- Get lower as attackSpeed get higher
+	critChance: number,
+	critMultiplier: number,
+	increasedAoe: number,
+	aoe: number,
+	-- Defensive
+	-- baseLife: number,
+	-- increasedLife: number,
+	maxLife: number,
+	lifeRegen: number,
+	damageReduction: number,
+	-- Utility
+	mobility: number,
+	luck: number,
+	increasedXp: number,
+	basePickupRange: number,
+	increasedPickupRange: number,
+	pickupRange: number,
+}
+
+-- Stats that can be Modified by Power Systems
+export type ModStats = {
+	-- Offense
+	increasedAttackDamage: number,
+	increasedAttackSpeed: number,
+	critChance: number,
+	critMultiplier: number,
+	increasedAoe: number,
+	-- Defense
+	maxLife: number,
+	lifeRegen: number,
+	damageReduction: number,
+	-- Utility
+	mobility: number,
+	luck: number,
+	increasedXp: number,
+	increasedPickupRange: number,
+}
+
+export type Augment = {
+	modStat: string,
+	rarity: string,
+	value: number,
+}
+
+export type WeaponData = {
+	name: string,
+	-- Model
+	weaponSize: number,
+	attackPoint: Vector3,
+	-- Offense
+	damage: number, -- Calculate using Weapon Definition + Weapon Modifiers
+	attackSpeed: number,
+	-- Utility
+	aoe: number,
+	-- Misc
+	attackVFX: ParticleEmitter,
+	maxCombo: number,
+	-- Rarity: string,
+	-- Modifiers: { mod: Modifier },
+}
+
+export type Player = {
+	username: string,
+	state: string,
+	isMusicEnabled: boolean,
+	isDead: boolean,
+	-- Currencies
+	bananas: number,
+	sticks: number,
+	stones: number,
+	-- Score
+	kills: number,
+	destruction: number,
+	-- Level
+	level: number,
+	waitingLevel: number,
+	currentXp: number,
+	xpRequired: number,
+	-- Stats
+	stats: Stats,
+	metaUpgradesLevel: ModStats,
+	metaUpgradesCost: ModStats,
+	metaUpgrades: ModStats,
+	augments: ModStats,
+	currentAugments: { Augment }, -- 3+ choice cards
+	weaponData: WeaponData,
+	-- gearData
+}
+
+-- #endregion
+
+-- #region DEFAULT VALUES
+
+local DEFAULT_STATS: Stats = {
+	-- Offensive
+	increasedAttackDamage = 0,
+	-- moreAttackDamageLayers = {}
+	attackDamage = 0,
+	increasedAttackSpeed = 0,
+	attackSpeed = 0, -- Attacks / Second
+	animationTime = 1, -- Get lower as attackSpeed get higher
+	critChance = 5,
+	critMultiplier = 50,
+	increasedAoe = 0,
+	aoe = 0,
+	-- Defensive
+	-- baseLife = 100,
+	-- increasedLife = 0,
+	maxLife = 100,
+	lifeRegen = 1,
+	damageReduction = 0,
+	-- Utility
+	mobility = 15,
+	luck = 0,
+	increasedXp = 0,
+	basePickupRange = 10,
+	increasedPickupRange = 0,
+	pickupRange = 10,
+}
+
+local DEFAULT_MOD_STATS: ModStats = {
+	-- Offense
+	increasedAttackDamage = 0,
+	increasedAttackSpeed = 0,
+	critChance = 0,
+	critMultiplier = 0,
+	increasedAoe = 0,
+	-- Defense
+	maxLife = 0,
+	lifeRegen = 0,
+	damageReduction = 0,
+	-- Utility
+	mobility = 0,
+	luck = 0,
+	increasedXp = 0,
+	increasedPickupRange = 0,
+}
+
+local DEFAULT_PLAYER: Player = {
+	username = "",
+	state = "Playing",
+	isMusicEnabled = true,
+	isDead = false,
+	-- Currencies
+	bananas = 0,
+	sticks = 0,
+	stones = 0,
+	-- Score
+	kills = 0,
+	destruction = 0,
+	-- Level
+	level = 1,
+	waitingLevel = 0,
+	currentXp = 0,
+	xpRequired = 10,
+	-- Stats
+	stats = Gears.deepCopy(DEFAULT_STATS),
+	metaUpgradesLevel = Gears.deepCopy(DEFAULT_MOD_STATS),
+	metaUpgradesCost = Gears.deepCopy(DEFAULT_MOD_STATS),
+	metaUpgrades = Gears.deepCopy(DEFAULT_MOD_STATS),
+	augments = Gears.deepCopy(DEFAULT_MOD_STATS),
+	currentAugments = {}, -- 3+ choice cards
+	weaponData = nil,
+}
+
+-- #endregion
+
+-- #region ENUMS
 
 -- Stats as objects
 local STATS_STORE = {
@@ -63,6 +246,24 @@ local MOD_STATS_STORE = {
 	increasedPickupRange = "increasedPickupRange",
 }
 
+local MOD_STATS_INDEX = {
+	-- Offense
+	"increasedAttackDamage",
+	"increasedAttackSpeed",
+	"critChance",
+	"critMultiplier",
+	"increasedAoe",
+	-- Defense
+	"maxLife",
+	"lifeRegen",
+	"damageReduction",
+	-- Utility
+	"mobility",
+	"luck",
+	"increasedXp",
+	"increasedPickupRange",
+}
+
 -- Stats that need to be multiplied
 -- > Can use STAT_STORE instead
 --[[
@@ -75,27 +276,9 @@ local MULT_STATS_STORE = {
 }
 ]]
 
--- AUTHORING DATA
+-- #endregion
 
--- Only for ModStats
-local DEFAULT_STATS = {
-	-- Offense
-	increasedAttackDamage = 0,
-	increasedAttackSpeed = 0,
-	critChance = 5,
-	critMultiplier = 50,
-	increasedAoe = 0,
-	-- Defense
-	maxLife = 100,
-	lifeRegen = 1,
-	damageReduction = 0,
-	-- Utility
-	mobility = 15,
-	luck = 0,
-	increasedXp = 0,
-	basePickupRange = 10,
-	increasedPickupRange = 0,
-}
+-- Authoring Data
 
 local STATS_DISPLAY = {
 	increasedAttackDamage = "% Attack Damage",
@@ -278,15 +461,19 @@ local AUGMENTS = {
 	},
 }
 
-return {
-	-- Stores
+local statsDefinition = {
+	DEFAULT_PLAYER = DEFAULT_PLAYER,
+	-- Enums
 	STATS_STORE = STATS_STORE,
 	MOD_STATS_STORE = MOD_STATS_STORE,
 	-- MULT_STATS_STORE = MULT_STATS_STORE,
 	TO_STAT_OBJECT = TO_STAT_OBJECT,
+	MOD_STATS_INDEX = MOD_STATS_INDEX,
 	-- Authoring Data
 	DEFAULT_STATS = DEFAULT_STATS,
 	STATS_DISPLAY = STATS_DISPLAY,
 	META_UPRGADES = META_UPGRADES,
 	AUGMENTS = AUGMENTS,
 }
+
+return statsDefinition

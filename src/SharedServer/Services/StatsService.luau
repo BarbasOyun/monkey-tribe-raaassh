@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
@@ -11,16 +12,25 @@ local store = RoduxStore.Store
 local selectors = RoduxStore.Selectors
 local storeActions = RoduxStore.Actions
 
--- Get Stats Authoring Data
-local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
--- stores
-local STATS_STORE = statsData.STATS_STORE
-local MOD_STATS_STORE = statsData.MOD_STATS_STORE
-local TO_STAT_OBJECT = statsData.TO_STAT_OBJECT
--- authoring data
-local DEFAULT_STATS = statsData.DEFAULT_STATS
-local META_UPRGADES = statsData.META_UPRGADES
-local AUGMENTS = statsData.AUGMENTS
+-- Get Constants
+-- local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+
+local STATS_STORE = statsDefinition.STATS_STORE
+local MOD_STATS_STORE = statsDefinition.MOD_STATS_STORE
+local TO_STAT_OBJECT = statsDefinition.TO_STAT_OBJECT
+local MOD_STATS_INDEX = statsDefinition.MOD_STATS_INDEX
+local DEFAULT_STATS = statsDefinition.DEFAULT_STATS
+-- local STATS_DISPLAY = statsDefinition.STATS_DISPLAY
+local META_UPRGADES = statsDefinition.META_UPRGADES
+local AUGMENTS = statsDefinition.AUGMENTS
+
+-- Get Mutable State
+local MutState = require(ServerScriptService.SharedServer.MutableState)
+local statState = MutState.statState
+
+-- Get Services
+local PlayerService
 
 -- StatsSystem :
 -- INPUT = Take ModStats of each Power Systems (Mutated by other Systems)
@@ -42,76 +52,8 @@ local AUGMENTS = statsData.AUGMENTS
 -- baseX * increasedX = x
 -- some baseX come from weaponData eg baseAttackSpeed
 
--- Stats of Power Systems : MetaUpgrades + Augments -> Input
-local MOD_STATS = {
-	-- Offense
-	increasedAttackDamage = 0,
-	increasedAttackSpeed = 0,
-	critChance = 0,
-	critMultiplier = 0,
-	increasedAoe = 0,
-	-- Defense
-	maxLife = 0,
-	lifeRegen = 0,
-	damageReduction = 0,
-	-- Utility
-	mobility = 0,
-	luck = 0,
-	increasedXp = 0,
-	increasedPickupRange = 0,
-}
-
-local MOD_STATS_INDEX = {
-	-- Offense
-	"increasedAttackDamage",
-	"increasedAttackSpeed",
-	"critChance",
-	"critMultiplier",
-	"increasedAoe",
-	-- Defense
-	"maxLife",
-	"lifeRegen",
-	"damageReduction",
-	-- Utility
-	"mobility",
-	"luck",
-	"increasedXp",
-	"increasedPickupRange",
-}
-
--- Total Stats -> Output
-local STATS_STRUCT = {
-	-- Offensive
-	increasedAttackDamage = 0,
-	-- moreAttackDamageLayers = {}
-	attackDamage = 0,
-	increasedAttackSpeed = 0,
-	attackSpeed = 0, -- Attacks / Second
-	animationTime = 1, -- Get lower as attackSpeed get higher
-	critChance = 5,
-	critMultiplier = 50,
-	increasedAoe = 0,
-	aoe = 0,
-	-- Defensive
-	-- baseLife = 100,
-	-- increasedLife = 0,
-	maxLife = 100,
-	lifeRegen = 1,
-	damageReduction = 0,
-	-- Utility
-	mobility = 15,
-	luck = 0,
-	increasedXp = 0,
-	basePickupRange = 10,
-	increasedPickupRange = 0,
-	pickupRange = 10,
-}
-
 local StatService = Knit.CreateService({
 	Name = "StatService",
-	MOD_STATS_STORE = MOD_STATS_STORE,
-	MOD_STATS = MOD_STATS,
-	STATS_STRUCT = STATS_STRUCT,
 	MetaUpgradesChanged = Signal.new(),
 	XpGained = Signal.new(),
 	Client = {
@@ -123,18 +65,7 @@ local StatService = Knit.CreateService({
 	},
 })
 
-local PlayerService
-
-local totalXp = 0 -- Add to joining players
-
--- Picking Augments
-local positionStart = {} -- Reset Player's Pos after picking augment
-
--- Dynamic Stats
-local playersLife = {}
-local lifeRegenUpdates = {}
-
--- LIFE
+-- #region LIFE
 -- TODO = Fuse StatService + Enemy takeDamage function
 
 function StatService:RegisterLife(player)
@@ -142,7 +73,7 @@ function StatService:RegisterLife(player)
 	local state = store:getState()
 
 	local playerData = state.players[userId]
-	playersLife[userId] = playerData.stats.maxLife
+	statState.playersLife[userId] = playerData.stats.maxLife
 
 	self:CalculateStat(state, userId, MOD_STATS_STORE.lifeRegen)
 end
@@ -150,10 +81,12 @@ end
 function StatService:DamagePlayer(player, damage)
 	local userId = player.UserId
 
-	playersLife[userId] -= damage
+	statState.playersLife[userId] -= damage
 end
 
--- LEVELS
+-- #endregion
+
+-- #region LEVELS
 
 local function levelUp(state, player, currentXp)
 	print(player.Name .. " Level Up")
@@ -188,7 +121,7 @@ function StatService:AddXpToAllPlayers(xp)
 
 	local state = store:getState()
 
-	totalXp += xp
+	statState.totalXp += xp
 
 	for _, player in pairs(Players:GetPlayers()) do
 		self:AddXpToPlayer(state, player, xp)
@@ -220,9 +153,13 @@ function StatService:AddXpToPlayer(state, player, xp)
 	end
 end
 
+-- #endregion
+
 -- #region CALCULATIONS
 
 local function stopLifeRegen(userId)
+	local lifeRegenUpdates = statState.lifeRegenUpdates
+
 	if lifeRegenUpdates[userId] then
 		lifeRegenUpdates[userId]:Disconnect()
 		lifeRegenUpdates[userId] = nil
@@ -230,7 +167,10 @@ local function stopLifeRegen(userId)
 end
 
 local function startLifeRegen(userId, lifeRegen)
-	if lifeRegen > 0 and playersLife[userId] then
+	local playersLife = statState.playersLife
+	local lifeRegenUpdates = statState.lifeRegenUpdates
+
+	if lifeRegen > 0 and statState.playersLife[userId] then
 		lifeRegenUpdates[userId] = PlayerService.StateUpdate:Connect(function(state)
 			local playerData = selectors.PlayerData(state, userId)
 
@@ -382,7 +322,7 @@ local statsCalculation = {
 		local maxLife = calcModStat(metaUpgrades, augments, modStat)
 
 		-- MaxLife also Give life
-		local playerLife = playersLife[userId]
+		local playerLife = statState.playersLife[userId]
 
 		if playerLife then
 			playerLife += maxLife
@@ -782,8 +722,8 @@ local function finishAugmentPick(player)
 	local playerData = selectors.PlayerData(state, userId)
 
 	-- Reset Player State
-	player.Character:MoveTo(positionStart[userId])
-	positionStart[userId] = nil
+	player.Character:MoveTo(statState.positionStart[userId])
+	statState.positionStart[userId] = nil
 
 	startLifeRegen(userId, playerData.stats.lifeRegen)
 
@@ -807,7 +747,7 @@ function StatService.Client:StartAugmentPick(player)
 
 	-- Picking Augment State
 	-- print(player.Name .. " Is Picking Augment...")
-	positionStart[userId] = player.Character.HumanoidRootPart.CFrame.Position -- Movements are disabled client side
+	statState.positionStart[userId] = player.Character.HumanoidRootPart.CFrame.Position -- Movements are disabled client side
 
 	stopLifeRegen(userId)
 
@@ -894,7 +834,7 @@ function StatService:KnitStart()
 	-- LifeRegen
 	PlayerService.ThrottledUpdate:Connect(function(state)
 		for _, player in pairs(Players:GetPlayers()) do
-			local playerLife = playersLife[player.UserId]
+			local playerLife = statState.playersLife[player.UserId]
 
 			if playerLife then
 				self.Client.LifeUpdate:Fire(player, playerLife)

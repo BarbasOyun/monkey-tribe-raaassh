@@ -1,15 +1,17 @@
-local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+local CollectionService = game:GetService("CollectionService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local enemyParent = workspace.WeaponHit
-
+-- Get Services
 local EcsService
 local ItemService
 
--- ENEMY AUTHORING DATA
+-- Get Constants
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+
 local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 local enemyStore = enemyDef.enemyStore
 local enemyDefinitions = enemyDef.enemyDefinitions
@@ -54,7 +56,7 @@ local enemySetup = {
 	-- robotSetup
 }
 
--- #region ADD ENEMY
+-- #region SPAWN ENEMY
 
 -- Create Enemy for already spawned Model
 function EnemyService:CreateEnemy(character, enemyId)
@@ -63,7 +65,7 @@ function EnemyService:CreateEnemy(character, enemyId)
 	-- warn("Create enemy : " .. character.Name .. ", TypeId = " .. enemyId .. ", EntityId = " .. entityId)
 
 	local enemyDefinition = enemyDefinitions[enemyId]
-	character.Parent = enemyParent
+	character.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
 	-- Try to find lifeBar
 	local lBar = character:FindFirstChild("LifeBar")
@@ -93,7 +95,7 @@ end
 
 -- #endregion
 
--- #region DAMAGE + REMOVE
+-- #region DAMAGE + DEATH
 
 local function updateLifeBar(lifeBar, lifePercent)
 	local usePercent = math.max(0, lifePercent)
@@ -106,7 +108,6 @@ function EnemyService:DamageEnemy(player, entityId, humanoid, damage)
 	local unitSystem = EcsService.GetUnitSystem()
 	local unitId = unitSystem:getComponentId(entityId)
 
-	-- warn("Damage Enemy : Entity ID = " .. entityId)
 	-- warn("Damage Enemy : Entity ID = " .. entityId .. ", Unit ID = " .. unitId)
 
 	if damage <= 0 then
@@ -152,7 +153,7 @@ end
 
 -- #endregion
 
--- #region ENEMY TYPE SETUP
+-- #region ENEMY SETUP
 
 -- TODO : Move
 local function dismember(character)
