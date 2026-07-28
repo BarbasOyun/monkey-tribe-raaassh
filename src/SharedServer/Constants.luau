@@ -15,16 +15,23 @@ local PLAYER_STATES = {
 	-- menuing
 }
 
+-- TODO : Rename
 local CURRENCIES = {
-	bananas = "bananas",
-	sticks = "sticks",
-	stones = "stones",
+	bananas = 1,
+	sticks = 2,
+	stones = 3,
+}
+
+local CURRENCIES_NAMES = {
+	"bananas",
+	"sticks",
+	"stones",
 }
 
 local MAX_CURRENCIES = {
-	bananas = 100_000,
-	sticks = 10_000,
-	stones = 10_000,
+	100_000,
+	10_000,
+	10_000,
 }
 
 -- PickupRange Parameters
@@ -52,7 +59,7 @@ local WEAPON_HIT_FOLDER = workspace.WeaponHit
 
 -- ECS
 local DISABLED_ENTITIES_FOLDER = ServerStorage.DisabledEntities
-local STORAGE_STORE: { number } = {
+local STORAGE_STORE = {
 	gameObject = 1,
 	unit = 2,
 }
@@ -66,14 +73,15 @@ type Constants = {
 	DETECTION_PARAM: OverlapParams,
 	WEAPON_HIT_PARAM: OverlapParams,
 	-- Enums
-	PLAYER_STATES: { string },
-	CURRENCIES: { string },
+	PLAYER_STATES: {},
+	CURRENCIES: { bananas: number, sticks: number, stones: number },
+	CURRENCIES_NAMES: { string },
 	MAX_CURRENCIES: { number },
 	-- Slices
 	-- statsDefinition: {},
 	WEAPON_HIT_FOLDER: Folder,
 	DISABLED_ENTITIES_FOLDER: Folder,
-	STORAGE_STORE: { number },
+	STORAGE_STORE: { gameObject: number, unit: number },
 }
 
 local CONSTANTS: Constants = {
@@ -87,6 +95,7 @@ local CONSTANTS: Constants = {
 	-- Enums
 	PLAYER_STATES = PLAYER_STATES,
 	CURRENCIES = CURRENCIES,
+	CURRENCIES_NAMES = CURRENCIES_NAMES,
 	MAX_CURRENCIES = MAX_CURRENCIES,
 	-- Slices
 	-- statsDefinition = statsDefinition,

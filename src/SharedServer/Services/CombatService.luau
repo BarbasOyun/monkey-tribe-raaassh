@@ -174,7 +174,7 @@ end
 
 -- 4) Attack Callback with server validation
 -- After Animation
-function CombatService.Client:AttackCallback(player)
+function CombatService.Client.AttackCallback(player)
 	local userId = player.UserId
 	local state = store:getState()
 	local playerData = state.players[userId]
@@ -248,7 +248,7 @@ local function attackValidation(player, playerStats, weaponData)
 	startAttack()
 end
 
-function CombatService.Client:AttackValidation(player)
+function CombatService.Client.AttackValidation(player)
 	local state = store:getState()
 	local playerData = state.players[player.UserId]
 	local playerStats, weaponData = selectors.PlayerStats(playerData)
@@ -315,11 +315,27 @@ end
 
 -- #endregion
 
--- COMBAT SERVICE
+-- #region COMBAT SERVICE
 
 local function combatServiceUpdate(state)
 	findClosestEnemies()
 	autoTarget(state)
+end
+
+local function setupPlayerService()
+	PlayerService.PlayerAdded:Connect(function(userId)
+		combatState.lastAttacks[userId] = 0
+		combatState.comboIndexes[userId] = 0
+	end)
+
+	PlayerService.PlayerRemoved:Connect(function(userId)
+		-- Cleanup
+		combatState.lastAttacks[userId] = nil
+		combatState.comboIndexes[userId] = nil
+		combatState.expectingAttack[userId] = nil
+		combatState.attackBuffer[userId] = nil
+		combatState.comboReset[userId] = nil
+	end)
 end
 
 function CombatService:KnitInit()
@@ -339,20 +355,7 @@ function CombatService:KnitStart()
 	EnemyService = Knit.GetService("EnemyService")
 	ItemService = Knit.GetService("ItemService")
 
-	-- TODO : Fix
-	PlayerService.PlayerAdded:Connect(function(userId)
-		combatState.lastAttacks[userId] = 0
-		combatState.comboIndexes[userId] = 0
-	end)
-
-	PlayerService.PlayerRemoved:Connect(function(userId)
-		-- Cleanup
-		combatState.lastAttacks[userId] = nil
-		combatState.comboIndexes[userId] = nil
-		combatState.expectingAttack[userId] = nil
-		combatState.attackBuffer[userId] = nil
-		combatState.comboReset[userId] = nil
-	end)
+	setupPlayerService()
 
 	ItemService.UnequipWeapon:Connect(function(player)
 		local userId = player.UserId
@@ -364,5 +367,7 @@ function CombatService:KnitStart()
 
 	PlayerService.StateUpdate:Connect(combatServiceUpdate)
 end
+
+-- #endregion
 
 return CombatService

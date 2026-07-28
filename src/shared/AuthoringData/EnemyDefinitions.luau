@@ -1,13 +1,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local prefabs = ReplicatedStorage.Shared.Prefabs
 
-local enemyStore = {
+local Enemies = {
 	Dummy = 1,
 	Robot = 2,
 }
 
 -- Endgame Setup = csv file
-local enemyDefinitions = {
+local EnemiesDefinitions = {
 	{
 		Name = "Dummy",
 		MaxLife = 100,
@@ -21,13 +21,40 @@ local enemyDefinitions = {
 	},
 }
 
-local enemyPrefabs = {
+local EnemiesPrefabs = {
 	prefabs.Enemies:FindFirstChild("Dummy"),
 	prefabs.Enemies:FindFirstChild("Robot"),
 }
 
+local Archetypes = {
+	{
+		name = "Dummy",
+		systemsId = {
+			1,
+			2,
+		},
+		startIndex = 1,
+		endIndex = 100,
+		activeCount = 0,
+	},
+	{
+		name = "Robot",
+		systemsId = {
+			1,
+			2,
+			-- 3,
+		},
+		startIndex = 101,
+		endIndex = 200,
+		activeCount = 0,
+	},
+}
+
+local archetypesTotalSize = 200
+
 return {
-	enemyStore = enemyStore,
-	enemyDefinitions = enemyDefinitions,
-	enemyPrefabs = enemyPrefabs,
+	Enemies = Enemies,
+	EnemiesDefinitions = EnemiesDefinitions,
+	EnemiesPrefabs = EnemiesPrefabs,
+	Archetypes = Archetypes,
 }

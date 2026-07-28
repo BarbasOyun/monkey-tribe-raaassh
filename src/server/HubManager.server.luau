@@ -21,11 +21,12 @@ local StatService = Knit.GetService("StatService")
 -- local spawnWeaponButton = workspace.Wiki.RandomWeaponSpawner.Surface.SurfaceGui.TextButton
 -- local weaponSpawnPos = workspace.Wiki.RandomWeaponSpawner.WeaponSpawnPos
 
--- Db
-local isPlayerChanged = {}
-
 -- Platforms tp
 local GAME_PLACE_ID = 109804031798809
+
+-- TODO : HubState
+-- Db
+local isPlayerChanged = {}
 
 local gamePlatforms = workspace.GamePlatforms
 
@@ -189,18 +190,18 @@ end
 -- DO
 
 Players.PlayerAdded:Connect(function(player)
-	PlayerService:AddPlayer(player, player.Name)
+	PlayerService.AddPlayer(player, player.Name)
 
-	PlayerService:GetBananasDb(player)
+	PlayerService.GetBananasDb(player)
 
 	-- Manual Tests
 	-- local userId = player.UserId
-	-- StatService:AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
-	-- PlayerService:AddBananas(100)
-	StatService:GenerateAugments(player)
-	StatService:AddXpToAllPlayers(25)
-	StatService:RegisterLife(player)
-	StatService:DamagePlayer(player, 50)
+	-- StatService.AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
+	-- PlayerService.AddBananas(100)
+	StatService.GenerateAugments(player)
+	StatService.AddXpToAllPlayers(225)
+	StatService.RegisterLife(player)
+	StatService.DamagePlayer(player, 50)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
@@ -208,11 +209,11 @@ Players.PlayerRemoving:Connect(function(player)
 	local i = table.find(isPlayerChanged, player)
 
 	if i then
-		PlayerService:SaveToDb(player.UserId)
+		PlayerService.SaveToDb(player.UserId)
 		table.remove(isPlayerChanged, i)
 	end
 
-	PlayerService:RemovePlayer(player)
+	PlayerService.RemovePlayer(player)
 end)
 
 setupPlayerService()

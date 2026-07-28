@@ -3,21 +3,24 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Knit = require(ReplicatedStorage.Packages.Knit)
+Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+
+-- Get Constants
+local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+
+-- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local store = RoduxStore.Store
 local storeActions = RoduxStore.Actions
 
-local Knit = require(ReplicatedStorage.Packages.Knit)
-Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
-
--- Get Stats Authoring Data
-local statsData = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
-
+-- Get Services
 local PlayerService
 local StatService
 local CombatService
 local ItemService
 
+-- TODO : Client Side Mutable State
 local player = Players.LocalPlayer
 -- local camera = workspace.CurrentCamera
 local PlayerScripts = game.Players.LocalPlayer:WaitForChild("PlayerScripts")
@@ -54,15 +57,16 @@ local PlayerController = Knit.CreateController({
 	LifeUpdate = Signal.new(),
 	StateUpdate = Signal.new(),
 	-- Stores
-	STATS_STORE = statsData.STATS_STORE,
-	MOD_STATS_STORE = statsData.MOD_STATS_STORE,
+	STATS_STORE = statsDefinition.STATS_STORE,
+	MOD_STATS_STORE = statsDefinition.MOD_STATS_STORE,
 	-- Authoring Data
-	STATS_DISPLAY = statsData.STATS_DISPLAY,
-	META_UPRGADES = statsData.META_UPRGADES,
-	AUGMENTS = statsData.AUGMENTS,
+	STATS_DISPLAY = statsDefinition.STATS_DISPLAY,
+	META_UPRGADES = statsDefinition.META_UPRGADES,
+	AUGMENTS = statsDefinition.AUGMENTS,
 })
 
--- ANIMATIONS -> AnimationController
+-- #region ANIMATIONS
+-- AnimationController
 
 local function loadAnimation(animationId)
 	local anim = Instance.new("Animation")
@@ -73,7 +77,6 @@ local function loadAnimation(animationId)
 
 	animationTrack:GetMarkerReachedSignal("AttackHit"):Connect(function()
 		--print("Hit Event Triggered by player: " .. player.Name)
-		-- CombatService.finishAttack:Fire()
 		CombatService:AttackCallback()
 	end)
 
@@ -102,7 +105,9 @@ local function playAttackAnim(animationId, animationSpeed)
 	animationTracks[animationId]:AdjustSpeed(animationSpeed)
 end
 
--- CONTROLS
+-- #endregion
+
+-- #region CONTROLS
 
 local function toggleMusic(isEnabled)
 	if isEnabled then
@@ -167,16 +172,18 @@ local function setupAttack()
 	end)
 end
 
--- SERVICES
+-- #endregion
+
+-- #region SERVICES
 
 function PlayerController:BuyUpgrade(upgradeType)
-	StatService:BuyMetaUpgrade(upgradeType)
+	StatService.BuyMetaUpgrade(upgradeType)
 end
 
 local function setupPlayerService()
 	-- Players Join/Leave
 
-	-- Replicate Server GameData -> When joining game
+	-- On joining game -> Replicate Server Game State
 	PlayerService.ReplicateStore:Connect(function(gameState)
 		-- converte string key to number
 		-- TODO : use RunService:IsStudio to run only in editor
@@ -271,6 +278,8 @@ local function setupItemService()
 		getOrbSound:Play()
 	end)
 end
+
+-- #endregion
 
 local function stateUpdate()
 	local state = store:getState() -- Get state once every frame

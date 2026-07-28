@@ -1,5 +1,5 @@
 -- Dynamic State
--- > Data is Mutable != RoduxStore
+-- Mutable Data != RoduxStore
 -- For High Frequency Data eg ECS Components
 -- This Data might be sent to the Rodux Store in the Throttled Update -> Use Commands Buffer
 
@@ -52,9 +52,12 @@ local EcsState = {
 	entitiesId = {},
 	entitiesBitmask = {},
 	versions = {},
+	-- Storages
 	storages = {},
 	gameObjectStorageState = gameObjectStorageState,
 	unitStorageState = unitStorageState,
+	-- Archetypes
+	archetypes = {},
 }
 
 local MutState = {
@@ -63,6 +66,7 @@ local MutState = {
 	combatState = combatState,
 	statState = statState,
 	ecsState = EcsState,
+	-- Current Place State (Hub / Level)
 }
 
 return MutState

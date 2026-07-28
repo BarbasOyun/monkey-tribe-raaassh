@@ -86,40 +86,40 @@ local function playerGameState(player)
 end
 
 -- TODO : AddHubPlayer
-function PlayerService:AddPlayer(player, username)
+function PlayerService.AddPlayer(player, username)
 	local userId = player.UserId
 
 	-- Create Player
 	store:dispatch(storeActions.AddPlayer(userId, username))
 
 	-- Stats
-	self:GetMetaUpgrades(userId)
+	PlayerService:GetMetaUpgrades(userId)
 
 	-- Send the full store to the new player
 	local state = store:getState()
-	self.Client.ReplicateStore:Fire(player, state)
+	PlayerService.Client.ReplicateStore:Fire(player, state)
 
 	-- Events
-	self.PlayerAdded:Fire(userId)
-	self.Client.PlayerAdded:FireAll(userId, username)
+	PlayerService.PlayerAdded:Fire(userId)
+	PlayerService.Client.PlayerAdded:FireAll(userId, username)
 end
 
-function PlayerService:RemovePlayer(player)
+function PlayerService.RemovePlayer(player)
 	local userId = player.UserId
 
 	store:dispatch(storeActions.RemovePlayer(userId))
 
 	-- Events
-	self.PlayerRemoved:Fire(userId)
-	self.Client.PlayerRemoved:FireAll(userId)
+	PlayerService.PlayerRemoved:Fire(userId)
+	PlayerService.Client.PlayerRemoved:FireAll(userId)
 end
 
-function PlayerService.Client:ToggleMusic(player, isEnabled)
+function PlayerService.Client.ToggleMusic(player, isEnabled)
 	store:dispatch(storeActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
 end
 
 -- Prevent Players from going OOB
-function PlayerService:LimitInBound(limit)
+function PlayerService.LimitInBound(limit)
 	RunService.Heartbeat:Connect(function()
 		for _, player in pairs(Players:GetPlayers()) do
 			local character = player.Character or player.CharacterAdded:Wait()
@@ -141,7 +141,7 @@ end
 -- #region DB
 
 -- Save Score & Meta Upgrades to Db
-function PlayerService:SaveToDb(userId)
+function PlayerService.SaveToDb(userId)
 	local state = store:getState()
 	local playerData = state.players[userId]
 
@@ -163,7 +163,7 @@ function PlayerService:SaveToDb(userId)
 	end
 end
 
-function PlayerService:IncrementDbBananas(userId, value)
+function PlayerService.IncrementDbBananas(userId, value)
 	if value <= 0 then
 		return
 	end
@@ -178,7 +178,7 @@ function PlayerService:IncrementDbBananas(userId, value)
 end
 
 -- Get
-function PlayerService:GetBananasDb(player)
+function PlayerService.GetBananasDb(player)
 	local userId = player.UserId
 	local bananaCount = 0
 
@@ -193,10 +193,10 @@ function PlayerService:GetBananasDb(player)
 	local patch = { bananas = bananaCount }
 
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
-	self.Client.PatchPlayer:Fire(player, patch)
+	PlayerService.Client.PatchPlayer:Fire(player, patch)
 end
 
-function PlayerService:GetMetaUpgrades(userId)
+function PlayerService.GetMetaUpgrades(userId)
 	-- Get Levels from DB or 0
 	local levels = {}
 	local costs = {}
@@ -254,14 +254,14 @@ end
 -- GAME
 -- TODO : Move to GameManager
 
-function PlayerService:GameOver()
+function PlayerService.GameOver()
 	print("Game Over -> Saving Bananas & Going back to Hub")
 	local players = Players:GetPlayers()
 
 	-- TODO : Get Bananas Delta
 	for _, player in pairs(players) do
 		local bananasDelta = 0
-		PlayerService:IncrementDbBananas(player.UserId, bananasDelta)
+		PlayerService.IncrementDbBananas(player.UserId, bananasDelta)
 	end
 
 	pcall(function()
@@ -269,7 +269,7 @@ function PlayerService:GameOver()
 	end)
 end
 
-function PlayerService:OnPlayerDeath(player)
+function PlayerService.OnPlayerDeath(player)
 	print(player.Name .. " died -> Waiting Next Stage to respawn...")
 	local userId = player.UserId
 
@@ -290,26 +290,26 @@ function PlayerService:OnPlayerDeath(player)
 	end
 
 	if deadPlayersCount >= #players then
-		self:GameOver()
+		PlayerService.GameOver()
 	end
 end
 
 -- #region CURRENCIES
 
--- currencyType = from CURRENCIES
-function PlayerService:GetCurrency(state, userId, currencyType)
+-- currencyId = from CONSTANTS.CURRENCIES
+function PlayerService.GetCurrency(state, userId, currencyId)
 	local playerData = state.players[userId]
-	local currency = playerData[currencyType]
+	local currency = playerData[CONSTANTS.CURRENCIES_NAMES[currencyId]]
 	return if currency ~= nil then currency else 0
 end
 
-local function updateCurrency(state, player, currencyType, value)
+local function updateCurrency(state, player, currencyId, value)
 	local userId = player.UserId
 
-	local currency = PlayerService:GetCurrency(state, userId, currencyType)
-	local newValue = math.clamp(currency + value, 0, CONSTANTS.MAX_CURRENCIES[currencyType])
+	local currency = PlayerService:GetCurrency(state, userId, currencyId)
+	local newValue = math.clamp(currency + value, 0, CONSTANTS.MAX_CURRENCIES[currencyId])
 
-	local patch = { [currencyType] = newValue }
+	local patch = { [CONSTANTS.CURRENCIES_NAMES[currencyId]] = newValue }
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
 
 	-- Replicate to Clients
@@ -319,27 +319,35 @@ local function updateCurrency(state, player, currencyType, value)
 	PlayerService.BananasChanged:Fire(player, value)
 end
 
-local function updateCurrencyToAllPlayers(currencyType, value)
+local function updateCurrencyToAllPlayers(currencyId, value)
 	assert(value ~= 0, "value must be not zero")
 
 	local state = store:getState()
 
 	for _, player in Players:GetPlayers() do
-		updateCurrency(state, player, currencyType, value)
+		updateCurrency(state, player, currencyId, value)
 	end
 end
 
-function PlayerService:AddCurrencyToAllPlayers(currencyType, value)
+function PlayerService.AddCurrencyToAllPlayers(currencyId, value)
 	assert(value > 0, "value must be positive")
-	updateCurrencyToAllPlayers(currencyType, value)
+	updateCurrencyToAllPlayers(currencyId, value)
 end
 
-function PlayerService:SubtractCurrency(player, currencyType, value)
+function PlayerService.AddCurrencyToPlayer(player, currencyId, value)
 	assert(value > 0, "value must be positive")
 
 	local state = store:getState()
 
-	updateCurrency(state, player, currencyType, -value)
+	updateCurrency(state, player, currencyId, value)
+end
+
+function PlayerService.SubtractCurrency(player, currencyId, value)
+	assert(value > 0, "value must be positive")
+
+	local state = store:getState()
+
+	updateCurrency(state, player, currencyId, -value)
 end
 
 -- #endregion

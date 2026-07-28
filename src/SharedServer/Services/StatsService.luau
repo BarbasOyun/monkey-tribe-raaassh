@@ -68,17 +68,17 @@ local StatService = Knit.CreateService({
 -- #region LIFE
 -- TODO = Fuse StatService + Enemy takeDamage function
 
-function StatService:RegisterLife(player)
+function StatService.RegisterLife(player)
 	local userId = player.UserId
 	local state = store:getState()
 
 	local playerData = state.players[userId]
 	statState.playersLife[userId] = playerData.stats.maxLife
 
-	self:CalculateStat(state, userId, MOD_STATS_STORE.lifeRegen)
+	StatService:CalculateStat(state, userId, MOD_STATS_STORE.lifeRegen)
 end
 
-function StatService:DamagePlayer(player, damage)
+function StatService.DamagePlayer(player, damage)
 	local userId = player.UserId
 
 	statState.playersLife[userId] -= damage
@@ -114,7 +114,7 @@ local function levelUp(state, player, currentXp)
 	StatService.Client.LevelUp:Fire(player, patch)
 end
 
-function StatService:AddXpToAllPlayers(xp)
+function StatService.AddXpToAllPlayers(xp)
 	if not xp or xp <= 0 then
 		return
 	end
@@ -124,11 +124,11 @@ function StatService:AddXpToAllPlayers(xp)
 	statState.totalXp += xp
 
 	for _, player in pairs(Players:GetPlayers()) do
-		self:AddXpToPlayer(state, player, xp)
+		StatService:AddXpToPlayer(state, player, xp)
 	end
 end
 
-function StatService:AddXpToPlayer(state, player, xp)
+function StatService.AddXpToPlayer(state, player, xp)
 	print(player.Name .. " Get : " .. xp .. " XP")
 
 	if not xp or xp <= 0 then
@@ -438,15 +438,15 @@ local function statContext(state, userId)
 	return statCtx
 end
 
--- statType = from STATS_STORE
-function StatService:CalculateStat(state, userId, modStat)
+-- modStat = from STATS_STORE
+function StatService.CalculateStat(state, userId, modStat)
 	local statCtx = statContext(state, userId)
 
 	local patch = statsCalculation[modStat](statCtx)
 	store:dispatch(storeActions.PatchStat(userId, patch))
 end
 
-function StatService:CalculateAllStats(userId)
+function StatService.CalculateAllStats(userId)
 	local state = store:getState()
 
 	local patches = {}
@@ -466,7 +466,7 @@ end
 
 -- #region META UPGRADES
 
-function StatService:UpdateMetaUpgrade(newLevel, upgradeType)
+function StatService.UpdateMetaUpgrade(newLevel, upgradeType)
 	-- Calculate Cost & Stat at a Level
 	local upgradeData = META_UPRGADES[upgradeType]
 
@@ -508,7 +508,7 @@ local function incrementMetaUpgrade(state, player, upgradeType)
 	StatService:CalculateStat(newState, userId, statType)
 end
 
-function StatService.Client:BuyMetaUpgrade(player, upgradeType)
+function StatService.Client.BuyMetaUpgrade(player, upgradeType)
 	local state = store:getState()
 	local userId = player.UserId
 
@@ -567,7 +567,7 @@ local function augmentPatch(state, userId, modStat, value)
 end
 
 -- Debug func
-function StatService:AddAugmentStat(userId, modStat, value)
+function StatService.AddAugmentStat(userId, modStat, value)
 	local state = store:getState()
 
 	local patch = augmentPatch(state, userId, modStat, value)
@@ -665,7 +665,7 @@ local function getAugment(rarity, banList)
 end
 
 -- Make the next set of Augments available
-function StatService:GenerateAugments(player)
+function StatService.GenerateAugments(player)
 	local userId = player.UserId
 	local state = store:getState()
 	local playerData = state.players[userId]
@@ -734,7 +734,7 @@ local function finishAugmentPick(player)
 end
 
 -- Player start choosing Augment
-function StatService.Client:StartAugmentPick(player)
+function StatService.Client.StartAugmentPick(player)
 	local userId = player.UserId
 	local state = store:getState()
 	local playerData = state.players[userId]
@@ -757,7 +757,7 @@ function StatService.Client:StartAugmentPick(player)
 	sendAugments(player)
 end
 
-function StatService.Client:RerollAugment(player)
+function StatService.Client.RerollAugment(player)
 	local state = store:getState()
 	local playerData = state.players[player.UserId]
 
@@ -777,7 +777,7 @@ function StatService.Client:RerollAugment(player)
 	PlayerService:SubtractCurrency(player, PlayerService.CURRENCIES.sticks, 10)
 end
 
-function StatService.Client:PickAugment(player, index)
+function StatService.Client.PickAugment(player, index)
 	local userId = player.UserId
 	local state = store:getState()
 	local playerData = state.players[userId]

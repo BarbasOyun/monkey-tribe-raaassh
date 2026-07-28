@@ -13,7 +13,7 @@ local ECSStorages = require(ServerScriptService.SharedServer.ECSStorages)
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local ecsState = MutState.ecsState
 
-local gameObjectStorage = ecsState.storages[1]
+local gameObjectStorage = ecsState.storages[1] -- TODO : Move
 
 local entitiesId = ecsState.entitiesId
 local entitiesBitmask = ecsState.entitiesBitmask
@@ -33,43 +33,17 @@ local function moveLastElement(t, index)
 end
 
 -- Archetypes
--- TODO : Combine Archetype + Enemy Definition
-
-local dummyArchetype = {
-	name = "Dummy",
-	systemsId = {
-		1,
-		2,
-	},
-	startIndex = 1,
-	endIndex = 100,
-	activeCount = 0,
-}
-
-local robotMobArchetype = {
-	name = "Robot",
-	systemsId = {
-		1,
-		2,
-		-- 3,
-	},
-	startIndex = 101,
-	endIndex = 200,
-	activeCount = 0,
-}
-
-local archetypesTotalSize = 200
-
-local archetypes = {
-	dummyArchetype,
-	robotMobArchetype,
+export type Archetype = {
+	name: string,
+	storagesId: {},
+	startIndex: number,
+	endIndex: number,
+	activeCount: number,
 }
 
 -- #region ENTITIES
 
--- TODO : EcsService.Function
-
-function EcsService:CreateEntity()
+function EcsService.CreateEntity()
 	local entityId = #ecsState.entitiesId + 1
 
 	table.insert(ecsState.entitiesId, entityId)
@@ -84,12 +58,12 @@ function EcsService:CreateEntity()
 	return entityId
 end
 
-function EcsService:RemoveEntity(entityId)
+function EcsService.RemoveEntity(entityId)
 	-- warn("Remove Entity : " .. entityId)
 
 	-- Remove components
 	for i = 1, #ecsState.storages, 1 do
-		if EcsService:HasComponent(entityId, i) then
+		if EcsService.HasComponent(entityId, i) then
 			local storage = ecsState.storages[i]
 			-- warn("EntityID = " .. entityId .. " Has Component = " .. storage.getState().name)
 			storage.removeEntity(storage.getState(), entityId)
@@ -102,7 +76,7 @@ function EcsService:RemoveEntity(entityId)
 	moveLastElement(ecsState.versions, entityId)
 end
 
-function EcsService:ClearEntities()
+function EcsService.ClearEntities()
 	-- Clear all components
 	for i = 1, #ecsState.storages, 1 do
 		local storage = ecsState.storages[i]
@@ -117,36 +91,54 @@ end
 
 -- #region ENTITIES ARCHETYPES / POOLING
 
-local function createPools()
+function EcsService.AddArchetype(archetype)
+	table.insert(ecsState.archetypes, archetype)
+end
+
+function EcsService.CreatePools()
+	local archetypes = ecsState.archetypes
+
 	for i = 1, #archetypes, 1 do
-		EcsService:CreatePool(archetypes[i])
+		local entitiesCount = archetypes[i].endIndex - archetypes[i].startIndex
+		warn("Create Pool : " .. archetypes[i].name .. " Entities = " .. entitiesCount)
+		EcsService.CreatePool(archetypes[i])
 	end
 end
 
 -- Create a pool of Entity of an Archetype
-function EcsService:CreatePool(archetype)
+function EcsService.CreatePool(archetype)
 	for i = archetype.startIndex, archetype.endIndex, 1 do
-		local entityId = EcsService:CreateEntity()
+		local entityId = EcsService.CreateEntity()
 
 		-- Add a Component of Every Archertype's storages to each Entity
 		for j = 1, #archetype.storages, 1 do
-			archetype.storages[j].addComponentToEntity(entityId)
+			local storageId = archetype.storages[j]
+			EcsService.GetStorage(storageId).addComponentToEntity(entityId)
 		end
 	end
 end
 
-function EcsService:GetArchetype(entityId)
+-- Return the Archetype of an Entity
+function EcsService.GetArchetype(entityId)
+	local archetypes = ecsState.archetypes
+	local count = 0
+
 	for i = 1, #archetypes, 1 do
-		if entityId <= archetypes[i].maxEntities then
+		local threshold = count + archetypes[i].maxEntities
+
+		if entityId <= threshold then
 			return archetypes[i]
 		end
+
+		count += archetypes[i].maxEntities
 	end
 
 	return nil
 end
 
 -- Enable an Entity of an Archetype
-function EcsService:EnableEntity(archetypeId)
+function EcsService.EnableEntity(archetypeId)
+	local archetypes = ecsState.archetypes
 	-- local archetype = nil
 
 	-- for i = 1, #archetypes, 1 do
@@ -168,8 +160,8 @@ end
 
 -- Archetype : Disable Entity Replace with Last Entity
 -- Use RemoveComponent
-function EcsService:DisableEntity(entityId)
-	if not EcsService:HasComponent(entityId, 1) then
+function EcsService.DisableEntity(entityId)
+	if not EcsService.HasComponent(entityId, 1) then
 		warn(entityId .. " Doesn't have Gameobject Component")
 		return
 	end
@@ -178,7 +170,7 @@ function EcsService:DisableEntity(entityId)
 	local gameObjectId = gameObjectStorage:getComponentId(entityId)
 	gameObjectStorage.gameObjects[gameObjectId].parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
 
-	local archetype = EcsService:GetArchetype(entityId)
+	local archetype = EcsService.GetArchetype(entityId)
 	local lastEntityIndex = archetype.startIndex + archetype.activeCount
 	archetype.activeCount -= 1
 
@@ -205,17 +197,22 @@ end
 
 -- #endregion
 
--- #region COMPONENTS
+-- #region STORAGES + COMPONENTS
 
-function EcsService:HasComponent(entityId, systemId)
+function EcsService.GetStorage(storageId)
+	return ecsState.storages[storageId]
+end
+
+function EcsService.HasComponent(entityId, systemId)
 	local entityMask = ecsState.entitiesBitmask[entityId]
 	local systemMask = Gears:GetMask(systemId)
 
 	return bit32.btest(entityMask, systemMask)
 end
 
-function EcsService:AddComponent(entityId, systemId)
-	if EcsService:HasComponent(entityId, systemId) then
+--TODO : Custom Param
+function EcsService.AddComponent(entityId, systemId)
+	if EcsService.HasComponent(entityId, systemId) then
 		warn("Entity = " .. entityId .. " Already has = " .. systemId)
 		return
 	end

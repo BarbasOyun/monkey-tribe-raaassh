@@ -3,6 +3,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local CollectionService = game:GetService("CollectionService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
+local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 -- Get Services
@@ -13,9 +14,9 @@ local ItemService
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
 local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
-local enemyStore = enemyDef.enemyStore
-local enemyDefinitions = enemyDef.enemyDefinitions
-local enemyPrefabs = enemyDef.enemyPrefabs
+local Enemies = enemyDef.Enemies
+local EnemiesDefinitions = enemyDef.EnemiesDefinitions
+local EnemiesPrefabs = enemyDef.EnemiesPrefabs
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
@@ -41,8 +42,8 @@ local dummySetup = function(character, entityId)
 		end
 
 		task.wait(1)
-		EnemyService:SpawnEnemy(enemyStore.Dummy, character:GetPivot().Position) -- Re spawn Dummy
-		EcsService:RemoveEntity(character:GetAttribute("EntityId"))
+		EnemyService.SpawnEnemy(Enemies.Dummy, character:GetPivot().Position) -- Re spawn Dummy
+		EcsService.RemoveEntity(character:GetAttribute("EntityId"))
 		-- TODO : DisableEntity
 	end
 
@@ -64,12 +65,12 @@ local enemySetup = {
 -- #region SPAWN ENEMY
 
 -- Create Enemy for already spawned Model
-function EnemyService:CreateEnemy(character, enemyId)
-	local entityId = EcsService:CreateEntity()
+function EnemyService.CreateEnemy(character, enemyId)
+	local entityId = EcsService.CreateEntity()
 
 	-- warn("Create enemy : " .. character.Name .. ", TypeId = " .. enemyId .. ", EntityId = " .. entityId)
 
-	local enemyDefinition = enemyDefinitions[enemyId]
+	local enemyDefinition = EnemiesDefinitions[enemyId]
 	character.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
 	-- Try to find lifeBar
@@ -92,13 +93,13 @@ function EnemyService:CreateEnemy(character, enemyId)
 end
 
 -- Spawn Model + Create Enemy
-function EnemyService:SpawnEnemy(enemyId, position)
+function EnemyService.SpawnEnemy(enemyId, position)
 	-- Spawn Model
-	local character = enemyPrefabs[enemyId]:Clone() -- TODO : Object Pooling
+	local character = EnemiesPrefabs[enemyId]:Clone() -- TODO : Object Pooling
 	character:PivotTo(CFrame.new(position))
 	character.Name = "Dummy3"
 
-	self:CreateEnemy(character, enemyId)
+	EnemyService.CreateEnemy(character, enemyId)
 end
 
 -- #endregion
@@ -112,7 +113,7 @@ local function updateLifeBar(lifeBar, lifePercent)
 	lifeBar.Size = UDim2.fromScale(usePercent, 1)
 end
 
-function EnemyService:DamageEnemy(player, entityId, humanoid, damage)
+function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
 	local unitStorageState = unitStorage.getState()
 	local unitId = unitStorage.getComponentId(unitStorageState, entityId)
@@ -129,7 +130,7 @@ function EnemyService:DamageEnemy(player, entityId, humanoid, damage)
 
 	-- Update Lifebar
 	local definitionId = unitStorageState.definitionId[unitId]
-	local definition = enemyDefinitions[definitionId]
+	local definition = EnemiesDefinitions[definitionId]
 	local lifeBar = unitStorageState.lifeBar[unitId]
 
 	if lifeBar then
@@ -139,11 +140,11 @@ function EnemyService:DamageEnemy(player, entityId, humanoid, damage)
 
 	if life <= 0 then
 		local overKillDamage = math.abs(life)
-		self:KillEnemy(player, entityId, humanoid, overKillDamage)
+		EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	end
 end
 
-function EnemyService:KillEnemy(player, entityId, humanoid, overKillDamage)
+function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	-- TODO : Check if userId is nil -> attribute the kill to nearest Player
 	-- Rewards
 	ItemService:GenerateLoot(player, humanoid)
@@ -187,8 +188,7 @@ local function setupAllDummies()
 			continue
 		end
 
-		-- EnemyService:CreateEnemy(dummy, enemyStore.Dummy)
-		EnemyService:CreateEnemy(dummy, 1)
+		EnemyService.CreateEnemy(dummy, Enemies.Dummy)
 	end
 end
 
@@ -205,6 +205,10 @@ function EnemyService:KnitStart()
 	ItemService = Knit.GetService("ItemService")
 
 	setupAllDummies()
+
+	-- TOOD : Add Archetypes
+	EcsService.AddArchetype(EnemyDefinitions.Archetypes[Enemies.Dummy])
+	EcsService.CreatePools()
 end
 
 return EnemyService

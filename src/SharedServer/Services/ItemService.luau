@@ -1,3 +1,4 @@
+local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
@@ -6,6 +7,9 @@ local RunService = game:GetService("RunService")
 local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+
+-- Get Constants
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
 -- Get Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -42,26 +46,29 @@ local ItemService = Knit.CreateService({
 -- TODO : useItem(player)
 local usablesLogicDefinition = {
 	-- Small XP Orb
-	["Small XP Orb"] = function(player, itemDefinition, itemModel)
+	function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
 		StatService:AddXpToAllPlayers(itemDefinition.xp)
 		ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
 		ItemService:RemoveGroundItem(itemModel)
 	end,
-	["Banana"] = function(player, itemDefinition, itemModel)
+	-- Banana
+	function(player, itemDefinition, itemModel)
 		local bananas = itemDefinition.banana
 		print("Add Banana to all players : " .. bananas)
-		PlayerService:AddCurrencyToAllPlayers(PlayerService.CURRENCIES.bananas, bananas)
+		PlayerService:AddCurrencyToAllPlayers(CONSTANTS.CURRENCIES.bananas, bananas)
 		ItemService.Client.GetOrb:Fire(player)
 		ItemService:RemoveGroundItem(itemModel)
 	end,
-	["Stick"] = function(player, itemDefinition, itemModel)
+	-- Stick
+	function(player, itemDefinition, itemModel)
 		print("Add Stick to : " .. player.Name)
-		PlayerService:IncrementStick(player.UserId, itemDefinition.stick)
+		PlayerService:AddCurrencyToPlayer(player, CONSTANTS.CURRENCIES.sticks, itemDefinition.stick)
 		ItemService.Client.GetOrb:Fire(player)
 		ItemService:RemoveGroundItem(itemModel)
 	end,
-	["Stone"] = function(player, itemDefinition, itemModel)
+	-- Stone : TODO
+	function(player, itemDefinition, itemModel)
 		print("Add Stone to : " .. player.Name)
 		PlayerService:IncrementStone(player.UserId, itemDefinition.stone)
 		ItemService.Client.GetOrb:Fire(player)
@@ -149,7 +156,7 @@ local function lootMovement(partToMove, startPos)
 end
 
 -- Allow other services to spawn item with itemDefinitionId
-function ItemService:SpawnItem(itemDefinitionId, position)
+function ItemService.SpawnItem(itemDefinitionId, position)
 	-- local itemDefinition = itemDefinitions[itemDefinitionId]
 	local newModel = spawnItemDef(itemDefinitionId, position)
 
@@ -157,14 +164,14 @@ function ItemService:SpawnItem(itemDefinitionId, position)
 end
 
 -- SpawnItem + lootMovement
-function ItemService:SpawnLoot(itemDefinitionId, position)
+function ItemService.SpawnLoot(itemDefinitionId, position)
 	local partToMove = spawnItemDef(itemDefinitionId, position)
 
 	task.wait(lootMovement(partToMove, position))
 	partToMove.Parent = workspace.AutoPickup -- Enable Pickup
 end
 
-function ItemService:SpawnManyItem(itemDefinitionId, position, itemCount)
+function ItemService.SpawnManyItem(itemDefinitionId, position, itemCount)
 	for i = 0, itemCount, 1 do
 		task.spawn(function()
 			local partToMove = spawnItemDef(itemDefinitionId, position)
@@ -176,14 +183,14 @@ function ItemService:SpawnManyItem(itemDefinitionId, position, itemCount)
 	end
 end
 
-function ItemService:GenerateLoot(player, enemyHumanoid)
+function ItemService.GenerateLoot(player, enemyHumanoid)
 	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
 
 	local orbsRng = math.random(1, 3)
-	self:SpawnManyItem(itemStore.SmallXPOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
+	ItemService:SpawnManyItem(itemStore.SmallXPOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
 end
 
-function ItemService:RemoveGroundItem(itemModel, instanceId)
+function ItemService.RemoveGroundItem(itemModel, instanceId)
 	-- TODO : Object Pooling
 	itemModel:Destroy()
 end
@@ -192,7 +199,7 @@ end
 
 -- #region ITEM PICKUP
 
-function ItemService:PickupItem(player, itemModel)
+function ItemService.PickupItem(player, itemModel)
 	-- TODO : Validations :
 	-- itemModel parent = ManualPickup or AutoPickup -> Only Pickup & Unowned item
 	-- Distance item / player
@@ -208,14 +215,14 @@ function ItemService:PickupItem(player, itemModel)
 	-- print(player.Name .. " Pickup Item : " .. itemDefinition.name)
 
 	-- Use Item on Pickup
-	usablesLogicDefinition[itemDefinition.name](player, itemDefinition, itemModel)
+	usablesLogicDefinition[definitionId](player, itemDefinition, itemModel)
 end
 
 -- #endregion
 
 -- #region WEAPON : SETUP & EQUIP
 
-function ItemService:EquipDefaultWeapon(player)
+function ItemService.EquipDefaultWeapon(player)
 	local humanoid = player.Character:FindFirstChild("Humanoid")
 	local backpack = player:FindFirstChild("Backpack")
 

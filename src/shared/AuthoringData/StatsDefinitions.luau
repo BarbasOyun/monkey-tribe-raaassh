@@ -168,7 +168,7 @@ local DEFAULT_PLAYER: Player = {
 	level = 1,
 	waitingLevel = 0,
 	currentXp = 0,
-	xpRequired = 10,
+	xpRequired = 100,
 	-- Stats
 	stats = Gears.deepCopy(DEFAULT_STATS),
 	metaUpgradesLevel = Gears.deepCopy(DEFAULT_MOD_STATS),
@@ -226,7 +226,8 @@ local TO_STAT_OBJECT = {
 	pickupRange = "pickupRange",
 }
 
--- Every Stats mutated by other systems (Meta Upgrades & Augments) -> Input
+-- Every Stats mutated by power systems (Meta Upgrades & Augments) -> Input
+-- TODO : Replace with STATS = Index
 local MOD_STATS_STORE = {
 	-- Offense
 	increasedAttackDamage = "increasedAttackDamage",
