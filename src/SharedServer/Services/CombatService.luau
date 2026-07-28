@@ -267,7 +267,7 @@ local function findClosestEnemies()
 		local playerDetection = MutState.playersDetections[userId]
 
 		if not playerDetection then
-			warn(player.Name .. " No player Detection")
+			-- warn(player.Name .. " No player Detection")
 			return
 		end
 

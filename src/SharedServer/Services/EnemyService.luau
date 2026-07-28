@@ -17,6 +17,10 @@ local enemyStore = enemyDef.enemyStore
 local enemyDefinitions = enemyDef.enemyDefinitions
 local enemyPrefabs = enemyDef.enemyPrefabs
 
+-- Get Mutable State
+local MutState = require(ServerScriptService.SharedServer.MutableState)
+local ecsState = MutState.ecsState
+
 local EnemyService = Knit.CreateService({
 	Name = "EnemyService",
 	-- Client = {},
@@ -42,10 +46,11 @@ local dummySetup = function(character, entityId)
 		-- TODO : DisableEntity
 	end
 
-	local unitSystem = EcsService:GetUnitSystem()
-	local unitId = unitSystem:getComponentId(entityId)
+	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorageState = unitStorage.getState()
 
-	unitSystem.deathEvent[unitId]:Connect(onDeath)
+	local unitId = unitStorage.getComponentId(unitStorageState, entityId)
+	unitStorageState.deathEvent[unitId]:Connect(onDeath)
 end
 
 -- TODO : robotSetup
@@ -76,8 +81,11 @@ function EnemyService:CreateEnemy(character, enemyId)
 	end
 
 	-- Add Components : Gameobject, Unit
-	EcsService:GetGameobjectsSystem():addComponentToEntity(entityId, character)
-	EcsService:GetUnitSystem():addComponentToEntity(entityId, enemyId, enemyDefinition.MaxLife, lifeBar)
+	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+
+	gameObjectStorage.addComponentToEntity(ecsState, entityId, character)
+	unitStorage.addComponentToEntity(ecsState, entityId, enemyId, enemyDefinition.MaxLife, lifeBar)
 
 	-- Per Enemy type setup
 	enemySetup[enemyId](character, entityId)
@@ -105,8 +113,9 @@ local function updateLifeBar(lifeBar, lifePercent)
 end
 
 function EnemyService:DamageEnemy(player, entityId, humanoid, damage)
-	local unitSystem = EcsService.GetUnitSystem()
-	local unitId = unitSystem:getComponentId(entityId)
+	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorageState = unitStorage.getState()
+	local unitId = unitStorage.getComponentId(unitStorageState, entityId)
 
 	-- warn("Damage Enemy : Entity ID = " .. entityId .. ", Unit ID = " .. unitId)
 
@@ -114,14 +123,14 @@ function EnemyService:DamageEnemy(player, entityId, humanoid, damage)
 		return
 	end
 
-	unitSystem.life[unitId] -= damage
-	local life = unitSystem.life[unitId]
+	unitStorageState.life[unitId] -= damage
+	local life = unitStorageState.life[unitId]
 	-- print(" Dealt " .. damage .. " damage to " .. humanoid.Parent.Name .. " New life : " .. life)
 
 	-- Update Lifebar
-	local definitionId = unitSystem.definitionId[unitId]
+	local definitionId = unitStorageState.definitionId[unitId]
 	local definition = enemyDefinitions[definitionId]
-	local lifeBar = unitSystem.lifeBar[unitId]
+	local lifeBar = unitStorageState.lifeBar[unitId]
 
 	if lifeBar then
 		local lifePercent = life / definition.MaxLife
@@ -140,9 +149,11 @@ function EnemyService:KillEnemy(player, entityId, humanoid, overKillDamage)
 	ItemService:GenerateLoot(player, humanoid)
 
 	-- UnitData
-	local unitSystem = EcsService:GetUnitSystem()
-	local unitId = unitSystem:getComponentId(entityId)
-	local deathEvent = unitSystem.deathEvent[unitId]
+	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorageState = unitStorage.getState()
+
+	local unitId = unitStorage.getComponentId(unitStorageState, entityId)
+	local deathEvent = unitStorageState.deathEvent[unitId]
 
 	-- Trigger Death Event
 	if deathEvent then

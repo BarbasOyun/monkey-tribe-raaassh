@@ -1,7 +1,8 @@
--- Gather all Server Side Game Constants
+-- Shared Server Side Game Constants
 -- eg Authoring Data
 
 -- local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 
 -- Get Authoring Data
 -- local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
@@ -49,6 +50,13 @@ WEAPON_HIT_PARAM.MaxParts = 100
 -- Enemies
 local WEAPON_HIT_FOLDER = workspace.WeaponHit
 
+-- ECS
+local DISABLED_ENTITIES_FOLDER = ServerStorage.DisabledEntities
+local STORAGE_STORE: { number } = {
+	gameObject = 1,
+	unit = 2,
+}
+
 type Constants = {
 	HUB_PLACE_ID: number,
 	THROTTLED_UPDATE_FRAMES: number,
@@ -64,6 +72,8 @@ type Constants = {
 	-- Slices
 	-- statsDefinition: {},
 	WEAPON_HIT_FOLDER: Folder,
+	DISABLED_ENTITIES_FOLDER: Folder,
+	STORAGE_STORE: { number },
 }
 
 local CONSTANTS: Constants = {
@@ -81,6 +91,8 @@ local CONSTANTS: Constants = {
 	-- Slices
 	-- statsDefinition = statsDefinition,
 	WEAPON_HIT_FOLDER = WEAPON_HIT_FOLDER,
+	DISABLED_ENTITIES_FOLDER = DISABLED_ENTITIES_FOLDER,
+	STORAGE_STORE = STORAGE_STORE,
 }
 
 return CONSTANTS
