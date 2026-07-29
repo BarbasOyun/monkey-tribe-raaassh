@@ -132,7 +132,7 @@ local function setupControls()
 		end
 
 		if input.KeyCode == Enum.KeyCode.Q then
-			StatService.StartAugmentPick()
+			StatService:StartAugmentPick()
 		end
 
 		-- TODO : F = Reset Camera
@@ -177,7 +177,7 @@ end
 -- #region SERVICES
 
 function PlayerController:BuyUpgrade(upgradeType)
-	StatService.BuyMetaUpgrade(upgradeType)
+	StatService:BuyMetaUpgrade(upgradeType)
 end
 
 local function setupPlayerService()
@@ -303,8 +303,8 @@ end
 function PlayerController:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 	StatService = Knit.GetService("StatService")
-	ItemService = Knit.GetService("ItemService")
 	CombatService = Knit.GetService("CombatService")
+	ItemService = Knit.GetService("ItemService")
 
 	setupPlayerService()
 	setupStatService()

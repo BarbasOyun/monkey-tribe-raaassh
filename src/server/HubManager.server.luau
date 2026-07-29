@@ -190,7 +190,7 @@ end
 -- DO
 
 Players.PlayerAdded:Connect(function(player)
-	PlayerService.AddPlayer(player, player.Name)
+	PlayerService.AddPlayer(player)
 
 	PlayerService.GetBananasDb(player)
 

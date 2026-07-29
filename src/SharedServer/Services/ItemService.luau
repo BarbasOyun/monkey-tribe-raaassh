@@ -48,31 +48,31 @@ local usablesLogicDefinition = {
 	-- Small XP Orb
 	function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
-		StatService:AddXpToAllPlayers(itemDefinition.xp)
+		StatService.AddXpToAllPlayers(itemDefinition.xp)
 		ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
-		ItemService:RemoveGroundItem(itemModel)
+		ItemService.RemoveGroundItem(itemModel)
 	end,
 	-- Banana
 	function(player, itemDefinition, itemModel)
 		local bananas = itemDefinition.banana
 		print("Add Banana to all players : " .. bananas)
-		PlayerService:AddCurrencyToAllPlayers(CONSTANTS.CURRENCIES.bananas, bananas)
+		PlayerService.AddCurrencyToAllPlayers(CONSTANTS.CURRENCIES.bananas, bananas)
 		ItemService.Client.GetOrb:Fire(player)
-		ItemService:RemoveGroundItem(itemModel)
+		ItemService.RemoveGroundItem(itemModel)
 	end,
 	-- Stick
 	function(player, itemDefinition, itemModel)
 		print("Add Stick to : " .. player.Name)
-		PlayerService:AddCurrencyToPlayer(player, CONSTANTS.CURRENCIES.sticks, itemDefinition.stick)
+		PlayerService.AddCurrencyToPlayer(player, CONSTANTS.CURRENCIES.sticks, itemDefinition.stick)
 		ItemService.Client.GetOrb:Fire(player)
-		ItemService:RemoveGroundItem(itemModel)
+		ItemService.RemoveGroundItem(itemModel)
 	end,
 	-- Stone : TODO
 	function(player, itemDefinition, itemModel)
 		print("Add Stone to : " .. player.Name)
-		PlayerService:IncrementStone(player.UserId, itemDefinition.stone)
+		PlayerService.IncrementStone(player.UserId, itemDefinition.stone)
 		ItemService.Client.GetOrb:Fire(player)
-		ItemService:RemoveGroundItem(itemModel)
+		ItemService.RemoveGroundItem(itemModel)
 	end,
 }
 
@@ -187,7 +187,7 @@ function ItemService.GenerateLoot(player, enemyHumanoid)
 	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
 
 	local orbsRng = math.random(1, 3)
-	ItemService:SpawnManyItem(itemStore.SmallXPOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
+	ItemService.SpawnManyItem(itemStore.SmallXPOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
 end
 
 function ItemService.RemoveGroundItem(itemModel, instanceId)
@@ -242,7 +242,7 @@ local function setWeapon(player, weapon)
 	local patch = { weaponData = weapon }
 	store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
 
-	StatService:CalculateAllStats(player.UserId) -- TODO : Calculate Weapon Stats
+	StatService.CalculateAllStats(player.UserId) -- TODO : Calculate Weapon Stats
 end
 
 local function addSounds(player, weapon)
@@ -319,7 +319,7 @@ local function SetupWeaponType(weaponType)
 			return
 		end
 
-		print("Setup weapon model : " .. weaponModel.Name)
+		-- print("Setup weapon model : " .. weaponModel.Name)
 
 		local definitionId = weaponModel:GetAttribute("DefinitionId")
 		local itemDefinition = itemDefinitions[definitionId]

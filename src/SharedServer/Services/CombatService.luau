@@ -143,7 +143,7 @@ local function attackHit(player, playerStats, weaponData)
 	local damage = rollAttackDamage(playerStats, isCrit)
 
 	for _, humanoid in pairs(hits) do
-		EnemyService:DamageEnemy(player, humanoid.Parent:GetAttribute("EntityId"), humanoid, damage)
+		EnemyService.DamageEnemy(player, humanoid.Parent:GetAttribute("EntityId"), humanoid, damage)
 	end
 
 	attackFeedback(weaponData, isCrit)
@@ -174,13 +174,13 @@ end
 
 -- 4) Attack Callback with server validation
 -- After Animation
-function CombatService.Client.AttackCallback(player)
+function CombatService.Client:AttackCallback(player)
 	local userId = player.UserId
 	local state = store:getState()
-	local playerData = state.players[userId]
+	local playerState = state.players[userId]
 
-	local playerStats = playerData.stats
-	local weaponData = playerData.weaponData
+	local playerStats = playerState.stats
+	local weaponData = playerState.weaponData
 
 	local currentTime = tick()
 	local attackDelta = currentTime - combatState.lastAttacks[userId] -- Time between last attack and now
@@ -248,7 +248,7 @@ local function attackValidation(player, playerStats, weaponData)
 	startAttack()
 end
 
-function CombatService.Client.AttackValidation(player)
+function CombatService.Client:AttackValidation(player)
 	local state = store:getState()
 	local playerData = state.players[player.UserId]
 	local playerStats, weaponData = selectors.PlayerStats(playerData)

@@ -111,8 +111,8 @@ function EcsService.CreatePool(archetype)
 		local entityId = EcsService.CreateEntity()
 
 		-- Add a Component of Every Archertype's storages to each Entity
-		for j = 1, #archetype.storages, 1 do
-			local storageId = archetype.storages[j]
+		for j = 1, #archetype.storagesId, 1 do
+			local storageId = archetype.storagesId[j]
 			EcsService.GetStorage(storageId).addComponentToEntity(entityId)
 		end
 	end

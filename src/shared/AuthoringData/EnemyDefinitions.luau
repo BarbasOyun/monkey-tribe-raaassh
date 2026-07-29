@@ -29,23 +29,23 @@ local EnemiesPrefabs = {
 local Archetypes = {
 	{
 		name = "Dummy",
-		systemsId = {
+		storagesId = {
 			1,
 			2,
 		},
 		startIndex = 1,
-		endIndex = 100,
+		endIndex = 101,
 		activeCount = 0,
 	},
 	{
 		name = "Robot",
-		systemsId = {
+		storagesId = {
 			1,
 			2,
 			-- 3,
 		},
-		startIndex = 101,
-		endIndex = 200,
+		startIndex = 102,
+		endIndex = 202,
 		activeCount = 0,
 	},
 }

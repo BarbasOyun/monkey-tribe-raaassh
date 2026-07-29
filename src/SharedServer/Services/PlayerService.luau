@@ -86,14 +86,15 @@ local function playerGameState(player)
 end
 
 -- TODO : AddHubPlayer
-function PlayerService.AddPlayer(player, username)
+function PlayerService.AddPlayer(player)
 	local userId = player.UserId
+	local username = player.Name
 
 	-- Create Player
 	store:dispatch(storeActions.AddPlayer(userId, username))
 
 	-- Stats
-	PlayerService:GetMetaUpgrades(userId)
+	PlayerService.GetMetaUpgrades(userId)
 
 	-- Send the full store to the new player
 	local state = store:getState()
@@ -203,9 +204,9 @@ function PlayerService.GetMetaUpgrades(userId)
 	local metaUpgrades = {}
 
 	local state = store:getState()
-	local playerData = state.players[userId]
+	local playerState = state.players[userId]
 
-	for upgradeType, _ in pairs(playerData.metaUpgrades) do
+	for upgradeType, _ in pairs(playerState.metaUpgrades) do
 		local level = 0
 
 		local success, dbLevel = pcall(function()
@@ -217,7 +218,7 @@ function PlayerService.GetMetaUpgrades(userId)
 			level = dbLevel
 		end
 
-		local cost, stat = StatService:UpdateMetaUpgrade(level, upgradeType)
+		local cost, stat = StatService.UpdateMetaUpgrade(level, upgradeType)
 
 		levels[upgradeType] = level
 		costs[upgradeType] = cost
@@ -227,7 +228,7 @@ function PlayerService.GetMetaUpgrades(userId)
 	local patch = { metaUpgradesLevel = levels, metaUpgradesCost = costs, metaUpgrades = metaUpgrades }
 	store:dispatch(storeActions.PatchPlayer(userId, patch))
 
-	StatService:CalculateAllStats(userId)
+	StatService.CalculateAllStats(userId)
 end
 
 -- Debug func -> Delete Player's DB
@@ -407,7 +408,7 @@ local function autoPickup(player, itemModel)
 		RunService.Heartbeat:Wait()
 	end
 
-	ItemService:PickupItem(player, itemModel)
+	ItemService.PickupItem(player, itemModel)
 end
 
 local function autoPickupRange(state)

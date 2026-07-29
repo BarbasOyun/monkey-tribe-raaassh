@@ -147,7 +147,7 @@ end
 function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	-- TODO : Check if userId is nil -> attribute the kill to nearest Player
 	-- Rewards
-	ItemService:GenerateLoot(player, humanoid)
+	ItemService.GenerateLoot(player, humanoid)
 
 	-- UnitData
 	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
@@ -206,9 +206,8 @@ function EnemyService:KnitStart()
 
 	setupAllDummies()
 
-	-- TOOD : Add Archetypes
-	EcsService.AddArchetype(EnemyDefinitions.Archetypes[Enemies.Dummy])
-	EcsService.CreatePools()
+	-- EcsService.AddArchetype(EnemyDefinitions.Archetypes[Enemies.Dummy])
+	-- EcsService.CreatePools()
 end
 
 return EnemyService

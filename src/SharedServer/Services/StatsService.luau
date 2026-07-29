@@ -75,7 +75,7 @@ function StatService.RegisterLife(player)
 	local playerData = state.players[userId]
 	statState.playersLife[userId] = playerData.stats.maxLife
 
-	StatService:CalculateStat(state, userId, MOD_STATS_STORE.lifeRegen)
+	StatService.CalculateStat(state, userId, MOD_STATS_STORE.lifeRegen)
 end
 
 function StatService.DamagePlayer(player, damage)
@@ -124,7 +124,7 @@ function StatService.AddXpToAllPlayers(xp)
 	statState.totalXp += xp
 
 	for _, player in pairs(Players:GetPlayers()) do
-		StatService:AddXpToPlayer(state, player, xp)
+		StatService.AddXpToPlayer(state, player, xp)
 	end
 end
 
@@ -425,14 +425,14 @@ local statsCalculation = {
 }
 
 local function statContext(state, userId)
-	local playerData = state.players[userId]
-	local augments, metaUpgrades = selectors.PlayerPowerSystems(playerData)
+	local playerState = state.players[userId]
+	local augments, metaUpgrades = selectors.PlayerPowerSystems(playerState)
 
 	local statCtx = {
 		userId = userId,
 		augments = augments,
 		metaUpgrades = metaUpgrades,
-		weaponData = playerData.weaponData,
+		weaponData = playerState.weaponData,
 	}
 
 	return statCtx
@@ -487,7 +487,7 @@ local function incrementMetaUpgrade(state, player, upgradeType)
 	local newLevel = playerData.metaUpgradesLevel[upgradeType] + 1
 
 	-- Calculate new Stats & Cost
-	local cost, stat = StatService:UpdateMetaUpgrade(newLevel, upgradeType)
+	local cost, stat = StatService.UpdateMetaUpgrade(newLevel, upgradeType)
 
 	local newUpgrade = {
 		level = newLevel,
@@ -505,7 +505,7 @@ local function incrementMetaUpgrade(state, player, upgradeType)
 	-- Update Stat
 	local newState = store:getState()
 	local statType = TO_STAT_OBJECT[upgradeType]
-	StatService:CalculateStat(newState, userId, statType)
+	StatService.CalculateStat(newState, userId, statType)
 end
 
 function StatService.Client.BuyMetaUpgrade(player, upgradeType)
@@ -772,7 +772,7 @@ function StatService.Client.RerollAugment(player)
 	end
 
 	-- Transaction
-	StatService:SendAugment(player)
+	StatService.SendAugment(player)
 
 	PlayerService:SubtractCurrency(player, PlayerService.CURRENCIES.sticks, 10)
 end
@@ -807,7 +807,7 @@ function StatService.Client.PickAugment(player, index)
 	PlayerService.Client.PatchPlayer:Fire(player, patch)
 
 	-- Generate augments for next Level
-	StatService:GenerateAugments(player)
+	StatService.GenerateAugments(player)
 
 	-- Additional Levels
 	if waitingLevel > 0 then
