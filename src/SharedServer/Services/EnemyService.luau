@@ -1,14 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
-local CollectionService = game:GetService("CollectionService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
-
--- Get Services
-local EcsService
-local ItemService
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
@@ -21,6 +16,10 @@ local EnemiesPrefabs = enemyDef.EnemiesPrefabs
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local ecsState = MutState.ecsState
+
+-- Get Services
+local EcsService
+local ItemService
 
 local EnemyService = Knit.CreateService({
 	Name = "EnemyService",
@@ -36,7 +35,6 @@ local dummySetup = function(character, entityId)
 
 		-- dismember(dummy)
 		local snap = character.Torso:FindFirstChild("Snap")
-
 		if snap then
 			snap:Destroy()
 		end
@@ -44,13 +42,24 @@ local dummySetup = function(character, entityId)
 		task.wait(1)
 		EnemyService.SpawnEnemy(Enemies.Dummy, character:GetPivot().Position) -- Re spawn Dummy
 		EcsService.RemoveEntity(character:GetAttribute("EntityId"))
-		-- TODO : DisableEntity
+		-- TODO :
+		-- Enable Entity
+		-- Disable Entity at id
 	end
 
-	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
-	local unitStorageState = unitStorage.getState()
+	-- Get GameObject
+	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
 
-	local unitId = unitStorage.getComponentId(unitStorageState, entityId)
+	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorageState = unitStorage.GetState()
+	local unitId = unitStorage.GetComponentId(unitStorageState, entityId)
+
+	-- Setup LifeBar
+	local dummy = gameObjectStorage.GetGameObject(entityId)
+	local lifeBar = EnemyService.TryToFindLifeBar(dummy)
+	unitStorageState.lifeBar[unitId] = lifeBar
+
+	-- Setup OnDeath
 	unitStorageState.deathEvent[unitId]:Connect(onDeath)
 end
 
@@ -62,7 +71,54 @@ local enemySetup = {
 	-- robotSetup
 }
 
+local dummySetupGameObject = function(entityId)
+	-- warn("Dummy Archetype Setup : Game Object")
+
+	-- Spawn Disabled Model
+	local dummy = EnemiesPrefabs[Enemies.Dummy]:Clone()
+	dummy.Name = "Dummy3"
+	dummy.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
+
+	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	gameObjectStorage.AddComponentToEntity(ecsState, entityId, dummy)
+end
+
+local dummySetupUnit = function(entityId)
+	local dummyDefinition = EnemiesDefinitions[Enemies.Dummy]
+	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+
+	-- Get GameObject
+	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	local gameObjectStorageState = gameObjectStorage.GetState()
+	local gameObjectId = gameObjectStorage.GetComponentId(gameObjectStorageState, entityId)
+
+	local dummy = ecsState.gameObjectStorageState.gameObjects[gameObjectId]
+
+	local lifeBar = EnemyService.TryToFindLifeBar(dummy)
+
+	unitStorage.AddComponentToEntity(ecsState, entityId, Enemies.Dummy, dummyDefinition.MaxLife, lifeBar)
+end
+
+local dummyArchetypeSetup = {
+	dummySetupGameObject,
+	dummySetupUnit,
+}
+
+local enemiesArchetypeSetup = {
+	dummyArchetypeSetup,
+}
+
 -- #region SPAWN ENEMY
+
+-- Spawn New Model + Create Enemy
+function EnemyService.SpawnEnemy(enemyId, position)
+	-- Spawn Model
+	local character = EnemiesPrefabs[enemyId]:Clone()
+	character:PivotTo(CFrame.new(position))
+	character.Name = "Dummy3"
+
+	EnemyService.CreateEnemy(character, enemyId)
+end
 
 -- Create Enemy for already spawned Model
 function EnemyService.CreateEnemy(character, enemyId)
@@ -73,7 +129,18 @@ function EnemyService.CreateEnemy(character, enemyId)
 	local enemyDefinition = EnemiesDefinitions[enemyId]
 	character.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
-	-- Try to find lifeBar
+	-- Add Components : Gameobject, Unit
+	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+
+	gameObjectStorage.AddComponentToEntity(ecsState, entityId, character)
+	unitStorage.AddComponentToEntity(ecsState, entityId, enemyId, enemyDefinition.MaxLife)
+
+	-- Per Enemy type setup
+	enemySetup[enemyId](character, entityId)
+end
+
+function EnemyService.TryToFindLifeBar(character)
 	local lBar = character:FindFirstChild("LifeBar")
 	local lifeBar
 
@@ -81,25 +148,7 @@ function EnemyService.CreateEnemy(character, enemyId)
 		lifeBar = lBar.LifeBar
 	end
 
-	-- Add Components : Gameobject, Unit
-	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
-	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
-
-	gameObjectStorage.addComponentToEntity(ecsState, entityId, character)
-	unitStorage.addComponentToEntity(ecsState, entityId, enemyId, enemyDefinition.MaxLife, lifeBar)
-
-	-- Per Enemy type setup
-	enemySetup[enemyId](character, entityId)
-end
-
--- Spawn Model + Create Enemy
-function EnemyService.SpawnEnemy(enemyId, position)
-	-- Spawn Model
-	local character = EnemiesPrefabs[enemyId]:Clone() -- TODO : Object Pooling
-	character:PivotTo(CFrame.new(position))
-	character.Name = "Dummy3"
-
-	EnemyService.CreateEnemy(character, enemyId)
+	return lifeBar
 end
 
 -- #endregion
@@ -115,8 +164,8 @@ end
 
 function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
-	local unitStorageState = unitStorage.getState()
-	local unitId = unitStorage.getComponentId(unitStorageState, entityId)
+	local unitStorageState = unitStorage.GetState()
+	local unitId = unitStorage.GetComponentId(unitStorageState, entityId)
 
 	-- warn("Damage Enemy : Entity ID = " .. entityId .. ", Unit ID = " .. unitId)
 
@@ -149,11 +198,11 @@ function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	-- Rewards
 	ItemService.GenerateLoot(player, humanoid)
 
-	-- UnitData
+	-- UnitState
 	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
-	local unitStorageState = unitStorage.getState()
+	local unitStorageState = unitStorage.GetState()
 
-	local unitId = unitStorage.getComponentId(unitStorageState, entityId)
+	local unitId = unitStorage.GetComponentId(unitStorageState, entityId)
 	local deathEvent = unitStorageState.deathEvent[unitId]
 
 	-- Trigger Death Event
@@ -178,18 +227,26 @@ local function dismember(character)
 	end
 end
 
--- TODO : Setup Enemy / Type
--- enemyId
-local function setupAllDummies()
-	-- Setup Existing Dummies
-	for _, dummy in pairs(CollectionService:GetTagged("Dummy")) do
-		-- Skip Prefabs
-		if not dummy:IsDescendantOf(workspace) then
-			continue
-		end
+-- Use ECS to Spawn an Archetype (Object Pooling)
+function EnemyService.SpawnArchetype(enemyId)
+	local archetype = EnemyDefinitions.Archetypes[enemyId]
+	archetype.setup = enemiesArchetypeSetup[enemyId]
 
-		EnemyService.CreateEnemy(dummy, Enemies.Dummy)
-	end
+	EcsService.AddArchetype(archetype)
+	EcsService.CreatePools()
+end
+
+function EcsService.SpawnDummy(position)
+	local entityId, entityVersion = EcsService.EnableEntity(Enemies.Dummy)
+
+	-- Get GameObject
+	local gameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
+	local dummy = gameObjectStorage.GetGameObject(entityId)
+
+	dummy:PivotTo(CFrame.new(position))
+	dummy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
+
+	-- Reset Components
 end
 
 -- #endregion
@@ -204,10 +261,17 @@ function EnemyService:KnitStart()
 	EcsService = Knit.GetService("EcsService")
 	ItemService = Knit.GetService("ItemService")
 
-	setupAllDummies()
+	-- Spawn Archetypes
+	EnemyService.SpawnArchetype(Enemies.Dummy)
 
-	-- EcsService.AddArchetype(EnemyDefinitions.Archetypes[Enemies.Dummy])
-	-- EcsService.CreatePools()
+	-- Enable Default Dummies -> Hub Only
+
+	-- local pos = Vector3.new(0, 4.5, 0)
+	local pos1 = Vector3.new(-3.15, 4.5, 70)
+	local pos2 = Vector3.new(5.85, 4.5, 70)
+
+	EnemyService.SpawnDummy(pos1)
+	EnemyService.SpawnDummy(pos2)
 end
 
 return EnemyService

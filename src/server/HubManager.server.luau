@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local MarketplaceService = game:GetService("MarketplaceService")
 local TeleportService = game:GetService("TeleportService")
@@ -8,18 +9,21 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await()
 
+-- Get Constants
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
+local Enemies = enemyDef.Enemies
+
+-- Get Services
 local PlayerService = Knit.GetService("PlayerService")
 local StatService = Knit.GetService("StatService")
+local EnemyService = Knit.GetService("EnemyService")
 -- local ItemService = Knit.GetService("ItemService")
 
 -- Enemies to load for this place
 -- local enemyList = {
 -- 	"Dummy",
 -- }
-
--- Weapon Spawner
--- local spawnWeaponButton = workspace.Wiki.RandomWeaponSpawner.Surface.SurfaceGui.TextButton
--- local weaponSpawnPos = workspace.Wiki.RandomWeaponSpawner.WeaponSpawnPos
 
 -- Platforms tp
 local GAME_PLACE_ID = 109804031798809
@@ -66,7 +70,15 @@ local thousandDonationId = 3607471867
 
 local productFunctions = {}
 
--- PLATFORMS
+-- World Enemies
+-- local dummy1 = workspace.WeaponHit.Dummy1
+-- local dummy2 = workspace.WeaponHit.Dummy2
+
+-- Weapon Spawner
+-- local spawnWeaponButton = workspace.Wiki.RandomWeaponSpawner.Surface.SurfaceGui.TextButton
+-- local weaponSpawnPos = workspace.Wiki.RandomWeaponSpawner.WeaponSpawnPos
+
+-- #region PLATFORMS
 
 local function updatePlatformLabel(platformId)
 	platformsLabels[platformId].Text = "Raaassh ("
@@ -136,7 +148,9 @@ local function setupPlatforms()
 	end
 end
 
--- STORE
+-- #endregion
+
+-- #region STORE
 
 productFunctions[hundredDonationId] = function(receipt, player)
 	return true
@@ -167,7 +181,9 @@ end
 
 MarketplaceService.ProcessReceipt = processReceipt
 
--- PLAYERS
+-- #endregion
+
+-- #region PLAYERS
 
 local function safeInsert(t, element)
 	if not table.find(t, element) then
@@ -186,6 +202,8 @@ local function setupStatService()
 		safeInsert(isPlayerChanged, player)
 	end)
 end
+
+-- #endregion
 
 -- DO
 
@@ -219,6 +237,11 @@ end)
 setupPlayerService()
 setupStatService()
 setupPlatforms()
+
+-- Setup Enemies
+-- warn("Setup Dummies")
+-- EnemyService.CreateEnemy(dummy1, Enemies.Dummy)
+-- EnemyService.CreateEnemy(dummy2, Enemies.Dummy)
 
 -- In World Shared Ui
 --[[

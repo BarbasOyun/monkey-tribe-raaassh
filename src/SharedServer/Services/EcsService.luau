@@ -35,7 +35,7 @@ end
 -- Archetypes
 export type Archetype = {
 	name: string,
-	storagesId: {},
+	count: number,
 	startIndex: number,
 	endIndex: number,
 	activeCount: number,
@@ -52,7 +52,7 @@ function EcsService.CreateEntity()
 
 	-- Update sparse of every Storage
 	for i = 1, #ecsState.storages, 1 do
-		table.insert(ecsState.storages[i].getState().sparse, 0)
+		table.insert(ecsState.storages[i].GetState().sparse, 0)
 	end
 
 	return entityId
@@ -66,7 +66,7 @@ function EcsService.RemoveEntity(entityId)
 		if EcsService.HasComponent(entityId, i) then
 			local storage = ecsState.storages[i]
 			-- warn("EntityID = " .. entityId .. " Has Component = " .. storage.getState().name)
-			storage.removeEntity(storage.getState(), entityId)
+			storage.RemoveEntity(storage.GetState(), entityId)
 		end
 	end
 
@@ -80,7 +80,7 @@ function EcsService.ClearEntities()
 	-- Clear all components
 	for i = 1, #ecsState.storages, 1 do
 		local storage = ecsState.storages[i]
-		storage.clearComponents(storage.getState())
+		storage.ClearComponents(storage.GetState())
 	end
 
 	table.clear(entitiesId)
@@ -97,23 +97,33 @@ end
 
 function EcsService.CreatePools()
 	local archetypes = ecsState.archetypes
+	local totalEntitiesCount = 0 -- #ecsState.entitiesId Archetype Entities Should Always be The Firsts
 
 	for i = 1, #archetypes, 1 do
-		local entitiesCount = archetypes[i].endIndex - archetypes[i].startIndex
-		warn("Create Pool : " .. archetypes[i].name .. " Entities = " .. entitiesCount)
-		EcsService.CreatePool(archetypes[i])
+		local archetype = archetypes[i]
+
+		warn("Create Pool : " .. archetype.name .. ", Entities = " .. archetype.count)
+		EcsService.CreatePool(archetype, totalEntitiesCount)
+		totalEntitiesCount += archetype.count
 	end
 end
 
 -- Create a pool of Entity of an Archetype
-function EcsService.CreatePool(archetype)
-	for i = archetype.startIndex, archetype.endIndex, 1 do
+-- TODO : Add Component Function List
+function EcsService.CreatePool(archetype, startIndex)
+	local endIndex = startIndex + archetype.count
+	archetype.startIndex = startIndex
+	archetype.endIndex = endIndex
+
+	for i = startIndex, endIndex, 1 do
 		local entityId = EcsService.CreateEntity()
 
 		-- Add a Component of Every Archertype's storages to each Entity
-		for j = 1, #archetype.storagesId, 1 do
-			local storageId = archetype.storagesId[j]
-			EcsService.GetStorage(storageId).addComponentToEntity(entityId)
+		for j = 1, #archetype.setup, 1 do
+			local setupFunc = archetype.setup[j]
+			setupFunc(entityId)
+
+			-- EcsService.GetStorage(storageId).addComponentToEntity(ecsState, entityId)
 		end
 	end
 end
@@ -138,24 +148,18 @@ end
 
 -- Enable an Entity of an Archetype
 function EcsService.EnableEntity(archetypeId)
-	local archetypes = ecsState.archetypes
-	-- local archetype = nil
+	local archetype = ecsState.archetypes[archetypeId]
+	archetype.activeCount += 1
 
-	-- for i = 1, #archetypes, 1 do
-	-- 	if i == archetypeId then
-	-- 		archetype = archetypes[i]
-	-- 		break
-	-- 	end
-	-- end
+	local entityId = archetype.startIndex + archetype.activeCount
+	local entityVersion = ecsState.versions[entityId]
+	entityVersion += 1
+
+	-- Reset Components
 
 	-- Enable Last Entity
-	-- local entityId = archetype.startIndex + archetype.activeCount
 
-	-- Enable GameObject
-	local gameObjectId = gameObjectStorage:getComponentId(entitiesId)
-	gameObjectStorage.gameObjects[gameObjectId].parent = workspace.WeaponHit
-
-	-- TODO : Define Default Entity / Archetype -> Reset Entity
+	return entityId, entityVersion
 end
 
 -- Archetype : Disable Entity Replace with Last Entity
@@ -167,7 +171,8 @@ function EcsService.DisableEntity(entityId)
 	end
 
 	-- Disable Gameobject
-	local gameObjectId = gameObjectStorage:getComponentId(entityId)
+	local gameObjectStorageState = gameObjectStorage.GetState()
+	local gameObjectId = gameObjectStorage.GetComponentId(gameObjectStorageState, entityId)
 	gameObjectStorage.gameObjects[gameObjectId].parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
 
 	local archetype = EcsService.GetArchetype(entityId)
@@ -185,7 +190,7 @@ function EcsService.DisableEntity(entityId)
 	versions[lastEntityIndex] += 1
 
 	-- Swap Last Entity to entityId
-	local otherGameObjectId = gameObjectStorage:getComponentId(lastEntityIndex)
+	local otherGameObjectId = gameObjectStorage.GetComponentId(lastEntityIndex)
 	gameObjectStorage.entities[otherGameObjectId] = entityId
 	gameObjectStorage.entities[gameObjectId] = lastEntityIndex
 
@@ -217,7 +222,7 @@ function EcsService.AddComponent(entityId, systemId)
 		return
 	end
 
-	ecsState.storages[systemId]:addComponentToEntity(ecsState, entityId)
+	ecsState.storages[systemId].AddComponentToEntity(ecsState, entityId)
 end
 
 -- #endregion

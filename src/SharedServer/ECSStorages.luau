@@ -1,3 +1,5 @@
+-- ECS Components Storages Implementation / Logic
+
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -8,13 +10,11 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local ecsState = MutState.ecsState
 
--- STORAGES IMPL
-
--- #region META TABLE
+-- #region STORAGE META TABLE
 
 local storage = {}
 
-function storage.addComponentToEntity(ecsState, storageState, entityId)
+function storage.AddComponentToEntity(ecsState, storageState, entityId)
 	table.insert(storageState.entities, entityId)
 
 	local componentId = #storageState.entities
@@ -27,7 +27,7 @@ function storage.addComponentToEntity(ecsState, storageState, entityId)
 	return componentId
 end
 
-function storage.getComponentId(storageState, entityId)
+function storage.GetComponentId(storageState, entityId)
 	-- warn(storageState.name .. " Get Component ID = " .. entityId)
 	local componentId = storageState.sparse[entityId]
 
@@ -42,11 +42,11 @@ function storage.getComponentId(storageState, entityId)
 	return componentId
 end
 
-function storage.updateComponent(storageState, entityId)
+function storage.UpdateComponent(storageState, entityId)
 	-- implement in child tables
 end
 
-function storage.removeComponent(ecsState, storageState, entityId)
+function storage.RemoveComponent(ecsState, storageState, entityId)
 	local componentId = storageState.sparse[entityId]
 
 	-- Update Entities
@@ -62,7 +62,7 @@ function storage.removeComponent(ecsState, storageState, entityId)
 	return componentId
 end
 
-function storage.removeEntity(storageState, entityId)
+function storage.RemoveEntity(storageState, entityId)
 	local sparse = storageState.sparse
 	local entities = storageState.entities
 
@@ -89,7 +89,7 @@ function storage.removeEntity(storageState, entityId)
 	return componentId, lastCompId, hasComp
 end
 
-function storage.clearComponents(storageState)
+function storage.ClearComponents(storageState)
 	table.clear(storageState.sparse)
 	table.clear(storageState.entities)
 end
@@ -109,14 +109,14 @@ end
 
 local gameObjectStorage = storage.new()
 
-function gameObjectStorage.getState()
+function gameObjectStorage.GetState()
 	return ecsState.gameObjectStorageState
 end
 
-function gameObjectStorage.addComponentToEntity(ecsState, entityId, gameobject)
-	local storageState = gameObjectStorage.getState() -- Selector
+function gameObjectStorage.AddComponentToEntity(ecsState, entityId, gameobject)
+	local storageState = gameObjectStorage.GetState() -- Selector
 
-	local componentId = storage.addComponentToEntity(ecsState, storageState, entityId)
+	local componentId = storage.AddComponentToEntity(ecsState, storageState, entityId)
 
 	gameobject:SetAttribute("EntityId", entityId)
 	gameobject:SetAttribute("Version", ecsState.versions[entityId])
@@ -126,7 +126,7 @@ function gameObjectStorage.addComponentToEntity(ecsState, entityId, gameobject)
 	return componentId
 end
 
-function gameObjectStorage.removeComponent(storageState, entityId)
+function gameObjectStorage.RemoveComponent(storageState, entityId)
 	-- TODO
 end
 
@@ -148,8 +148,8 @@ end
 ]]
 
 -- Remove Entity : Swap Last
-function gameObjectStorage.removeEntity(storageState, entityId)
-	local componentId, lastCompId, hasComp = storage.removeEntity(storageState, entityId)
+function gameObjectStorage.RemoveEntity(storageState, entityId)
+	local componentId, lastCompId, hasComp = storage.RemoveEntity(storageState, entityId)
 	local gameObjects = storageState.gameObjects
 
 	-- warn("Delete GameObject Component : EntityId = " .. entityId .. " componentId = " .. componentId)
@@ -166,15 +166,13 @@ function gameObjectStorage.removeEntity(storageState, entityId)
 	local lastGameObject = table.remove(gameObjects, lastCompId)
 	gameObjects[componentId] = lastGameObject
 
-	-- local lastGameObject = moveLastElement(gameObjects, componentId)
-
 	-- Update GameObject EntityId
 	lastGameObject:SetAttribute("EntityId", entityId)
 	-- lastGameObject:SetAttribute("Version", versions[entityId])
 end
 
-function gameObjectStorage.clearComponents(storageState)
-	storage.clearComponents(storageState)
+function gameObjectStorage.ClearComponents(storageState)
+	storage.ClearComponents(storageState)
 	local gameObjects = storageState.gameObjects
 
 	-- Destroy All Entities Gameobjects
@@ -185,20 +183,28 @@ function gameObjectStorage.clearComponents(storageState)
 	table.clear(gameObjects)
 end
 
+function gameObjectStorage.GetGameObject(entityId)
+	local gameObjectStorageState = gameObjectStorage.GetState()
+	local gameObjectId = gameObjectStorage.GetComponentId(gameObjectStorageState, entityId)
+
+	local gameObject = gameObjectStorageState.gameObjects[gameObjectId]
+	return gameObject
+end
+
 -- #endregion
 
 -- #region UNIT STORAGE
 
 local unitStorage = storage.new()
 
-function unitStorage.getState()
+function unitStorage.GetState()
 	return ecsState.unitStorageState
 end
 
-function unitStorage.addComponentToEntity(ecsState, entityId, definitionId, life, lifeBar)
+function unitStorage.AddComponentToEntity(ecsState, entityId, definitionId, life, lifeBar)
 	local storageState = ecsState.unitStorageState
 
-	local componentId = storage.addComponentToEntity(ecsState, storageState, entityId)
+	local componentId = storage.AddComponentToEntity(ecsState, storageState, entityId)
 
 	table.insert(storageState.definitionId, definitionId)
 	table.insert(storageState.life, life)
@@ -208,17 +214,17 @@ function unitStorage.addComponentToEntity(ecsState, entityId, definitionId, life
 	return componentId
 end
 
-function unitStorage.updateComponent(storageState, entityId, life)
-	local componentId = storage.getComponentId(storageState, entityId)
+function unitStorage.UpdateComponent(storageState, entityId, life)
+	local componentId = storage.GetComponentId(storageState, entityId)
 	storageState.life[componentId] = life
 end
 
-function unitStorage.removeComponent(storageState, entityId)
+function unitStorage.RemoveComponent(storageState, entityId)
 	-- TODO
 end
 
-function unitStorage.removeEntity(storageState, entityId)
-	local componentId, lastCompId, hasComp = storage.removeEntity(storageState, entityId)
+function unitStorage.RemoveEntity(storageState, entityId)
+	local componentId, lastCompId, hasComp = storage.RemoveEntity(storageState, entityId)
 
 	-- warn("Delete Unit Component : EntityId = " .. entityId .. " componentId = " .. componentId)
 
@@ -236,8 +242,8 @@ function unitStorage.removeEntity(storageState, entityId)
 	Gears.moveLastElement(storageState.deathEvent, componentId)
 end
 
-function unitStorage.clearComponents(storageState)
-	storage.clearComponents(storageState)
+function unitStorage.ClearComponents(storageState)
+	storage.ClearComponents(storageState)
 
 	table.clear(storageState.life)
 	table.clear(storageState.lifeBar)
