@@ -13,8 +13,6 @@ local ECSStorages = require(ServerScriptService.SharedServer.ECSStorages)
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local ecsState = MutState.ecsState
 
-local gameObjectStorage = ecsState.storages[1] -- TODO : Move
-
 local entitiesId = ecsState.entitiesId
 local entitiesBitmask = ecsState.entitiesBitmask
 local versions = ecsState.versions
@@ -109,7 +107,6 @@ function EcsService.CreatePools()
 end
 
 -- Create a pool of Entity of an Archetype
--- TODO : Add Component Function List
 function EcsService.CreatePool(archetype, startIndex)
 	local endIndex = startIndex + archetype.count
 	archetype.startIndex = startIndex
@@ -122,8 +119,6 @@ function EcsService.CreatePool(archetype, startIndex)
 		for j = 1, #archetype.setup, 1 do
 			local setupFunc = archetype.setup[j]
 			setupFunc(entityId)
-
-			-- EcsService.GetStorage(storageId).addComponentToEntity(ecsState, entityId)
 		end
 	end
 end
@@ -134,70 +129,70 @@ function EcsService.GetArchetype(entityId)
 	local count = 0
 
 	for i = 1, #archetypes, 1 do
-		local threshold = count + archetypes[i].maxEntities
+		local threshold = count + archetypes[i].endIndex
 
 		if entityId <= threshold then
 			return archetypes[i]
 		end
 
-		count += archetypes[i].maxEntities
+		count += archetypes[i].endIndex
 	end
 
 	return nil
 end
 
 -- Enable an Entity of an Archetype
-function EcsService.EnableEntity(archetypeId)
+function EcsService.EnableArchetypeEntity(archetypeId)
 	local archetype = ecsState.archetypes[archetypeId]
 	archetype.activeCount += 1
 
-	local entityId = archetype.startIndex + archetype.activeCount
+	local index = archetype.startIndex + archetype.activeCount
+	local entityId = ecsState.entitiesId[index]
 	local entityVersion = ecsState.versions[entityId]
 	entityVersion += 1
 
-	-- Reset Components
-
-	-- Enable Last Entity
-
+	warn("Enable Entity in Archetype = " .. archetype.name .. ", Entity ID = " .. entityId)
 	return entityId, entityVersion
 end
 
--- Archetype : Disable Entity Replace with Last Entity
--- Use RemoveComponent
+-- Disable Entity Replace with Last Entity within an Archetype
 function EcsService.DisableEntity(entityId)
 	if not EcsService.HasComponent(entityId, 1) then
 		warn(entityId .. " Doesn't have Gameobject Component")
 		return
 	end
 
-	-- Disable Gameobject
-	local gameObjectStorageState = gameObjectStorage.GetState()
-	local gameObjectId = gameObjectStorage.GetComponentId(gameObjectStorageState, entityId)
-	gameObjectStorage.gameObjects[gameObjectId].parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
-
 	local archetype = EcsService.GetArchetype(entityId)
+	-- local versions = ecsState.versions
 	local lastEntityIndex = archetype.startIndex + archetype.activeCount
+	local lastEntityId = ecsState.entitiesId[lastEntityIndex]
+
+	-- Update
+	versions[entityId] += 1
 	archetype.activeCount -= 1
 
-	-- Update Version
-	local versions = ecsState.versions
-	versions[entityId] += 1
+	-- Update Components
+	local gameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
+	local gameObjectStorageState = gameObjectStorage.GetState()
+	local gameObject = gameObjectStorageState.gameObjects[entityId]
 
-	if entityId == lastEntityIndex then
+	-- TODO : Move
+	-- Disable Gameobject
+	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
+
+	-- If not last Entity : Swap Last
+	if entityId == lastEntityId then
 		return
 	end
 
-	versions[lastEntityIndex] += 1
+	-- warn("Disable Entity : Swap Entity ID = " .. entityId .. " With Last ID = " .. lastEntityId)
 
-	-- Swap Last Entity to entityId
-	local otherGameObjectId = gameObjectStorage.GetComponentId(lastEntityIndex)
-	gameObjectStorage.entities[otherGameObjectId] = entityId
-	gameObjectStorage.entities[gameObjectId] = lastEntityIndex
+	versions[lastEntityId] += 1
 
-	-- Update Other GameObject
-	local otherGameObject = gameObjectStorage.gameObjects[otherGameObjectId]
-	otherGameObject:SetAttribute("EntityId", entityId)
-	otherGameObject:SetAttribute("Version", versions[entityId])
+	-- Swap Entities
+	local entityIdIndex = ecsState.entitiesId[entityId]
+	ecsState.entitiesId[entityIdIndex] = lastEntityId
+	ecsState.entitiesId[lastEntityIndex] = entityId
 end
 
 -- #endregion

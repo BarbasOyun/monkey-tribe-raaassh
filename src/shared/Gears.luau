@@ -49,6 +49,7 @@ function gears.moveLastElement(t, index)
 	return lastElement
 end
 
+-- Index1 = First Element
 function gears.swapTableElements(t, index1, index2)
 	local element1 = table.remove(t, index1)
 	local element2 = table.remove(t, index2 - 1)

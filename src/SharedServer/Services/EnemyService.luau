@@ -26,6 +26,8 @@ local EnemyService = Knit.CreateService({
 	-- Client = {},
 })
 
+-- Archetype less dummy setup
+--[[
 local dummySetup = function(character, entityId)
 	warn("Dummy Setup : " .. character.Name .. " EntityID = " .. entityId)
 
@@ -61,6 +63,50 @@ local dummySetup = function(character, entityId)
 
 	-- Setup OnDeath
 	unitStorageState.deathEvent[unitId]:Connect(onDeath)
+end
+]]
+
+-- Archetype Dummy Setup
+local dummySetup = function(character, entityId)
+	-- warn("Dummy Setup : " .. character.Name .. " EntityID = " .. entityId)
+
+	local function onDeath(player)
+		-- Feedback
+		-- print(character.Name .. " Died")
+
+		-- dismember(dummy)
+		local snap = character.Torso:FindFirstChild("Snap")
+		if snap then
+			snap:Destroy()
+		end
+
+		task.wait(1)
+		EnemyService.SpawnDummy(character:GetPivot().Position)
+		EcsService.DisableEntity(character:GetAttribute("EntityId"))
+	end
+
+	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorageState = unitStorage.GetState()
+
+	-- Setup Life + LifeBar
+	unitStorageState.life[entityId] = EnemiesDefinitions[Enemies.Dummy].MaxLife
+
+	local lifeBar = EnemyService.TryToFindLifeBar(character)
+	local billboardGui = lifeBar.Parent
+
+	EnemyService.UpdateLifeBar(lifeBar, 1)
+
+	-- Force Re render of lifebar
+	billboardGui.Enabled = false
+	task.spawn(function()
+		task.wait(0.1)
+		billboardGui.Enabled = true
+	end)
+
+	-- Setup OnDeath
+	local deathEvent = unitStorageState.deathEvent[entityId]
+	deathEvent:DisconnectAll()
+	deathEvent:Connect(onDeath)
 end
 
 -- TODO : robotSetup
@@ -155,7 +201,7 @@ end
 
 -- #region DAMAGE + DEATH
 
-local function updateLifeBar(lifeBar, lifePercent)
+function EnemyService.UpdateLifeBar(lifeBar, lifePercent)
 	local usePercent = math.max(0, lifePercent)
 	-- warn("Update Life Bar = " .. lifeBar.Name .. ", Percent = " .. usePercent)
 
@@ -184,7 +230,7 @@ function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 
 	if lifeBar then
 		local lifePercent = life / definition.MaxLife
-		updateLifeBar(lifeBar, lifePercent)
+		EnemyService.UpdateLifeBar(lifeBar, lifePercent)
 	end
 
 	if life <= 0 then
@@ -236,17 +282,24 @@ function EnemyService.SpawnArchetype(enemyId)
 	EcsService.CreatePools()
 end
 
-function EcsService.SpawnDummy(position)
-	local entityId, entityVersion = EcsService.EnableEntity(Enemies.Dummy)
+function EnemyService.SpawnDummy(position)
+	local entityId, entityVersion = EcsService.EnableArchetypeEntity(Enemies.Dummy)
 
-	-- Get GameObject
+	-- Setup Gameobject Component
 	local gameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
 	local dummy = gameObjectStorage.GetGameObject(entityId)
 
 	dummy:PivotTo(CFrame.new(position))
 	dummy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
-	-- Reset Components
+	-- TODO : Move to GameobjectStorage
+	-- dummy:SetAttribute("EntityId", entityId)
+	dummy:SetAttribute("Version", entityVersion)
+
+	-- Setup Unit Component
+	-- local untitStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.unit)
+	-- local unitId = untitStorage.GetComponentId(untitStorage.GetState(), entityId)
+	dummySetup(dummy, entityId)
 end
 
 -- #endregion
@@ -265,7 +318,6 @@ function EnemyService:KnitStart()
 	EnemyService.SpawnArchetype(Enemies.Dummy)
 
 	-- Enable Default Dummies -> Hub Only
-
 	-- local pos = Vector3.new(0, 4.5, 0)
 	local pos1 = Vector3.new(-3.15, 4.5, 70)
 	local pos2 = Vector3.new(5.85, 4.5, 70)

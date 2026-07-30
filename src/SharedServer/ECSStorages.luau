@@ -105,7 +105,7 @@ end
 
 -- #endregion
 
--- #region GAMEOBJECT IMPL
+-- #region GAMEOBJECT COMPONENTS STORAGE IMPL
 
 local gameObjectStorage = storage.new()
 
