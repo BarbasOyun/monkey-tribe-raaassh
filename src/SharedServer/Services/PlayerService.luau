@@ -14,14 +14,14 @@ local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
 -- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local store = RoduxStore.Store
-local storeActions = RoduxStore.Actions
+local Store = RoduxStore.Store
+local StoreActions = RoduxStore.Actions
 -- local selectors = RoduxStore.Selectors
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 
-local StatService
+local RpgService
 local ItemService
 
 -- Get DataStore
@@ -91,13 +91,13 @@ function PlayerService.AddPlayer(player)
 	local username = player.Name
 
 	-- Create Player
-	store:dispatch(storeActions.AddPlayer(userId, username))
+	Store:dispatch(StoreActions.AddPlayer(userId, username))
 
 	-- Stats
 	PlayerService.GetMetaUpgrades(userId)
 
 	-- Send the full store to the new player
-	local state = store:getState()
+	local state = Store:getState()
 	PlayerService.Client.ReplicateStore:Fire(player, state)
 
 	-- Events
@@ -108,7 +108,7 @@ end
 function PlayerService.RemovePlayer(player)
 	local userId = player.UserId
 
-	store:dispatch(storeActions.RemovePlayer(userId))
+	Store:dispatch(StoreActions.RemovePlayer(userId))
 
 	-- Events
 	PlayerService.PlayerRemoved:Fire(userId)
@@ -116,7 +116,7 @@ function PlayerService.RemovePlayer(player)
 end
 
 function PlayerService.Client.ToggleMusic(player, isEnabled)
-	store:dispatch(storeActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
+	Store:dispatch(StoreActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
 end
 
 -- Prevent Players from going OOB
@@ -143,7 +143,7 @@ end
 
 -- Save Score & Meta Upgrades to Db
 function PlayerService.SaveToDb(userId)
-	local state = store:getState()
+	local state = Store:getState()
 	local playerData = state.players[userId]
 
 	warn(playerData.username .. " Saving Meta Upgrades and Score to DB")
@@ -193,7 +193,7 @@ function PlayerService.GetBananasDb(player)
 
 	local patch = { bananas = bananaCount }
 
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 	PlayerService.Client.PatchPlayer:Fire(player, patch)
 end
 
@@ -203,7 +203,7 @@ function PlayerService.GetMetaUpgrades(userId)
 	local costs = {}
 	local metaUpgrades = {}
 
-	local state = store:getState()
+	local state = Store:getState()
 	local playerState = state.players[userId]
 
 	for upgradeType, _ in pairs(playerState.metaUpgrades) do
@@ -218,7 +218,7 @@ function PlayerService.GetMetaUpgrades(userId)
 			level = dbLevel
 		end
 
-		local cost, stat = StatService.UpdateMetaUpgrade(level, upgradeType)
+		local cost, stat = RpgService.UpdateMetaUpgrade(level, upgradeType)
 
 		levels[upgradeType] = level
 		costs[upgradeType] = cost
@@ -226,14 +226,14 @@ function PlayerService.GetMetaUpgrades(userId)
 	end
 
 	local patch = { metaUpgradesLevel = levels, metaUpgradesCost = costs, metaUpgrades = metaUpgrades }
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 
-	StatService.CalculateAllStats(userId)
+	RpgService.CalculateAllStats(userId)
 end
 
 -- Debug func -> Delete Player's DB
 local function ResetPlayer(player)
-	local state = store:getState()
+	local state = Store:getState()
 	local userId = player.UserId
 	local playerData = state.players[userId]
 
@@ -277,9 +277,9 @@ function PlayerService.OnPlayerDeath(player)
 	-- Events.PlayerDied:FireClient(player) -- TODO : Event
 
 	local patch = { isDead = true }
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 
-	local state = store:getState()
+	local state = Store:getState()
 	local players = state.players
 
 	local deadPlayersCount = 0
@@ -311,7 +311,7 @@ local function updateCurrency(state, player, currencyId, value)
 	local newValue = math.clamp(currency + value, 0, CONSTANTS.MAX_CURRENCIES[currencyId])
 
 	local patch = { [CONSTANTS.CURRENCIES_NAMES[currencyId]] = newValue }
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 
 	-- Replicate to Clients
 	PlayerService.Client.PatchPlayer:Fire(player, patch)
@@ -323,7 +323,7 @@ end
 local function updateCurrencyToAllPlayers(currencyId, value)
 	assert(value ~= 0, "value must be not zero")
 
-	local state = store:getState()
+	local state = Store:getState()
 
 	for _, player in Players:GetPlayers() do
 		updateCurrency(state, player, currencyId, value)
@@ -338,7 +338,7 @@ end
 function PlayerService.AddCurrencyToPlayer(player, currencyId, value)
 	assert(value > 0, "value must be positive")
 
-	local state = store:getState()
+	local state = Store:getState()
 
 	updateCurrency(state, player, currencyId, value)
 end
@@ -346,7 +346,7 @@ end
 function PlayerService.SubtractCurrency(player, currencyId, value)
 	assert(value > 0, "value must be positive")
 
-	local state = store:getState()
+	local state = Store:getState()
 
 	updateCurrency(state, player, currencyId, -value)
 end
@@ -378,7 +378,7 @@ local function enemiesDetection(state)
 
 		for _, enemy in pairs(detectedEnemies) do
 			local playerToEnemyDirection = enemy.CFrame.Position - playerPos
-			local playerToEnemyDistanceSquared = Gears.squaredMagnitude(playerToEnemyDirection)
+			local playerToEnemyDistanceSquared = Gears.SquaredMagnitude(playerToEnemyDirection)
 			MutState.playersDetections[userId][enemy] = playerToEnemyDistanceSquared
 		end
 	end
@@ -436,7 +436,7 @@ local function autoPickupRange(state)
 end
 
 local function stateUpdate()
-	local state = store:getState() -- Get state once every frame
+	local state = Store:getState() -- Get state once every frame
 
 	PlayerService.StateUpdate:Fire(state)
 
@@ -461,7 +461,7 @@ function PlayerService:KnitInit()
 end
 
 function PlayerService:KnitStart()
-	StatService = Knit.GetService("StatService")
+	RpgService = Knit.GetService("RpgService")
 	ItemService = Knit.GetService("ItemService")
 
 	RunService.Heartbeat:Connect(stateUpdate)

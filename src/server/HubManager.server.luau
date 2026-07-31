@@ -16,7 +16,8 @@ local Enemies = enemyDef.Enemies
 
 -- Get Services
 local PlayerService = Knit.GetService("PlayerService")
-local StatService = Knit.GetService("StatService")
+local RpgService = Knit.GetService("RpgService")
+local AugmentsService = Knit.GetService("AugmentsService")
 local EnemyService = Knit.GetService("EnemyService")
 -- local ItemService = Knit.GetService("ItemService")
 
@@ -197,8 +198,8 @@ local function setupPlayerService()
 	end)
 end
 
-local function setupStatService()
-	StatService.MetaUpgradesChanged:Connect(function(player, upgradeType, newUpgrade)
+local function setupRpgService()
+	RpgService.MetaUpgradesChanged:Connect(function(player, upgradeType, newUpgrade)
 		safeInsert(isPlayerChanged, player)
 	end)
 end
@@ -214,12 +215,12 @@ Players.PlayerAdded:Connect(function(player)
 
 	-- Manual Tests
 	-- local userId = player.UserId
-	-- StatService.AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
+	-- AugmentsService.AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
 	-- PlayerService.AddBananas(100)
-	StatService.GenerateAugments(player)
-	StatService.AddXpToAllPlayers(225)
-	StatService.RegisterLife(player)
-	StatService.DamagePlayer(player, 50)
+	AugmentsService.GenerateAugments(player)
+	RpgService.AddXpToAllPlayers(225)
+	RpgService.RegisterLife(player)
+	RpgService.DamagePlayer(player, 50)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
@@ -235,7 +236,7 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 setupPlayerService()
-setupStatService()
+setupRpgService()
 setupPlatforms()
 
 -- Setup Enemies

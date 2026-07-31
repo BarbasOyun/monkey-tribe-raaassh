@@ -3,7 +3,7 @@ local Roact = require(ReplicatedStorage.Shared.Roact)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
-local StatService = Knit.GetService("StatService")
+local AugmentsService = Knit.GetService("AugmentsService")
 local PlayerController = Knit.GetController("PlayerController")
 local AUGMENTS = PlayerController.AUGMENTS
 local STATS_DISPLAY = PlayerController.STATS_DISPLAY
@@ -29,7 +29,7 @@ local function augmentCard(props)
 
 	local onClick = function()
 		augmentPickSound:Play()
-		StatService:PickAugment(index)
+		AugmentsService:PickAugment(index)
 	end
 
 	return Roact.createElement("TextButton", {
@@ -71,7 +71,7 @@ local function cardsPanel(props)
 
 	local columns = #augments
 	local gapSize = 0.5
-	local cardXSize = Gears.elementXSize(false, columns, gapSize)
+	local cardXSize = Gears.ElementXSize(false, columns, gapSize)
 
 	for index, augment in pairs(augments) do
 		local augmentCard = augmentCard({

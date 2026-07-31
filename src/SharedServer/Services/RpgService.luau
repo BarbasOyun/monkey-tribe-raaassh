@@ -8,9 +8,9 @@ local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0
 
 -- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local store = RoduxStore.Store
-local selectors = RoduxStore.Selectors
-local storeActions = RoduxStore.Actions
+local Store = RoduxStore.Store
+local Selectors = RoduxStore.Selectors
+local StoreActions = RoduxStore.Actions
 
 -- Get Constants
 -- local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
@@ -27,7 +27,7 @@ local AUGMENTS = statsDefinition.AUGMENTS
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
-local statState = MutState.statState
+local StatState = MutState.StatState
 
 -- Get Services
 local PlayerService
@@ -52,8 +52,8 @@ local PlayerService
 -- baseX * increasedX = x
 -- some baseX come from weaponData eg baseAttackSpeed
 
-local StatService = Knit.CreateService({
-	Name = "StatService",
+local RpgService = Knit.CreateService({
+	Name = "RpgService",
 	MetaUpgradesChanged = Signal.new(),
 	XpGained = Signal.new(),
 	Client = {
@@ -66,22 +66,22 @@ local StatService = Knit.CreateService({
 })
 
 -- #region LIFE
--- TODO = Fuse StatService + Enemy takeDamage function
+-- TODO = Fuse RpgService + Enemy takeDamage function
 
-function StatService.RegisterLife(player)
+function RpgService.RegisterLife(player)
 	local userId = player.UserId
-	local state = store:getState()
+	local state = Store:getState()
 
 	local playerData = state.players[userId]
-	statState.playersLife[userId] = playerData.stats.maxLife
+	StatState.playersLife[userId] = playerData.stats.maxLife
 
-	StatService.CalculateStat(state, userId, MOD_STATS_STORE.lifeRegen)
+	RpgService.CalculateStat(state, userId, MOD_STATS_STORE.lifeRegen)
 end
 
-function StatService.DamagePlayer(player, damage)
+function RpgService.DamagePlayer(player, damage)
 	local userId = player.UserId
 
-	statState.playersLife[userId] -= damage
+	StatState.playersLife[userId] -= damage
 end
 
 -- #endregion
@@ -109,26 +109,26 @@ local function levelUp(state, player, currentXp)
 
 	-- Patch
 	local patch = { waitingLevel = newWaitingLevel, currentXp = overXp, xpRequired = newXpRequired }
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 
-	StatService.Client.LevelUp:Fire(player, patch)
+	RpgService.Client.LevelUp:Fire(player, patch)
 end
 
-function StatService.AddXpToAllPlayers(xp)
+function RpgService.AddXpToAllPlayers(xp)
 	if not xp or xp <= 0 then
 		return
 	end
 
-	local state = store:getState()
+	local state = Store:getState()
 
-	statState.totalXp += xp
+	StatState.totalXp += xp
 
 	for _, player in pairs(Players:GetPlayers()) do
-		StatService.AddXpToPlayer(state, player, xp)
+		RpgService.AddXpToPlayer(state, player, xp)
 	end
 end
 
-function StatService.AddXpToPlayer(state, player, xp)
+function RpgService.AddXpToPlayer(state, player, xp)
 	print(player.Name .. " Get : " .. xp .. " XP")
 
 	if not xp or xp <= 0 then
@@ -139,7 +139,7 @@ function StatService.AddXpToPlayer(state, player, xp)
 	local userId = player.UserId
 	local playerData = state.players[userId]
 
-	local totalXp = xp * Gears.increaseToMultiplier(playerData.stats.increasedXp)
+	local totalXp = xp * Gears.IncreaseToMultiplier(playerData.stats.increasedXp)
 	local newXp = state.players[userId].currentXp + totalXp
 
 	-- Check Level up
@@ -148,7 +148,7 @@ function StatService.AddXpToPlayer(state, player, xp)
 	else
 		local patch = { currentXp = newXp }
 
-		store:dispatch(storeActions.PatchPlayer(userId, patch))
+		Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 		PlayerService.Client.PatchPlayer:Fire(player, patch)
 	end
 end
@@ -157,8 +157,8 @@ end
 
 -- #region CALCULATIONS
 
-local function stopLifeRegen(userId)
-	local lifeRegenUpdates = statState.lifeRegenUpdates
+function RpgService.StopLifeRegen(userId)
+	local lifeRegenUpdates = StatState.lifeRegenUpdates
 
 	if lifeRegenUpdates[userId] then
 		lifeRegenUpdates[userId]:Disconnect()
@@ -166,19 +166,19 @@ local function stopLifeRegen(userId)
 	end
 end
 
-local function startLifeRegen(userId, lifeRegen)
-	local playersLife = statState.playersLife
-	local lifeRegenUpdates = statState.lifeRegenUpdates
+function RpgService.StartLifeRegen(userId, lifeRegen)
+	local playersLife = StatState.playersLife
+	local lifeRegenUpdates = StatState.lifeRegenUpdates
 
-	if lifeRegen > 0 and statState.playersLife[userId] then
+	if lifeRegen > 0 and StatState.playersLife[userId] then
 		lifeRegenUpdates[userId] = PlayerService.StateUpdate:Connect(function(state)
-			local playerData = selectors.PlayerData(state, userId)
+			local playerState = Selectors.PlayerState(state, userId)
 
-			if not playerData then
-				stopLifeRegen(userId)
+			if not playerState then
+				RpgService.StopLifeRegen(userId)
 			end
 
-			local maxLife = playerData.stats.maxLife
+			local maxLife = playerState.stats.maxLife
 			local lifeUpdate = playersLife[userId] + lifeRegen / 60 -- 60 FPS
 
 			playersLife[userId] = math.min(lifeUpdate, maxLife)
@@ -199,7 +199,7 @@ end
 -- base * increase
 local function calcMultStat(metaUpgrades, augments, modStat, calcStat, baseValue)
 	local totalModStat = calcModStat(metaUpgrades, augments, modStat)
-	local totalStat = baseValue * Gears.increaseToMultiplier(totalModStat)
+	local totalStat = baseValue * Gears.IncreaseToMultiplier(totalModStat)
 
 	local patch = { [modStat] = totalModStat, [calcStat] = totalStat }
 
@@ -238,7 +238,7 @@ local statsCalculation = {
 		local totalModStat = calcModStat(metaUpgrades, augments, modStat)
 
 		-- Calc
-		local attackSpeed = weaponAttackSpeed * Gears.increaseToMultiplier(totalModStat)
+		local attackSpeed = weaponAttackSpeed * Gears.IncreaseToMultiplier(totalModStat)
 		local animationTime = 1 / attackSpeed
 
 		local patch = { [modStat] = totalModStat, [calcStat] = attackSpeed, animationTime = animationTime }
@@ -284,7 +284,7 @@ local statsCalculation = {
 		local useAoe = weaponData and weaponData.aoe or 0
 
 		-- Calc
-		local aoeMultiplier = Gears.increaseToMultiplier(totalIncreasedAoe)
+		local aoeMultiplier = Gears.IncreaseToMultiplier(totalIncreasedAoe)
 		local totalAoe = useAoe * aoeMultiplier
 
 		local patch = { [modStat] = totalIncreasedAoe, [calcStat] = totalAoe }
@@ -322,7 +322,7 @@ local statsCalculation = {
 		local maxLife = calcModStat(metaUpgrades, augments, modStat)
 
 		-- MaxLife also Give life
-		local playerLife = statState.playersLife[userId]
+		local playerLife = StatState.playersLife[userId]
 
 		if playerLife then
 			playerLife += maxLife
@@ -342,8 +342,8 @@ local statsCalculation = {
 
 		local totalLifeRegen = calcModStat(metaUpgrades, augments, modStat)
 
-		stopLifeRegen(userId)
-		startLifeRegen(userId, totalLifeRegen)
+		RpgService.StopLifeRegen(userId)
+		RpgService.StartLifeRegen(userId, totalLifeRegen)
 
 		local patch = { [modStat] = totalLifeRegen }
 
@@ -426,7 +426,7 @@ local statsCalculation = {
 
 local function statContext(state, userId)
 	local playerState = state.players[userId]
-	local augments, metaUpgrades = selectors.PlayerPowerSystems(playerState)
+	local augments, metaUpgrades = Selectors.PlayerPowerSystems(playerState)
 
 	local statCtx = {
 		userId = userId,
@@ -439,15 +439,15 @@ local function statContext(state, userId)
 end
 
 -- modStat = from STATS_STORE
-function StatService.CalculateStat(state, userId, modStat)
+function RpgService.CalculateStat(state, userId, modStat)
 	local statCtx = statContext(state, userId)
 
 	local patch = statsCalculation[modStat](statCtx)
-	store:dispatch(storeActions.PatchStat(userId, patch))
+	Store:dispatch(StoreActions.PatchStat(userId, patch))
 end
 
-function StatService.CalculateAllStats(userId)
-	local state = store:getState()
+function RpgService.CalculateAllStats(userId)
+	local state = Store:getState()
 
 	local patches = {}
 
@@ -455,10 +455,10 @@ function StatService.CalculateAllStats(userId)
 		local statCtx = statContext(state, userId)
 
 		local patch = calculateStat(statCtx)
-		Gears.fuseTable(patches, patch)
+		Gears.FuseTable(patches, patch)
 	end
 
-	store:dispatch(storeActions.PatchStat(userId, patches))
+	Store:dispatch(StoreActions.PatchStat(userId, patches))
 	-- Replicate to Client -> Display on Client side character stats sheet
 end
 
@@ -466,7 +466,7 @@ end
 
 -- #region META UPGRADES
 
-function StatService.UpdateMetaUpgrade(newLevel, upgradeType)
+function RpgService.UpdateMetaUpgrade(newLevel, upgradeType)
 	-- Calculate Cost & Stat at a Level
 	local upgradeData = META_UPRGADES[upgradeType]
 
@@ -487,7 +487,7 @@ local function incrementMetaUpgrade(state, player, upgradeType)
 	local newLevel = playerData.metaUpgradesLevel[upgradeType] + 1
 
 	-- Calculate new Stats & Cost
-	local cost, stat = StatService.UpdateMetaUpgrade(newLevel, upgradeType)
+	local cost, stat = RpgService.UpdateMetaUpgrade(newLevel, upgradeType)
 
 	local newUpgrade = {
 		level = newLevel,
@@ -496,20 +496,20 @@ local function incrementMetaUpgrade(state, player, upgradeType)
 	}
 
 	-- Dispatch
-	store:dispatch(storeActions.SetMetaUpgrade(userId, upgradeType, newUpgrade))
+	Store:dispatch(StoreActions.SetMetaUpgrade(userId, upgradeType, newUpgrade))
 
 	-- Events
-	StatService.MetaUpgradesChanged:Fire(player, upgradeType, newUpgrade)
-	StatService.Client.MetaUpgradesChanged:Fire(player, upgradeType, newUpgrade)
+	RpgService.MetaUpgradesChanged:Fire(player, upgradeType, newUpgrade)
+	RpgService.Client.MetaUpgradesChanged:Fire(player, upgradeType, newUpgrade)
 
 	-- Update Stat
-	local newState = store:getState()
+	local newState = Store:getState()
 	local statType = TO_STAT_OBJECT[upgradeType]
-	StatService.CalculateStat(newState, userId, statType)
+	RpgService.CalculateStat(newState, userId, statType)
 end
 
-function StatService.Client.BuyMetaUpgrade(player, upgradeType)
-	local state = store:getState()
+function RpgService.Client.BuyMetaUpgrade(player, upgradeType)
+	local state = Store:getState()
 	local userId = player.UserId
 
 	local playerData = state.players[userId]
@@ -552,289 +552,21 @@ end
 
 -- #endregion
 
--- #region AUGMENTS
-
--- Generate a patch of the specified augment
-local function augmentPatch(state, userId, modStat, value)
-	local playerData = state.players[userId]
-
-	-- Get stat
-	local stat = playerData.augments[modStat]
-	local newStat = stat + value
-
-	local patch = { [modStat] = newStat }
-	return patch
-end
-
--- Debug func
-function StatService.AddAugmentStat(userId, modStat, value)
-	local state = store:getState()
-
-	local patch = augmentPatch(state, userId, modStat, value)
-	store:dispatch(storeActions.PatchAugment(userId, patch))
-end
-
--- 1] Augments Generation
-local function getWeights(luck)
-	-- local weights = Augments.weights
-	local baseLuckValue = AUGMENTS.baseLuckValue
-	local luckPoints = AUGMENTS.luckPoints
-
-	local luckDistance = {
-		math.abs(luckPoints[1] - luck), -- Deal with Negative Luck
-		math.abs(luckPoints[2] - luck),
-		math.abs(luckPoints[3] - luck),
-		math.abs(luckPoints[4] - luck),
-		math.abs(luckPoints[5] - luck),
-	}
-
-	local weights = {
-		baseLuckValue - luckDistance[1],
-		baseLuckValue - luckDistance[2],
-		baseLuckValue - luckDistance[3],
-		baseLuckValue - luckDistance[4],
-		baseLuckValue - luckDistance[5],
-	}
-
-	return weights
-end
-
-local function rollRarity(weights, totalWeight)
-	local roll = math.random(0, totalWeight)
-	local count = 1
-	local currentCheck = weights[1]
-
-	-- Check if roll is within a rarity range
-	while roll > currentCheck do
-		count += 1
-		currentCheck += weights[count]
-	end
-
-	return AUGMENTS.rarity[count]
-end
-
-local function getAugment(rarity, banList)
-	-- Build Possible List
-	local optionList = Gears.deepCopy(MOD_STATS_INDEX)
-
-	-- Remove Augments :
-	-- Already Generated
-	-- Don't have Rarity Value
-	if banList then
-		for index = #MOD_STATS_INDEX, 1, -1 do
-			local modStat = MOD_STATS_INDEX[index]
-
-			if table.find(banList, modStat) or not AUGMENTS[modStat][rarity] then
-				table.remove(optionList, index)
-			end
-		end
-	else
-		for index = #MOD_STATS_INDEX, 1, -1 do
-			local modStat = MOD_STATS_INDEX[index]
-
-			if not AUGMENTS[modStat][rarity] then
-				table.remove(optionList, index)
-			end
-		end
-	end
-
-	local optionCount = Gears.tableSize(optionList)
-
-	if optionCount <= 0 then
-		warn("No Options Left")
-		return nil
-	end
-
-	-- FindAugment
-	local augmentRoll = 1
-
-	if optionCount > 1 then
-		augmentRoll = math.random(1, optionCount)
-	end
-
-	local augmentType = optionList[augmentRoll]
-	local augmentValue = AUGMENTS[augmentType][rarity]
-
-	local augment = {
-		modStat = augmentType,
-		rarity = rarity,
-		value = augmentValue,
-	}
-
-	return augment
-end
-
--- Make the next set of Augments available
-function StatService.GenerateAugments(player)
-	local userId = player.UserId
-	local state = store:getState()
-	local playerData = state.players[userId]
-
-	local weights = getWeights(playerData.stats.luck)
-	local totalWeight = Gears.sumTable(weights)
-
-	local banList = {} -- Avoid Generating the Same Augment Type
-
-	local augment1 = getAugment(rollRarity(weights, totalWeight))
-	table.insert(banList, augment1.modStat)
-
-	local augment2 = getAugment(rollRarity(weights, totalWeight), banList)
-	table.insert(banList, augment2.modStat)
-
-	local augment3 = getAugment(rollRarity(weights, totalWeight), banList)
-
-	local augmentChoices = {
-		augment1,
-		augment2,
-		augment3,
-	}
-
-	-- local rarest = "Common"
-
-	-- for _, augment in pairs(augmentChoices) do
-	-- 	if table.find(AUGMENTS.rarity, augment.rarity) > table.find(AUGMENTS.rarity, rarest) then
-	-- 		rarest = augment.rarity
-	-- 	end
-	-- end
-
-	-- local rarestColor = AUGMENTS.colors[rarest]
-
-	local patch = { currentAugments = augmentChoices }
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
-	-- TODO : Augment Generated Event(rarestColor)
-end
-
--- 2] Augment Pick State
--- Send Augments to Client -> Display
-local function sendAugments(player)
-	local state = store:getState()
-	local userId = player.UserId
-
-	local augmentChoices = state.players[userId].currentAugments
-
-	StatService.Client.NewAugments:Fire(player, augmentChoices)
-end
-
-local function finishAugmentPick(player)
-	local userId = player.UserId
-
-	local state = store:getState()
-	local playerData = selectors.PlayerData(state, userId)
-
-	-- Reset Player State
-	player.Character:MoveTo(statState.positionStart[userId])
-	statState.positionStart[userId] = nil
-
-	startLifeRegen(userId, playerData.stats.lifeRegen)
-
-	local patch = { state = PlayerService.PLAYER_STATE.playing }
-
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
-	StatService.Client.FinishPickingAugments:Fire(player)
-end
-
--- Player start choosing Augment
-function StatService.Client.StartAugmentPick(player)
-	local userId = player.UserId
-	local state = store:getState()
-	local playerData = state.players[userId]
-
-	-- Validations
-	assert(playerData.currentAugments, player.Name .. " No Augments ready")
-
-	local waitingLevel = playerData.waitingLevel
-	assert(waitingLevel > 0, player.Name .. " No waiting Level")
-
-	-- Picking Augment State
-	-- print(player.Name .. " Is Picking Augment...")
-	statState.positionStart[userId] = player.Character.HumanoidRootPart.CFrame.Position -- Movements are disabled client side
-
-	stopLifeRegen(userId)
-
-	local patch = { state = PlayerService.PLAYER_STATE.pickingAugment }
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
-
-	sendAugments(player)
-end
-
-function StatService.Client.RerollAugment(player)
-	local state = store:getState()
-	local playerData = state.players[player.UserId]
-
-	if not playerData.currentAugments then
-		print(player.Name .. " No Augments ready")
-		return
-	end
-
-	if playerData.sticks.Value < 10 then
-		print(player.Name .. " Not enough Sticks")
-		return
-	end
-
-	-- Transaction
-	StatService.SendAugment(player)
-
-	PlayerService:SubtractCurrency(player, PlayerService.CURRENCIES.sticks, 10)
-end
-
-function StatService.Client.PickAugment(player, index)
-	local userId = player.UserId
-	local state = store:getState()
-	local playerData = state.players[userId]
-
-	-- Validation
-	local augment = playerData.currentAugments[index]
-	assert(augment, player.Name .. " Augment not ready")
-
-	local waitingLevel = playerData.waitingLevel
-	assert(waitingLevel > 0, player.Name .. " No waiting Level")
-
-	print(player.Name .. " Choosed : " .. index)
-
-	-- Level
-	local level = playerData.level
-	level += 1
-	waitingLevel -= 1
-
-	--Add Augment Stats
-	local augmentPatch = augmentPatch(state, userId, augment.modStat, augment.value)
-	store:dispatch(storeActions.PatchAugment(userId, augmentPatch))
-	-- Replicate to Client -> Display Augment stats client side
-
-	-- Update Player Level
-	local patch = { level = level, waitingLevel = waitingLevel, currentAugments = nil }
-	store:dispatch(storeActions.PatchPlayer(userId, patch))
-	PlayerService.Client.PatchPlayer:Fire(player, patch)
-
-	-- Generate augments for next Level
-	StatService.GenerateAugments(player)
-
-	-- Additional Levels
-	if waitingLevel > 0 then
-		sendAugments(player)
-		return
-	end
-
-	finishAugmentPick(player)
-end
-
--- #endregion
-
 -- ARTIFACTS
 -- ...
 
 -- Start Service
-function StatService:KnitInit()
-	print("StatService Initialized")
+function RpgService:KnitInit()
+	print("RpgService Initialized")
 end
 
-function StatService:KnitStart()
+function RpgService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 
 	-- LifeRegen
 	PlayerService.ThrottledUpdate:Connect(function(state)
 		for _, player in pairs(Players:GetPlayers()) do
-			local playerLife = statState.playersLife[player.UserId]
+			local playerLife = StatState.playersLife[player.UserId]
 
 			if playerLife then
 				self.Client.LifeUpdate:Fire(player, playerLife)
@@ -843,8 +575,8 @@ function StatService:KnitStart()
 	end)
 
 	PlayerService.PlayerRemoved:Connect(function(userId)
-		stopLifeRegen(userId)
+		RpgService.StopLifeRegen(userId)
 	end)
 end
 
-return StatService
+return RpgService

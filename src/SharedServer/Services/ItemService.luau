@@ -11,12 +11,6 @@ local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
--- Get Store
-local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local store = RoduxStore.Store
-local storeActions = RoduxStore.Actions
-
--- Get Const
 local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
 local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
@@ -25,9 +19,14 @@ local itemStore = itemDef.itemStore
 local itemTypes = itemDef.itemTypes
 local itemPrefabs = itemDef.itemPrefabs
 
+-- Get Store
+local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
+local Store = RoduxStore.Store
+local StoreActions = RoduxStore.Actions
+
 -- Get Services
 local PlayerService
-local StatService
+local RpgService
 
 local ItemService = Knit.CreateService({
 	Name = "ItemService",
@@ -48,7 +47,7 @@ local usablesLogicDefinition = {
 	-- Small XP Orb
 	function(player, itemDefinition, itemModel)
 		-- print("Add Small XP Orb to : " .. player.Name)
-		StatService.AddXpToAllPlayers(itemDefinition.xp)
+		RpgService.AddXpToAllPlayers(itemDefinition.xp)
 		ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
 		ItemService.RemoveGroundItem(itemModel)
 	end,
@@ -150,7 +149,7 @@ local function lootMovement(partToMove, startPos)
 
 	for i = 1, steps do
 		local progress = i / steps
-		partToMove.CFrame = CFrame.new(Gears.parabolaPos(startPos, finalTargetPos, height, progress))
+		partToMove.CFrame = CFrame.new(Gears.ParabolaPos(startPos, finalTargetPos, height, progress))
 		RunService.Heartbeat:Wait()
 	end
 end
@@ -237,12 +236,12 @@ function ItemService.EquipDefaultWeapon(player)
 	end
 end
 
-local function setWeapon(player, weapon)
+function ItemService.SetWeapon(player, weapon)
 	-- print(player.Name .. " new Weapon Data")
 	local patch = { weaponData = weapon }
-	store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+	Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
 
-	StatService.CalculateAllStats(player.UserId) -- TODO : Calculate Weapon Stats
+	RpgService.CalculateAllStats(player.UserId) -- TODO : Calculate Weapon Stats
 end
 
 local function addSounds(player, weapon)
@@ -268,7 +267,7 @@ local function onEquipped(weaponModel, weaponData)
 
 	-- TODO : Check if sounds are available -> Spawn & Delete sounds
 	addSounds(player, weaponData)
-	setWeapon(player, weaponData)
+	ItemService.SetWeapon(player, weaponData)
 
 	weaponData.sounds.unsheath:Play()
 
@@ -290,7 +289,7 @@ local function onUnequipped(weaponModel)
 
 	print("Unequip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
 
-	local state = store.getState(store)
+	local state = Store:getState()
 	local playerData = state.players[player.UserId]
 
 	if not playerData then
@@ -305,7 +304,7 @@ local function onUnequipped(weaponModel)
 	end
 
 	-- Reset Data
-	setWeapon(player, nil)
+	ItemService.SetWeapon(player, nil)
 
 	-- Events
 	ItemService.UnequipWeapon:Fire(player)
@@ -357,7 +356,7 @@ end
 
 function ItemService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
-	StatService = Knit.GetService("StatService")
+	RpgService = Knit.GetService("RpgService")
 
 	SetupWeaponType("WoodenClub")
 	SetupWeaponType("IronMace")

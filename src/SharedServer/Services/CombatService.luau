@@ -10,13 +10,13 @@ local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
 -- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local store = RoduxStore.Store
-local selectors = RoduxStore.Selectors
--- local storeActions = RoduxStore.Actions
+local Store = RoduxStore.Store
+local Selectors = RoduxStore.Selectors
+-- local StoreActions = RoduxStore.Actions
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
-local combatState = MutState.combatState
+local CombatState = MutState.CombatState
 
 -- Get Other Services
 local PlayerService
@@ -38,11 +38,11 @@ local function attackFeedback(weaponData, isCrit)
 
 	-- SFX
 	if isCrit then
-		Gears.safePlaySound(weaponData.sounds.crit)
+		Gears.SafePlaySound(weaponData.sounds.crit)
 		return
 	end
 
-	Gears.safePlaySound(weaponData.sounds.slash)
+	Gears.SafePlaySound(weaponData.sounds.slash)
 end
 
 local function rollCrit(playerStats)
@@ -62,7 +62,7 @@ local function rollAttackDamage(playerStats, isCrit)
 	local damage = playerStats.attackDamage
 
 	if isCrit then
-		damage *= Gears.increaseToMultiplier(playerStats.critMultiplier)
+		damage *= Gears.IncreaseToMultiplier(playerStats.critMultiplier)
 		-- print("Crit " .. damage)
 	end
 
@@ -75,8 +75,8 @@ local function hitsDetection(position, radius, param, charactersBanned)
 	local humanoidsHit = {} -- Unique Humanoids
 
 	-- Debug HitZone
-	Gears.executeFor(0.5, function()
-		Gears.drawSphere(position, radius)
+	Gears.ExecuteFor(0.5, function()
+		Gears.DrawSphere(position, radius)
 	end)
 
 	if #hits <= 0 then
@@ -106,7 +106,7 @@ local function getAttackPosition(player, weaponData)
 	local attackPosition = weaponData.attackPoint.WorldCFrame.Position
 
 	-- Aim toward Closet Enemy
-	local closestEnemy = combatState.playersClosestEnemy[userId]
+	local closestEnemy = CombatState.playersClosestEnemy[userId]
 
 	if closestEnemy then
 		local playerToEnemyDirection = vector.normalize(closestEnemy.CFrame.Position - playerPos)
@@ -159,7 +159,7 @@ end
 
 local function incrementCombo(player, weaponData)
 	local userId = player.UserId
-	combatState.comboIndexes[userId] = (combatState.comboIndexes[userId] + 1) % weaponData.maxCombo
+	CombatState.comboIndexes[userId] = (CombatState.comboIndexes[userId] + 1) % weaponData.maxCombo
 
 	-- Reset Combo Index -> after 2 sec of not Attacking
 	-- if playerStat.comboReset then
@@ -176,17 +176,17 @@ end
 -- After Animation
 function CombatService.Client:AttackCallback(player)
 	local userId = player.UserId
-	local state = store:getState()
+	local state = Store:getState()
 	local playerState = state.players[userId]
 
 	local playerStats = playerState.stats
 	local weaponData = playerState.weaponData
 
 	local currentTime = tick()
-	local attackDelta = currentTime - combatState.lastAttacks[userId] -- Time between last attack and now
+	local attackDelta = currentTime - CombatState.lastAttacks[userId] -- Time between last attack and now
 
 	-- Validation -> Using setup on step 2)
-	if not combatState.expectingAttack[userId] and attackDelta >= playerStats.animationTime then
+	if not CombatState.expectingAttack[userId] and attackDelta >= playerStats.animationTime then
 		warn("Unexpected AttackHit from player: " .. player.Name)
 		return
 	end
@@ -194,8 +194,8 @@ function CombatService.Client:AttackCallback(player)
 	-- Reset Player speed
 	-- player.Character.Humanoid.WalkSpeed = playerStats.mobility
 
-	combatState.expectingAttack[userId] = nil
-	combatState.attackBuffer[userId] = nil
+	CombatState.expectingAttack[userId] = nil
+	CombatState.attackBuffer[userId] = nil
 
 	if not weaponData then
 		return
@@ -217,25 +217,25 @@ local function attackValidation(player, playerStats, weaponData)
 
 	-- TODO : Measure animations using frames instead of time
 	local currentTime = tick()
-	local attackDelta = currentTime - combatState.lastAttacks[userId] -- Time between last attack and now
+	local attackDelta = currentTime - CombatState.lastAttacks[userId] -- Time between last attack and now
 	local isAttackReady = attackDelta > playerStats.animationTime
 
 	local function startAttack()
 		-- print("Attack By : " .. player.Name .. " At : " .. tick())
-		combatState.lastAttacks[userId] = tick()
-		combatState.expectingAttack[userId] = true
+		CombatState.lastAttacks[userId] = tick()
+		CombatState.expectingAttack[userId] = true
 		-- player.Character.Humanoid.WalkSpeed *= 0.5
 
-		CombatService.Client.startAttack:Fire(player, combatState.comboIndexes[userId] + 1, playerStats.attackSpeed)
+		CombatService.Client.startAttack:Fire(player, CombatState.comboIndexes[userId] + 1, playerStats.attackSpeed)
 	end
 
 	if not isAttackReady then
 		-- Input Buffer
 		local missingTime = playerStats.animationTime - attackDelta -- Time to wait before attacking
 
-		if missingTime <= 0.1 and combatState.attackBuffer[userId] == nil then
+		if missingTime <= 0.1 and CombatState.attackBuffer[userId] == nil then
 			-- print("Attack Buffer: " .. player.Name)
-			combatState.attackBuffer[userId] = true -- Lock Input Buffer
+			CombatState.attackBuffer[userId] = true -- Lock Input Buffer
 			task.delay(missingTime, function()
 				startAttack()
 			end)
@@ -249,9 +249,9 @@ local function attackValidation(player, playerStats, weaponData)
 end
 
 function CombatService.Client:AttackValidation(player)
-	local state = store:getState()
+	local state = Store:getState()
 	local playerData = state.players[player.UserId]
-	local playerStats, weaponData = selectors.PlayerStats(playerData)
+	local playerStats, weaponData = Selectors.PlayerStats(playerData)
 
 	attackValidation(player, playerStats, weaponData)
 end
@@ -282,7 +282,7 @@ local function findClosestEnemies()
 			end
 		end
 
-		combatState.playersClosestEnemy[userId] = closestEnemy
+		CombatState.playersClosestEnemy[userId] = closestEnemy
 	end
 end
 
@@ -290,7 +290,7 @@ end
 local function autoTarget(state)
 	for _, player in pairs(Players:GetPlayers()) do
 		local userId = player.UserId
-		local closestEnemy = combatState.playersClosestEnemy[userId]
+		local closestEnemy = CombatState.playersClosestEnemy[userId]
 
 		if not closestEnemy then
 			return
@@ -303,8 +303,8 @@ local function autoTarget(state)
 		-- > StartAttack
 		local targetDistance = vector.magnitude(closestEnemy.CFrame.Position - playerPos)
 
-		local playerData = selectors.PlayerData(state, userId)
-		local playerStats, weaponData = selectors.PlayerStats(playerData)
+		local playerState = Selectors.PlayerState(state, userId)
+		local playerStats, weaponData = Selectors.PlayerStats(playerState)
 		local isInRange = targetDistance <= playerStats.aoe * 2
 
 		if weaponData and isInRange then
@@ -324,17 +324,17 @@ end
 
 local function setupPlayerService()
 	PlayerService.PlayerAdded:Connect(function(userId)
-		combatState.lastAttacks[userId] = 0
-		combatState.comboIndexes[userId] = 0
+		CombatState.lastAttacks[userId] = 0
+		CombatState.comboIndexes[userId] = 0
 	end)
 
 	PlayerService.PlayerRemoved:Connect(function(userId)
 		-- Cleanup
-		combatState.lastAttacks[userId] = nil
-		combatState.comboIndexes[userId] = nil
-		combatState.expectingAttack[userId] = nil
-		combatState.attackBuffer[userId] = nil
-		combatState.comboReset[userId] = nil
+		CombatState.lastAttacks[userId] = nil
+		CombatState.comboIndexes[userId] = nil
+		CombatState.expectingAttack[userId] = nil
+		CombatState.attackBuffer[userId] = nil
+		CombatState.comboReset[userId] = nil
 	end)
 end
 
@@ -360,9 +360,9 @@ function CombatService:KnitStart()
 	ItemService.UnequipWeapon:Connect(function(player)
 		local userId = player.UserId
 
-		combatState.expectingAttack[userId] = nil
-		combatState.comboIndexes[userId] = 0
-		combatState.comboReset[userId] = nil
+		CombatState.expectingAttack[userId] = nil
+		CombatState.comboIndexes[userId] = 0
+		CombatState.comboReset[userId] = nil
 	end)
 
 	PlayerService.StateUpdate:Connect(combatServiceUpdate)

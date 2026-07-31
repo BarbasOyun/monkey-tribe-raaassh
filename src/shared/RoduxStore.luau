@@ -1,5 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService")
+-- local ServerScriptService = game:GetService("ServerScriptService")
 
 local Gears = require(script.Parent.Gears)
 local Rodux = require(ReplicatedStorage.Shared.Rodux)
@@ -10,7 +10,7 @@ local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefi
 -- #region SELECTORS
 
 local Selectors = {
-	PlayerData = function(state, userId)
+	PlayerState = function(state, userId)
 		return state.players[userId]
 	end,
 
@@ -113,7 +113,7 @@ local playerReducer = Rodux.createReducer({}, {
 		local username = action.username
 
 		-- TODO : Player Constructor
-		players[userId] = Gears.deepCopy(statsDefinition.DEFAULT_PLAYER)
+		players[userId] = Gears.DeepCopy(statsDefinition.DEFAULT_PLAYER)
 		players[userId].username = username
 
 		return players

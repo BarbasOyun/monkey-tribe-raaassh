@@ -11,11 +11,11 @@ local ECSStorages = require(ServerScriptService.SharedServer.ECSStorages)
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
-local ecsState = MutState.ecsState
+local EcsState = MutState.EcsState
 
-local entitiesId = ecsState.entitiesId
-local entitiesBitmask = ecsState.entitiesBitmask
-local versions = ecsState.versions
+local entitiesId = EcsState.entitiesId
+local entitiesBitmask = EcsState.entitiesBitmask
+local versions = EcsState.versions
 
 local EcsService = Knit.CreateService({
 	Name = "EcsService",
@@ -42,15 +42,15 @@ export type Archetype = {
 -- #region ENTITIES
 
 function EcsService.CreateEntity()
-	local entityId = #ecsState.entitiesId + 1
+	local entityId = #EcsState.entitiesId + 1
 
-	table.insert(ecsState.entitiesId, entityId)
-	table.insert(ecsState.entitiesBitmask, 0)
-	table.insert(ecsState.versions, 0)
+	table.insert(EcsState.entitiesId, entityId)
+	table.insert(EcsState.entitiesBitmask, 0)
+	table.insert(EcsState.versions, 0)
 
 	-- Update sparse of every Storage
-	for i = 1, #ecsState.storages, 1 do
-		table.insert(ecsState.storages[i].GetState().sparse, 0)
+	for i = 1, #EcsState.storages, 1 do
+		table.insert(EcsState.storages[i].GetState().sparse, 0)
 	end
 
 	return entityId
@@ -60,24 +60,24 @@ function EcsService.RemoveEntity(entityId)
 	-- warn("Remove Entity : " .. entityId)
 
 	-- Remove components
-	for i = 1, #ecsState.storages, 1 do
+	for i = 1, #EcsState.storages, 1 do
 		if EcsService.HasComponent(entityId, i) then
-			local storage = ecsState.storages[i]
+			local storage = EcsState.storages[i]
 			-- warn("EntityID = " .. entityId .. " Has Component = " .. storage.getState().name)
 			storage.RemoveEntity(storage.GetState(), entityId)
 		end
 	end
 
 	-- Remove Entity
-	moveLastElement(ecsState.entitiesId, entityId)
-	moveLastElement(ecsState.entitiesBitmask, entityId)
-	moveLastElement(ecsState.versions, entityId)
+	moveLastElement(EcsState.entitiesId, entityId)
+	moveLastElement(EcsState.entitiesBitmask, entityId)
+	moveLastElement(EcsState.versions, entityId)
 end
 
 function EcsService.ClearEntities()
 	-- Clear all components
-	for i = 1, #ecsState.storages, 1 do
-		local storage = ecsState.storages[i]
+	for i = 1, #EcsState.storages, 1 do
+		local storage = EcsState.storages[i]
 		storage.ClearComponents(storage.GetState())
 	end
 
@@ -90,7 +90,7 @@ end
 -- #region ENTITIES ARCHETYPES / POOLING
 
 function EcsService.AddArchetype(archetype)
-	table.insert(ecsState.archetypes, archetype)
+	table.insert(EcsState.archetypes, archetype)
 end
 
 -- Create a pool of Entity of an Archetype
@@ -111,7 +111,7 @@ function EcsService.CreatePool(archetype, startIndex)
 end
 
 function EcsService.CreatePools()
-	local archetypes = ecsState.archetypes
+	local archetypes = EcsState.archetypes
 	local totalEntitiesCount = 0 -- Archetype Entities Should Always be The Firsts
 
 	for i = 1, #archetypes, 1 do
@@ -125,7 +125,7 @@ end
 
 -- Return the Archetype of an Entity
 function EcsService.GetArchetype(entityId)
-	local archetypes = ecsState.archetypes
+	local archetypes = EcsState.archetypes
 	local count = 0
 
 	for i = 1, #archetypes, 1 do
@@ -143,12 +143,12 @@ end
 
 -- Enable an Entity of an Archetype
 function EcsService.EnableArchetypeEntity(archetypeId)
-	local archetype = ecsState.archetypes[archetypeId]
+	local archetype = EcsState.archetypes[archetypeId]
 	archetype.activeCount += 1
 
 	local index = archetype.startIndex + archetype.activeCount
-	local entityId = ecsState.entitiesId[index]
-	local entityVersion = ecsState.versions[entityId]
+	local entityId = EcsState.entitiesId[index]
+	local entityVersion = EcsState.versions[entityId]
 	entityVersion += 1
 
 	warn("Enable Entity in Archetype = " .. archetype.name .. ", Entity ID = " .. entityId)
@@ -164,7 +164,7 @@ function EcsService.DisableEntity(entityId)
 
 	local archetype = EcsService.GetArchetype(entityId)
 	local lastEntityIndex = archetype.startIndex + archetype.activeCount
-	local lastEntityId = ecsState.entitiesId[lastEntityIndex]
+	local lastEntityId = EcsState.entitiesId[lastEntityIndex]
 
 	-- Update
 	versions[entityId] += 1
@@ -185,9 +185,9 @@ function EcsService.DisableEntity(entityId)
 	versions[lastEntityId] += 1
 
 	-- Swap Entities
-	local entityIdIndex = ecsState.entitiesId[entityId]
-	ecsState.entitiesId[entityIdIndex] = lastEntityId
-	ecsState.entitiesId[lastEntityIndex] = entityId
+	local entityIdIndex = EcsState.entitiesId[entityId]
+	EcsState.entitiesId[entityIdIndex] = lastEntityId
+	EcsState.entitiesId[lastEntityIndex] = entityId
 end
 
 -- #endregion
@@ -195,12 +195,12 @@ end
 -- #region STORAGES + COMPONENTS
 
 function EcsService.GetStorage(storageId)
-	return ecsState.storages[storageId]
+	return EcsState.storages[storageId]
 end
 
 function EcsService.HasComponent(entityId, systemId)
-	local entityMask = ecsState.entitiesBitmask[entityId]
-	local systemMask = Gears:GetMask(systemId)
+	local entityMask = EcsState.entitiesBitmask[entityId]
+	local systemMask = Gears.GetMask(systemId)
 
 	return bit32.btest(entityMask, systemMask)
 end
@@ -212,7 +212,7 @@ function EcsService.AddComponent(entityId, systemId)
 		return
 	end
 
-	ecsState.storages[systemId].AddComponentToEntity(ecsState, entityId)
+	EcsState.storages[systemId].AddComponentToEntity(EcsState, entityId)
 end
 
 -- #endregion
@@ -221,7 +221,7 @@ end
 function EcsService:KnitInit()
 	print("EcsService Initialized")
 
-	ecsState.storages = ECSStorages
+	EcsState.storages = ECSStorages
 end
 
 function EcsService:KnitStart()

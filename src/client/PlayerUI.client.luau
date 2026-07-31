@@ -2,18 +2,21 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 
-local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local store = RoduxStore.Store
-local selectors = RoduxStore.Selectors
-
 local RoactRodux = require(ReplicatedStorage.Shared.RoactRodux)
 local Roact = require(ReplicatedStorage.Shared.Roact)
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await() -- Wait for KnitControllersStart
 
+-- Get Store
+local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
+local Store = RoduxStore.Store
+local Selectors = RoduxStore.Selectors
+
+-- Get Services & Controller
 local PlayerController = Knit.GetController("PlayerController")
 
+-- TODO : Client side Mutable State
 local player = Players.LocalPlayer
 local playerGui = Players.LocalPlayer.PlayerGui
 
@@ -25,7 +28,7 @@ local shopBoard = workspace.Main.ShopBoard.Board
 local hundredDonationId = 3607471778
 local thousandDonationId = 3607471867
 
--- ROACT COMPONENTS
+-- #region ROACT COMPONENTS
 
 local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
 local textButton = require(ReplicatedStorage.Shared.Components.TextButton)
@@ -80,11 +83,11 @@ AugmentPanel = RoactRodux.connect(function(state, props)
 	local isVisible = false
 	local augments = {}
 
-	local playerData = selectors.PlayerData(state, player.UserId)
+	local playerState = Selectors.PlayerState(state, player.UserId)
 
-	if playerData then
-		isVisible = playerData.state == "PickingAugment"
-		augments = playerData.currentAugments
+	if playerState then
+		isVisible = playerState.state == "PickingAugment"
+		augments = playerState.currentAugments
 	end
 
 	return {
@@ -120,10 +123,10 @@ LevelUpLabel = RoactRodux.connect(function(state, props)
 	local isVisible = false
 	local waitingLevel = 0
 
-	local playerData = selectors.PlayerData(state, player.UserId)
+	local playerState = Selectors.PlayerState(state, player.UserId)
 
-	if playerData then
-		waitingLevel = playerData.waitingLevel
+	if playerState then
+		waitingLevel = playerState.waitingLevel
 		isVisible = waitingLevel > 0
 	end
 
@@ -138,11 +141,11 @@ XpBar = RoactRodux.connect(function(state, props)
 	local currentXp = 0
 	local xpRequired = 10
 
-	local playerData = selectors.PlayerData(state, player.UserId)
+	local playerState = Selectors.PlayerState(state, player.UserId)
 
-	if playerData then
-		currentXp = playerData.currentXp
-		xpRequired = playerData.xpRequired
+	if playerState then
+		currentXp = playerState.currentXp
+		xpRequired = playerState.xpRequired
 	end
 
 	return {
@@ -200,7 +203,9 @@ local thousandDonationProps = {
 	end,
 }
 
--- FINAL GUIS
+-- #endregion
+
+-- #region FINAL GUIS
 
 local function mainGui()
 	return Roact.createElement("ScreenGui", {}, {
@@ -247,7 +252,7 @@ local upgradeGui = require(ReplicatedStorage.Shared.Components.UpgradesGui)
 
 -- App
 local app = Roact.createElement(RoactRodux.StoreProvider, {
-	store = store,
+	store = Store,
 }, {
 	Container = Roact.createElement("Folder", {}, {
 		MainGui = mainGui(),
@@ -259,6 +264,8 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 
 Roact.mount(app, playerGui)
 
+-- #endregion
+
 -- #region AFTER UI IS CREATED
 
 -- LifeBar Update
@@ -266,13 +273,13 @@ local lBar = playerGui.RoactTree.MainGui.LifeBar[2]
 local lifeText = playerGui.RoactTree.MainGui.LifeBar[1]
 
 PlayerController.LifeUpdate:Connect(function(state, life)
-	local playerData = selectors.PlayerData(state, player.UserId)
+	local playerState = Selectors.PlayerState(state, player.UserId)
 
-	if not playerData then
+	if not playerState then
 		return
 	end
 
-	local maxLife = playerData.stats.maxLife
+	local maxLife = playerState.stats.maxLife
 
 	local percentage = life / maxLife
 	lBar.Size = UDim2.fromScale(percentage, 1)

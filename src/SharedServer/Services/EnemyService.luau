@@ -15,7 +15,7 @@ local EnemiesPrefabs = enemyDef.EnemiesPrefabs
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
-local ecsState = MutState.ecsState
+local EcsState = MutState.EcsState
 
 -- Get Services
 local EcsService
@@ -52,14 +52,14 @@ local dummySetup = function(character, entityId)
 	end
 
 	-- Get GameObject
-	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	local GameObjectStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
 
-	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
 	local unitStorageState = unitStorage.GetState()
 	local unitId = unitStorage.GetComponentId(unitStorageState, entityId)
 
 	-- Setup LifeBar
-	local dummy = gameObjectStorage.GetGameObject(entityId)
+	local dummy = GameObjectStorage.GetGameObject(entityId)
 	local lifeBar = EnemyService.TryToFindLifeBar(dummy)
 	unitStorageState.lifeBar[unitId] = lifeBar
 
@@ -88,11 +88,11 @@ local dummySetup = function(character, entityId)
 		EcsService.DisableEntity(character:GetAttribute("EntityId"))
 	end
 
-	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
-	local unitStorageState = unitStorage.GetState()
+	local UnitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local UnitStorageState = UnitStorage.GetState()
 
 	-- Setup Life + LifeBar
-	unitStorageState.life[entityId] = EnemiesDefinitions[Enemies.Dummy].MaxLife
+	UnitStorageState.life[entityId] = EnemiesDefinitions[Enemies.Dummy].MaxLife
 
 	local lifeBar = EnemyService.TryToFindLifeBar(character)
 	local billboardGui = lifeBar.Parent
@@ -107,7 +107,7 @@ local dummySetup = function(character, entityId)
 	end)
 
 	-- Setup OnDeath
-	local deathEvent = unitStorageState.deathEvent[entityId]
+	local deathEvent = UnitStorageState.deathEvent[entityId]
 	deathEvent:DisconnectAll()
 	deathEvent:Connect(onDeath)
 end
@@ -127,23 +127,23 @@ local dummySetupGameObject = function(entityId)
 	local dummy = EnemiesPrefabs[Enemies.Dummy]:Clone()
 	-- dummy.Name = "Dummy3"
 
-	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
-	gameObjectStorage.AddComponentToEntity(ecsState, entityId, dummy)
+	local GameObjectStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	GameObjectStorage.AddComponentToEntity(EcsState, entityId, dummy)
 
-	gameObjectStorage.DisableEntity(entityId)
+	GameObjectStorage.DisableEntity(entityId)
 end
 
 local dummySetupUnit = function(entityId)
 	local dummyDefinition = EnemiesDefinitions[Enemies.Dummy]
-	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
 
 	-- Get GameObject
-	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
-	local dummy = gameObjectStorage.GetGameObject(entityId)
+	local GameObjectStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	local dummy = GameObjectStorage.GetGameObject(entityId)
 
 	local lifeBar = EnemyService.TryToFindLifeBar(dummy)
 
-	unitStorage.AddComponentToEntity(ecsState, entityId, Enemies.Dummy, dummyDefinition.MaxLife, lifeBar)
+	unitStorage.AddComponentToEntity(EcsState, entityId, Enemies.Dummy, dummyDefinition.MaxLife, lifeBar)
 end
 
 local dummyArchetypeSetup = {
@@ -179,11 +179,11 @@ function EnemyService.CreateEnemy(character, enemyId)
 	character.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
 	-- Add Components : Gameobject, Unit
-	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
-	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local GameObjectStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
 
-	gameObjectStorage.AddComponentToEntity(ecsState, entityId, character)
-	unitStorage.AddComponentToEntity(ecsState, entityId, enemyId, enemyDefinition.MaxLife)
+	GameObjectStorage.AddComponentToEntity(EcsState, entityId, character)
+	unitStorage.AddComponentToEntity(EcsState, entityId, enemyId, enemyDefinition.MaxLife)
 
 	-- Per Enemy type setup
 	enemySetup[enemyId](character, entityId)
@@ -206,8 +206,8 @@ function EnemyService.SpawnDummy(position)
 	local entityId, entityVersion = EcsService.EnableArchetypeEntity(Enemies.Dummy)
 
 	-- Setup Gameobject Component
-	local gameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
-	local dummy = gameObjectStorage.GetGameObject(entityId)
+	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
+	local dummy = GameObjectStorage.GetGameObject(entityId)
 
 	dummy:PivotTo(CFrame.new(position))
 	dummy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
@@ -270,7 +270,7 @@ function EnemyService.UpdateLifeBar(lifeBar, lifePercent)
 end
 
 function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
-	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
 	local unitStorageState = unitStorage.GetState()
 	local unitId = unitStorage.GetComponentId(unitStorageState, entityId)
 
@@ -306,7 +306,7 @@ function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	ItemService.GenerateLoot(player, humanoid)
 
 	-- UnitState
-	local unitStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
 	local unitStorageState = unitStorage.GetState()
 
 	local unitId = unitStorage.GetComponentId(unitStorageState, entityId)

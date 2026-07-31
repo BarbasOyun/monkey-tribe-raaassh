@@ -170,11 +170,11 @@ local DEFAULT_PLAYER: Player = {
 	currentXp = 0,
 	xpRequired = 100,
 	-- Stats
-	stats = Gears.deepCopy(DEFAULT_STATS),
-	metaUpgradesLevel = Gears.deepCopy(DEFAULT_MOD_STATS),
-	metaUpgradesCost = Gears.deepCopy(DEFAULT_MOD_STATS),
-	metaUpgrades = Gears.deepCopy(DEFAULT_MOD_STATS),
-	augments = Gears.deepCopy(DEFAULT_MOD_STATS),
+	stats = Gears.DeepCopy(DEFAULT_STATS),
+	metaUpgradesLevel = Gears.DeepCopy(DEFAULT_MOD_STATS),
+	metaUpgradesCost = Gears.DeepCopy(DEFAULT_MOD_STATS),
+	metaUpgrades = Gears.DeepCopy(DEFAULT_MOD_STATS),
+	augments = Gears.DeepCopy(DEFAULT_MOD_STATS),
 	currentAugments = {}, -- 3+ choice cards
 	weaponData = nil,
 }

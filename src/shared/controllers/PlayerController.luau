@@ -11,12 +11,13 @@ local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefi
 
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local store = RoduxStore.Store
-local storeActions = RoduxStore.Actions
+local Store = RoduxStore.Store
+local StoreActions = RoduxStore.Actions
 
 -- Get Services
 local PlayerService
-local StatService
+local RpgService
+local AugmentsService
 local CombatService
 local ItemService
 
@@ -66,7 +67,6 @@ local PlayerController = Knit.CreateController({
 })
 
 -- #region ANIMATIONS
--- AnimationController
 
 local function loadAnimation(animationId)
 	local anim = Instance.new("Animation")
@@ -116,7 +116,7 @@ local function toggleMusic(isEnabled)
 		music:Stop()
 	end
 
-	store:dispatch(storeActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
+	Store:dispatch(StoreActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
 	PlayerService:ToggleMusic(isEnabled)
 end
 
@@ -132,14 +132,14 @@ local function setupControls()
 		end
 
 		if input.KeyCode == Enum.KeyCode.Q then
-			StatService:StartAugmentPick()
+			AugmentsService:StartAugmentPick()
 		end
 
 		-- TODO : F = Reset Camera
 		-- Camera.CFrame = CFrame.new(newPosition)
 
 		if input.KeyCode == Enum.KeyCode.T then
-			local state = store:getState()
+			local state = Store:getState()
 			local isEnabled = not state.players[player.UserId].isMusicEnabled
 			toggleMusic(isEnabled)
 		end
@@ -177,7 +177,7 @@ end
 -- #region SERVICES
 
 function PlayerController:BuyUpgrade(upgradeType)
-	StatService:BuyMetaUpgrade(upgradeType)
+	RpgService:BuyMetaUpgrade(upgradeType)
 end
 
 local function setupPlayerService()
@@ -197,7 +197,7 @@ local function setupPlayerService()
 
 		-- print("Replicating gameState from Server :")
 		-- print(gameState)
-		store:dispatch(storeActions.SetGameState(gameState, player.UserId))
+		Store:dispatch(StoreActions.SetGameState(gameState, player.UserId))
 	end)
 
 	-- Players Added & Removed
@@ -208,17 +208,17 @@ local function setupPlayerService()
 		end
 
 		-- Replicate Action Client side
-		store:dispatch(storeActions.AddPlayer(userId, username))
+		Store:dispatch(StoreActions.AddPlayer(userId, username))
 	end)
 
 	PlayerService.PlayerRemoved:Connect(function(userId)
-		store:dispatch(storeActions.RemovePlayer(userId))
+		Store:dispatch(StoreActions.RemovePlayer(userId))
 	end)
 
 	-- Self Data
 
 	PlayerService.PatchPlayer:Connect(function(patch)
-		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
 	end)
 
 	PlayerService.EnteringGame:Connect(function()
@@ -226,29 +226,30 @@ local function setupPlayerService()
 	end)
 end
 
-local function setupStatService()
+local function setupRpgService()
 	-- Resource Bars
-	StatService.LifeUpdate:Connect(function(life)
+	RpgService.LifeUpdate:Connect(function(life)
 		serverLife = life
 	end)
 
 	-- Level
-	StatService.LevelUp:Connect(function(patch)
+	RpgService.LevelUp:Connect(function(patch)
 		levelUpSound:Play()
-		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
 	end)
 
 	-- Meta Upgrades
-	StatService.MetaUpgradesChanged:Connect(function(upgradeType, newUpgrade)
-		store:dispatch(storeActions.SetMetaUpgrade(player.UserId, upgradeType, newUpgrade))
+	RpgService.MetaUpgradesChanged:Connect(function(upgradeType, newUpgrade)
+		Store:dispatch(StoreActions.SetMetaUpgrade(player.UserId, upgradeType, newUpgrade))
 	end)
+end
 
-	-- Augments
-	StatService.NewAugments:Connect(function(augmentChoices)
+local function setupAugmentsService()
+	AugmentsService.NewAugments:Connect(function(augmentChoices)
 		-- warn(augmentChoices)
 
 		local patch = { state = "PickingAugment", currentAugments = augmentChoices }
-		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
 
 		-- Picking Augment State
 		if not blur then
@@ -262,13 +263,13 @@ local function setupStatService()
 		Controls:Disable()
 	end)
 
-	StatService.FinishPickingAugments:Connect(function()
+	AugmentsService.FinishPickingAugments:Connect(function()
 		-- Playing State
 		blur:Destroy()
 		Controls:Enable()
 
 		local patch = { state = "Playing", currentAugments = nil }
-		store:dispatch(storeActions.PatchPlayer(player.UserId, patch))
+		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
 	end)
 end
 
@@ -282,7 +283,7 @@ end
 -- #endregion
 
 local function stateUpdate()
-	local state = store:getState() -- Get state once every frame
+	local state = Store:getState() -- Get state once every frame
 
 	PlayerController.StateUpdate:Fire(state)
 
@@ -302,20 +303,22 @@ end
 
 function PlayerController:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
-	StatService = Knit.GetService("StatService")
+	RpgService = Knit.GetService("RpgService")
+	AugmentsService = Knit.GetService("AugmentsService")
 	CombatService = Knit.GetService("CombatService")
 	ItemService = Knit.GetService("ItemService")
 
 	setupPlayerService()
-	setupStatService()
+	setupRpgService()
+	setupAugmentsService()
 	setupItemService()
 
 	setupControls()
 	setupAttack()
 
 	-- Start Music
-	local store = store:getState()
-	local playerData = store.players[player.UserId]
+	local state = Store:getState()
+	local playerData = state.players[player.UserId]
 
 	if playerData and playerData.isMusicEnabled then
 		music:Play()

@@ -3,7 +3,7 @@
 -- For High Frequency Data eg ECS Components
 -- This Data might be sent to the Rodux Store in the Throttled Update -> Use Commands Buffer
 
-local combatState = {
+local CombatState = {
 	playersClosestEnemy = {},
 	expectingAttack = {},
 	attackBuffer = {},
@@ -12,7 +12,7 @@ local combatState = {
 	comboReset = {},
 }
 
-local statState = {
+local StatState = {
 	totalXp = 0, -- Add to joining players
 	positionStart = {},
 	playersLife = {},
@@ -23,9 +23,9 @@ local statState = {
 -- local storageCount = 0
 
 -- Meta Table
-local storageState = {}
+local StorageState = {}
 
-function storageState.new(id, name)
+function StorageState.new(id, name)
 	local self = {
 		id = id,
 		name = name,
@@ -33,20 +33,20 @@ function storageState.new(id, name)
 		entities = {},
 	}
 
-	setmetatable(self, storageState)
+	setmetatable(self, StorageState)
 	return self
 end
 
 -- GameObject Storage Struct
-local gameObjectStorageState = storageState.new(1, "GameObjectSystem")
-gameObjectStorageState.gameObjects = {}
+local GameObjectStorageState = StorageState.new(1, "GameObjectSystem")
+GameObjectStorageState.gameObjects = {}
 
 -- Unit Storage Struct
-local unitStorageState = storageState.new(2, "unitStorageState")
-unitStorageState.definitionId = {}
-unitStorageState.life = {}
-unitStorageState.lifeBar = {}
-unitStorageState.deathEvent = {}
+local UnitStorageState = StorageState.new(2, "UnitStorageState")
+UnitStorageState.definitionId = {}
+UnitStorageState.life = {}
+UnitStorageState.lifeBar = {}
+UnitStorageState.deathEvent = {}
 
 local EcsState = {
 	entitiesId = {},
@@ -54,8 +54,8 @@ local EcsState = {
 	versions = {},
 	-- Storages
 	storages = {},
-	gameObjectStorageState = gameObjectStorageState,
-	unitStorageState = unitStorageState,
+	GameObjectStorageState = GameObjectStorageState,
+	UnitStorageState = UnitStorageState,
 	-- Archetypes
 	archetypes = {},
 }
@@ -63,9 +63,9 @@ local EcsState = {
 local MutState = {
 	frameCount = 0,
 	playersDetections = {}, -- TODO : Flatten -> use playersDetectionCount
-	combatState = combatState,
-	statState = statState,
-	ecsState = EcsState,
+	CombatState = CombatState,
+	StatState = StatState,
+	EcsState = EcsState,
 	-- Current Place State (Hub / Level)
 }
 
