@@ -14,18 +14,20 @@ local Selectors = {
 		return state.players[userId]
 	end,
 
-	PlayerStats = function(playerData)
-		local playerStats = playerData.stats
-		local weaponData = playerData.weaponData
+	PlayerStats = function(playerState)
+		assert(playerState, "playerState is Nil")
+
+		local playerStats = playerState.stats
+		local weaponData = playerState.weaponData
 
 		return playerStats, weaponData
 	end,
 
-	PlayerPowerSystems = function(playerData)
-		assert(playerData, "PlayerData is Nil")
+	PlayerPowerSystems = function(playerState)
+		assert(playerState, "playerState is Nil")
 
-		local augments = playerData.augments
-		local metaUpgrades = playerData.metaUpgrades
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 		-- Gear
 
 		return augments, metaUpgrades

@@ -58,7 +58,9 @@ WEAPON_HIT_PARAM.MaxParts = 100
 local WEAPON_HIT_FOLDER = workspace.WeaponHit
 
 -- ECS
-local DISABLED_ENTITIES_FOLDER = ServerStorage.DisabledEntities
+-- local DISABLED_ENTITIES_FOLDER = ServerStorage.DisabledEntities
+local DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities
+local DISABLED_POSITION = Vector3.new(0, -5000, 0)
 local STORAGE_STORE = {
 	gameObject = 1,
 	unit = 2,
@@ -81,6 +83,7 @@ type Constants = {
 	-- statsDefinition: {},
 	WEAPON_HIT_FOLDER: Folder,
 	DISABLED_ENTITIES_FOLDER: Folder,
+	DISABLED_POSITION: Vector3,
 	STORAGE_STORE: { gameObject: number, unit: number },
 }
 
@@ -101,6 +104,7 @@ local CONSTANTS: Constants = {
 	-- statsDefinition = statsDefinition,
 	WEAPON_HIT_FOLDER = WEAPON_HIT_FOLDER,
 	DISABLED_ENTITIES_FOLDER = DISABLED_ENTITIES_FOLDER,
+	DISABLED_POSITION = DISABLED_POSITION,
 	STORAGE_STORE = STORAGE_STORE,
 }
 

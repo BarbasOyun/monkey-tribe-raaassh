@@ -26,6 +26,8 @@ local EnemyService = Knit.CreateService({
 	-- Client = {},
 })
 
+-- #region ENEMY TYPES SETUP
+
 -- Archetype less dummy setup
 --[[
 local dummySetup = function(character, entityId)
@@ -77,11 +79,12 @@ local dummySetup = function(character, entityId)
 		-- dismember(dummy)
 		local snap = character.Torso:FindFirstChild("Snap")
 		if snap then
-			snap:Destroy()
+			snap.Enabled = false
 		end
 
 		task.wait(1)
 		EnemyService.SpawnDummy(character:GetPivot().Position)
+		EnemyService.ResetCharacter(character)
 		EcsService.DisableEntity(character:GetAttribute("EntityId"))
 	end
 
@@ -99,7 +102,7 @@ local dummySetup = function(character, entityId)
 	-- Force Re render of lifebar
 	billboardGui.Enabled = false
 	task.spawn(function()
-		task.wait(0.1)
+		task.wait()
 		billboardGui.Enabled = true
 	end)
 
@@ -122,11 +125,12 @@ local dummySetupGameObject = function(entityId)
 
 	-- Spawn Disabled Model
 	local dummy = EnemiesPrefabs[Enemies.Dummy]:Clone()
-	dummy.Name = "Dummy3"
-	dummy.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
+	-- dummy.Name = "Dummy3"
 
 	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
 	gameObjectStorage.AddComponentToEntity(ecsState, entityId, dummy)
+
+	gameObjectStorage.DisableEntity(entityId)
 end
 
 local dummySetupUnit = function(entityId)
@@ -135,10 +139,7 @@ local dummySetupUnit = function(entityId)
 
 	-- Get GameObject
 	local gameObjectStorage = ecsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
-	local gameObjectStorageState = gameObjectStorage.GetState()
-	local gameObjectId = gameObjectStorage.GetComponentId(gameObjectStorageState, entityId)
-
-	local dummy = ecsState.gameObjectStorageState.gameObjects[gameObjectId]
+	local dummy = gameObjectStorage.GetGameObject(entityId)
 
 	local lifeBar = EnemyService.TryToFindLifeBar(dummy)
 
@@ -153,6 +154,8 @@ local dummyArchetypeSetup = {
 local enemiesArchetypeSetup = {
 	dummyArchetypeSetup,
 }
+
+-- #endregion
 
 -- #region SPAWN ENEMY
 
@@ -184,6 +187,64 @@ function EnemyService.CreateEnemy(character, enemyId)
 
 	-- Per Enemy type setup
 	enemySetup[enemyId](character, entityId)
+end
+
+-- #endregion
+
+-- #region ARCHETYPE
+
+-- Use ECS to Spawn an Archetype (Object Pooling)
+function EnemyService.SpawnArchetype(enemyId)
+	local archetype = EnemyDefinitions.Archetypes[enemyId]
+	archetype.setup = enemiesArchetypeSetup[enemyId]
+
+	EcsService.AddArchetype(archetype)
+	EcsService.CreatePools()
+end
+
+function EnemyService.SpawnDummy(position)
+	local entityId, entityVersion = EcsService.EnableArchetypeEntity(Enemies.Dummy)
+
+	-- Setup Gameobject Component
+	local gameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
+	local dummy = gameObjectStorage.GetGameObject(entityId)
+
+	dummy:PivotTo(CFrame.new(position))
+	dummy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
+	dummy.Torso.Anchored = false
+	dummy.Head.Anchored = false
+	dummy:FindFirstChild("Right Leg").Anchored = false
+	dummy:FindFirstChild("Left Leg").Anchored = false
+	dummy:FindFirstChild("Right Arm").Anchored = false
+	dummy:FindFirstChild("Right Arm").Anchored = false
+
+	-- TODO : Move to Component Storages
+	dummy:SetAttribute("Version", entityVersion)
+
+	-- Setup Unit Component
+	-- local untitStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.unit)
+	-- local unitId = untitStorage.GetComponentId(untitStorage.GetState(), entityId)
+	dummySetup(dummy, entityId)
+end
+
+-- #region UTILS
+
+--TODO : Local Pos
+function EnemyService.ResetCharacter(character)
+	local torso = character.Torso
+
+	torso.CFrame = CFrame.new(Vector3.new(-3.15, 5, 70))
+	character.Head.CFrame = CFrame.new(Vector3.new(3.15, 6.5, 70))
+	character:FindFirstChild("Right Leg").CFrame = CFrame.new(Vector3.new(-2.65, 3, 70))
+	character:FindFirstChild("Left Leg").CFrame = CFrame.new(Vector3.new(-3.65, 3, 70))
+	character:FindFirstChild("Right Arm").CFrame = CFrame.new(Vector3.new(-1.65, 5, 70))
+	character:FindFirstChild("Left Arm").CFrame = CFrame.new(Vector3.new(-4.65, 5, 70))
+
+	local snap = torso:FindFirstChild("Snap")
+
+	if snap then
+		snap.Enabled = true
+	end
 end
 
 function EnemyService.TryToFindLifeBar(character)
@@ -260,48 +321,6 @@ end
 
 -- #endregion
 
--- #region ENEMY SETUP
-
--- TODO : Move
-local function dismember(character)
-	print("Dismember : " .. character.Name)
-	for _, descendant in ipairs(character:GetDescendants()) do
-		if descendant:IsA("Motor6D") then
-			print("Delete Motor6D")
-			descendant:Destroy()
-		end
-	end
-end
-
--- Use ECS to Spawn an Archetype (Object Pooling)
-function EnemyService.SpawnArchetype(enemyId)
-	local archetype = EnemyDefinitions.Archetypes[enemyId]
-	archetype.setup = enemiesArchetypeSetup[enemyId]
-
-	EcsService.AddArchetype(archetype)
-	EcsService.CreatePools()
-end
-
-function EnemyService.SpawnDummy(position)
-	local entityId, entityVersion = EcsService.EnableArchetypeEntity(Enemies.Dummy)
-
-	-- Setup Gameobject Component
-	local gameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
-	local dummy = gameObjectStorage.GetGameObject(entityId)
-
-	dummy:PivotTo(CFrame.new(position))
-	dummy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
-
-	-- TODO : Move to GameobjectStorage
-	-- dummy:SetAttribute("EntityId", entityId)
-	dummy:SetAttribute("Version", entityVersion)
-
-	-- Setup Unit Component
-	-- local untitStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.unit)
-	-- local unitId = untitStorage.GetComponentId(untitStorage.GetState(), entityId)
-	dummySetup(dummy, entityId)
-end
-
 -- #endregion
 
 -- SERVICE
@@ -316,14 +335,14 @@ function EnemyService:KnitStart()
 
 	-- Spawn Archetypes
 	EnemyService.SpawnArchetype(Enemies.Dummy)
+	-- TODO : Spawn Robot Archetype
 
 	-- Enable Default Dummies -> Hub Only
-	-- local pos = Vector3.new(0, 4.5, 0)
 	local pos1 = Vector3.new(-3.15, 4.5, 70)
 	local pos2 = Vector3.new(5.85, 4.5, 70)
 
 	EnemyService.SpawnDummy(pos1)
-	EnemyService.SpawnDummy(pos2)
+	-- EnemyService.SpawnDummy(pos2)
 end
 
 return EnemyService

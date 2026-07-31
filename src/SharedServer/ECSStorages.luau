@@ -6,6 +6,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
+-- Get Constants
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local ecsState = MutState.ecsState
@@ -189,6 +192,20 @@ function gameObjectStorage.GetGameObject(entityId)
 
 	local gameObject = gameObjectStorageState.gameObjects[gameObjectId]
 	return gameObject
+end
+
+-- Disable Gameobject
+function gameObjectStorage.DisableEntity(entityId)
+	local gameObject = gameObjectStorage.GetGameObject(entityId)
+	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
+	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
+
+	gameObject.Torso.Anchored = true
+	gameObject.Head.Anchored = true
+	gameObject:FindFirstChild("Right Leg").Anchored = true
+	gameObject:FindFirstChild("Left Leg").Anchored = true
+	gameObject:FindFirstChild("Right Arm").Anchored = true
+	gameObject:FindFirstChild("Right Arm").Anchored = true
 end
 
 -- #endregion

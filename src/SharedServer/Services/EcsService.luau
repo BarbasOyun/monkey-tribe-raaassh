@@ -93,19 +93,6 @@ function EcsService.AddArchetype(archetype)
 	table.insert(ecsState.archetypes, archetype)
 end
 
-function EcsService.CreatePools()
-	local archetypes = ecsState.archetypes
-	local totalEntitiesCount = 0 -- #ecsState.entitiesId Archetype Entities Should Always be The Firsts
-
-	for i = 1, #archetypes, 1 do
-		local archetype = archetypes[i]
-
-		warn("Create Pool : " .. archetype.name .. ", Entities = " .. archetype.count)
-		EcsService.CreatePool(archetype, totalEntitiesCount)
-		totalEntitiesCount += archetype.count
-	end
-end
-
 -- Create a pool of Entity of an Archetype
 function EcsService.CreatePool(archetype, startIndex)
 	local endIndex = startIndex + archetype.count
@@ -120,6 +107,19 @@ function EcsService.CreatePool(archetype, startIndex)
 			local setupFunc = archetype.setup[j]
 			setupFunc(entityId)
 		end
+	end
+end
+
+function EcsService.CreatePools()
+	local archetypes = ecsState.archetypes
+	local totalEntitiesCount = 0 -- Archetype Entities Should Always be The Firsts
+
+	for i = 1, #archetypes, 1 do
+		local archetype = archetypes[i]
+
+		warn("Create Pool : " .. archetype.name .. ", Entities = " .. archetype.count)
+		EcsService.CreatePool(archetype, totalEntitiesCount)
+		totalEntitiesCount += archetype.count
 	end
 end
 
@@ -163,7 +163,6 @@ function EcsService.DisableEntity(entityId)
 	end
 
 	local archetype = EcsService.GetArchetype(entityId)
-	-- local versions = ecsState.versions
 	local lastEntityIndex = archetype.startIndex + archetype.activeCount
 	local lastEntityId = ecsState.entitiesId[lastEntityIndex]
 
@@ -172,13 +171,9 @@ function EcsService.DisableEntity(entityId)
 	archetype.activeCount -= 1
 
 	-- Update Components
+	-- TODO : Per Archetype's Component
 	local gameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
-	local gameObjectStorageState = gameObjectStorage.GetState()
-	local gameObject = gameObjectStorageState.gameObjects[entityId]
-
-	-- TODO : Move
-	-- Disable Gameobject
-	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
+	gameObjectStorage.DisableEntity(entityId)
 
 	-- If not last Entity : Swap Last
 	if entityId == lastEntityId then
@@ -230,7 +225,7 @@ function EcsService:KnitInit()
 end
 
 function EcsService:KnitStart()
-	-- createPools()
+	-- Start
 end
 
 return EcsService
