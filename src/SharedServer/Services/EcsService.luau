@@ -41,6 +41,8 @@ export type Archetype = {
 
 -- #region ENTITIES
 
+--- Create a new ECS Entity
+--- @return number entityId of created Entity
 function EcsService.CreateEntity()
 	local entityId = #EcsState.entitiesId + 1
 
@@ -56,6 +58,8 @@ function EcsService.CreateEntity()
 	return entityId
 end
 
+--- Remove Entity at Specified ID,
+--- Cascade Delete every Components linked to it
 function EcsService.RemoveEntity(entityId)
 	-- warn("Remove Entity : " .. entityId)
 
@@ -123,7 +127,7 @@ function EcsService.CreatePools()
 	end
 end
 
--- Return the Archetype of an Entity
+-- @return Archetype of an Entity
 function EcsService.GetArchetype(entityId)
 	local archetypes = EcsState.archetypes
 	local count = 0

@@ -59,8 +59,6 @@ local RpgService = Knit.CreateService({
 	Client = {
 		MetaUpgradesChanged = Knit.CreateSignal(),
 		LevelUp = Knit.CreateSignal(),
-		NewAugments = Knit.CreateSignal(),
-		FinishPickingAugments = Knit.CreateSignal(),
 		LifeUpdate = Knit.CreateSignal(),
 	},
 })
@@ -563,7 +561,7 @@ end
 function RpgService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 
-	-- LifeRegen
+	-- LifeRegen Update -> UI
 	PlayerService.ThrottledUpdate:Connect(function(state)
 		for _, player in pairs(Players:GetPlayers()) do
 			local playerLife = StatState.playersLife[player.UserId]
