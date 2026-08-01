@@ -1,5 +1,7 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local prefabs = ReplicatedStorage.Shared.Prefabs
+local ServerScriptService = game:GetService("ServerScriptService")
+
+-- Get Constants
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
 local Enemies = {
 	Dummy = 1,
@@ -22,23 +24,34 @@ local EnemiesDefinitions = {
 }
 
 local EnemiesPrefabs = {
-	prefabs.Enemies:FindFirstChild("Dummy"),
-	prefabs.Enemies:FindFirstChild("Robot"),
+	CONSTANTS.PREFABS_FOLDER.Enemies:FindFirstChild("Dummy"),
+	CONSTANTS.PREFABS_FOLDER.Enemies:FindFirstChild("Robot"),
 }
 
 local Archetypes = {
 	{
 		name = "Dummy",
+		definitionId = 1,
 		count = 100,
 		setup = {},
+		components = {
+			CONSTANTS.EcsStorages.gameObject,
+			CONSTANTS.EcsStorages.unit,
+		},
 		startIndex = 0,
 		endIndex = 0,
 		activeCount = 0,
 	},
 	{
 		name = "Robot",
+		definitionId = 2,
 		count = 100,
 		setup = {},
+		components = {
+			CONSTANTS.EcsStorages.gameObject,
+			CONSTANTS.EcsStorages.unit,
+			-- CONSTANTS.EcsStorages.mobBehavior,
+		},
 		startIndex = 0,
 		endIndex = 0,
 		activeCount = 0,

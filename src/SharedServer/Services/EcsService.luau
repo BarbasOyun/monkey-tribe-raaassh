@@ -97,7 +97,7 @@ function EcsService.AddArchetype(archetype)
 	table.insert(EcsState.archetypes, archetype)
 end
 
--- Create a pool of Entity of an Archetype
+--- Create a pool of Entity of an Archetype
 function EcsService.CreatePool(archetype, startIndex)
 	local endIndex = startIndex + archetype.count
 	archetype.startIndex = startIndex
@@ -106,14 +106,15 @@ function EcsService.CreatePool(archetype, startIndex)
 	for i = startIndex, endIndex, 1 do
 		local entityId = EcsService.CreateEntity()
 
-		-- Add a Component of Every Archertype's storages to each Entity
+		-- Call Archetype's custom setup functions
 		for j = 1, #archetype.setup, 1 do
 			local setupFunc = archetype.setup[j]
-			setupFunc(entityId)
+			setupFunc(entityId, archetype.definitionId)
 		end
 	end
 end
 
+--- Create every pools of added Archetypes
 function EcsService.CreatePools()
 	local archetypes = EcsState.archetypes
 	local totalEntitiesCount = 0 -- Archetype Entities Should Always be The Firsts
@@ -127,7 +128,7 @@ function EcsService.CreatePools()
 	end
 end
 
--- @return Archetype of an Entity
+--- @return Archetype archetype of an Entity
 function EcsService.GetArchetype(entityId)
 	local archetypes = EcsState.archetypes
 	local count = 0
@@ -176,7 +177,7 @@ function EcsService.DisableEntity(entityId)
 
 	-- Update Components
 	-- TODO : Per Archetype's Component
-	local gameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
+	local gameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
 	gameObjectStorage.DisableEntity(entityId)
 
 	-- If not last Entity : Swap Last

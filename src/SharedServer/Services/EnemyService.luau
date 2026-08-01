@@ -52,9 +52,9 @@ local dummySetup = function(character, entityId)
 	end
 
 	-- Get GameObject
-	local GameObjectStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
 
-	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local unitStorageState = unitStorage.GetState()
 	local unitId = unitStorage.GetComponentId(unitStorageState, entityId)
 
@@ -68,10 +68,7 @@ local dummySetup = function(character, entityId)
 end
 ]]
 
-function EnemyService.EnemyOnDeath(character, player)
-	-- print(character.Name .. " Died Killed by : " .. player.Name)
-
-	-- Dismember
+function EnemyService.Dismember(character)
 	local snap = character.Torso:FindFirstChild("Snap")
 	if snap then
 		snap.Enabled = false
@@ -79,56 +76,27 @@ function EnemyService.EnemyOnDeath(character, player)
 end
 
 local dummyOnDeath = function(character, player)
-	-- Dismember
-	local snap = character.Torso:FindFirstChild("Snap")
-	if snap then
-		snap.Enabled = false
-	end
+	EnemyService.Dismember(character)
 
 	task.wait(1)
 	EnemyService.SpawnDummy(character:GetPivot().Position)
 	EnemyService.ResetCharacter(character)
+	task.wait()
 	EcsService.DisableEntity(character:GetAttribute("EntityId"))
 end
 
-local robotOnDeath = nil
+local robotOnDeath = EnemyService.Dismember
 
 local enemiesOnDeath = {
 	dummyOnDeath,
 	robotOnDeath,
 }
 
-function EnemyService.EnemySetup(definitionId, entityId)
-	-- warn("Enemy Setup : " .. character.Name .. " EntityID = " .. entityId)
-
-	local UnitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
-	local UnitStorageState = UnitStorage.GetState()
-
-	-- Setup Life
-	UnitStorageState.life[entityId] = EnemiesDefinitions[Enemies.Robot].MaxLife
-
-	-- Setup OnDeath
-	local deathEvent = UnitStorageState.deathEvent[entityId]
-	deathEvent:DisconnectAll()
-	deathEvent:Connect(EnemyService.EnemyOnDeath)
-
-	-- Per Enemy Type on Death
-	local enemyOnDeathEvent = enemiesOnDeath[definitionId]
-	if enemyOnDeathEvent then
-		deathEvent:Connect(enemyOnDeathEvent)
-	end
-end
-
 --- Archetype Dummy Setup
 local dummySetup = function(character, entityId)
 	-- warn("Dummy Setup : " .. character.Name .. " EntityID = " .. entityId)
 
-	local UnitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
-	local UnitStorageState = UnitStorage.GetState()
-
-	-- Setup Life + LifeBar
-	UnitStorageState.life[entityId] = EnemiesDefinitions[Enemies.Dummy].MaxLife
-
+	-- LifeBar
 	local lifeBar = EnemyService.TryToFindLifeBar(character)
 	local billboardGui = lifeBar.Parent
 
@@ -140,77 +108,88 @@ local dummySetup = function(character, entityId)
 		task.wait()
 		billboardGui.Enabled = true
 	end)
-
-	-- Setup OnDeath
-	local deathEvent = UnitStorageState.deathEvent[entityId]
-	deathEvent:DisconnectAll()
-	deathEvent:Connect(enemiesOnDeath[Enemies.Dummy])
 end
 
 local robotSetup = nil
 
 -- Per enemyType Spawn setup
-local enemySetup = {
+local enemiesSetup = {
 	dummySetup,
 	robotSetup,
 }
 
+--- Setup Enemy after Spawn
+function EnemyService.EnemySetup(character, definitionId, entityId)
+	-- warn("Enemy Setup : " .. character.Name .. " EntityID = " .. entityId)
+
+	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
+	local UnitStorageState = UnitStorage.GetState()
+
+	-- Life
+	local maxLife = EnemiesDefinitions[Enemies.Robot].MaxLife
+	UnitStorageState.life[entityId] = maxLife
+
+	-- OnDeath
+	local deathEvent = UnitStorageState.deathEvent[entityId]
+	deathEvent:DisconnectAll()
+
+	-- Per Enemy Type on Death
+	local enemyOnDeathEvent = enemiesOnDeath[definitionId]
+
+	if enemyOnDeathEvent then
+		deathEvent:Connect(enemyOnDeathEvent)
+	end
+
+	enemiesSetup[definitionId](character, entityId)
+end
+
 -- Archetypes Setup
 
--- TODO : Move to Storage
-local gameObjectSetup = function(definitionId, entityId)
+--- GameObject Component Archetype Setup for every Enemy
+local gameObjectSetup = function(entityId, definitionId)
 	-- warn("Archetype Setup : Game Object")
 
-	-- Spawn Disabled Model
+	-- Spawn Dissabled Enemy
 	local enemy = EnemiesPrefabs[definitionId]:Clone()
 
-	local GameObjectStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
 	GameObjectStorage.AddComponentToEntity(EcsState, entityId, enemy)
-
 	GameObjectStorage.DisableEntity(entityId)
 end
 
-local unitSetup = function(definitionId, entityId)
+--- Unit Component Archetype Setup for every Enemy
+local unitSetup = function(entityId, definitionId)
 	local enemyDefinition = EnemiesDefinitions[definitionId]
-	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 
 	unitStorage.AddComponentToEntity(EcsState, entityId, Enemies.Dummy, enemyDefinition.MaxLife)
 end
 
-local dummySetupGameObject = function(entityId)
-	-- warn("Dummy Archetype Setup : Game Object")
-
-	-- Spawn Disabled Model
-	local dummy = EnemiesPrefabs[Enemies.Dummy]:Clone()
-	-- dummy.Name = "Dummy3"
-
-	local GameObjectStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
-	GameObjectStorage.AddComponentToEntity(EcsState, entityId, dummy)
-
-	GameObjectStorage.DisableEntity(entityId)
-end
-
+--- Additional Unit Setup for Dummies (LifeBar)
 local dummySetupUnit = function(entityId)
-	local dummyDefinition = EnemiesDefinitions[Enemies.Dummy]
-	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	unitSetup(entityId, Enemies.Dummy)
+
+	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
+	local unitStorageState = unitStorage.GetState()
 
 	-- Get GameObject
-	local GameObjectStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
+	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
 	local dummy = GameObjectStorage.GetGameObject(entityId)
 
 	local lifeBar = EnemyService.TryToFindLifeBar(dummy)
 
-	unitStorage.AddComponentToEntity(EcsState, entityId, Enemies.Dummy, dummyDefinition.MaxLife, lifeBar)
-
-	-- TODO : unitSetup + Add LifeBar
+	unitStorageState.lifeBar[entityId] = lifeBar
 end
 
 local dummyArchetypeSetup = {
-	dummySetupGameObject,
+	gameObjectSetup,
 	dummySetupUnit,
 }
 
-local robotArchetypeSetup = nil
+local robotArchetypeSetup = {
+	gameObjectSetup,
+	unitSetup,
+}
 
 local enemiesArchetypeSetup = {
 	dummyArchetypeSetup,
@@ -241,66 +220,77 @@ function EnemyService.CreateEnemy(character, enemyId)
 	character.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
 	-- Add Components : Gameobject, Unit
-	local GameObjectStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.gameObject]
-	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
+	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 
 	GameObjectStorage.AddComponentToEntity(EcsState, entityId, character)
 	unitStorage.AddComponentToEntity(EcsState, entityId, enemyId, enemyDefinition.MaxLife)
 
 	-- Per Enemy type setup
-	enemySetup[enemyId](character, entityId)
+	enemiesSetup[enemyId](character, entityId)
 end
 
 -- #endregion
 
 -- #region ARCHETYPE
 
--- Use ECS to Spawn an Archetype (Object Pooling)
-function EnemyService.SpawnArchetype(enemyId)
-	local archetype = EnemyDefinitions.Archetypes[enemyId]
-	archetype.setup = enemiesArchetypeSetup[enemyId]
+--- Use ECS to Spawn Archetypes (Object Pooling)
+---@param definitionId any = EnemyID
+function EnemyService.AddArchetype(definitionId)
+	-- Dummy
+	local archetype = EnemyDefinitions.Archetypes[definitionId]
+	archetype.setup = enemiesArchetypeSetup[definitionId]
 
 	EcsService.AddArchetype(archetype)
-	EcsService.CreatePools()
 end
 
 function EnemyService.SpawnDummy(position)
 	local entityId, entityVersion = EcsService.EnableArchetypeEntity(Enemies.Dummy)
 
 	-- Setup Gameobject Component
-	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.gameObject)
+	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
 	local dummy = GameObjectStorage.GetGameObject(entityId)
 
 	dummy:PivotTo(CFrame.new(position))
 	dummy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
-	dummy.Torso.Anchored = false
-	dummy.Head.Anchored = false
-	dummy:FindFirstChild("Right Leg").Anchored = false
-	dummy:FindFirstChild("Left Leg").Anchored = false
-	dummy:FindFirstChild("Right Arm").Anchored = false
-	dummy:FindFirstChild("Right Arm").Anchored = false
+
+	-- Un Anchor parts
+	for _, child in pairs(dummy:GetChildren()) do
+		if child:IsA("Part") then
+			child.Anchored = false
+		end
+	end
 
 	-- TODO : Move to Component Storages
 	dummy:SetAttribute("Version", entityVersion)
 
 	-- Setup Unit Component
-	-- local untitStorage = EcsService.GetStorage(CONSTANTS.STORAGE_STORE.unit)
-	-- local unitId = untitStorage.GetComponentId(untitStorage.GetState(), entityId)
-	dummySetup(dummy, entityId)
+	EnemyService.EnemySetup(dummy, Enemies.Dummy, entityId)
 end
 
 -- #region UTILS
 
---TODO : Local Pos
+--- Reset a Character so that it can be enabled again (Object Pooling)
 function EnemyService.ResetCharacter(character)
 	local torso = character.Torso
 
-	torso.CFrame = CFrame.new(Vector3.new(-3.15, 5, 70))
-	character.Head.CFrame = CFrame.new(Vector3.new(3.15, 6.5, 70))
-	character:FindFirstChild("Right Leg").CFrame = CFrame.new(Vector3.new(-2.65, 3, 70))
-	character:FindFirstChild("Left Leg").CFrame = CFrame.new(Vector3.new(-3.65, 3, 70))
-	character:FindFirstChild("Right Arm").CFrame = CFrame.new(Vector3.new(-1.65, 5, 70))
-	character:FindFirstChild("Left Arm").CFrame = CFrame.new(Vector3.new(-4.65, 5, 70))
+	-- World Pos
+	-- torso.CFrame = CFrame.new(Vector3.new(-3.15, 5, 70))
+	-- character.Head.CFrame = CFrame.new(Vector3.new(3.15, 6.5, 70))
+	-- character:FindFirstChild("Right Leg").CFrame = CFrame.new(Vector3.new(-2.65, 3, 70))
+	-- character:FindFirstChild("Left Leg").CFrame = CFrame.new(Vector3.new(-3.65, 3, 70))
+	-- character:FindFirstChild("Right Arm").CFrame = CFrame.new(Vector3.new(-1.65, 5, 70))
+	-- character:FindFirstChild("Left Arm").CFrame = CFrame.new(Vector3.new(-4.65, 5, 70))
+
+	-- Local Pos
+	local characterPivot = character:GetPivot()
+
+	torso.CFrame = characterPivot * CFrame.new(0, 0.5, 0)
+	character.Head.CFrame = characterPivot * CFrame.new(0, 2, 0)
+	character:FindFirstChild("Right Leg").CFrame = characterPivot * CFrame.new(0.5, -1.5, 0)
+	character:FindFirstChild("Left Leg").CFrame = characterPivot * CFrame.new(-0.5, -1.5, 0)
+	character:FindFirstChild("Right Arm").CFrame = characterPivot * CFrame.new(1.5, 0.5, 0)
+	character:FindFirstChild("Left Arm").CFrame = characterPivot * CFrame.new(-1.5, 0.5, 0)
 
 	local snap = torso:FindFirstChild("Snap")
 
@@ -332,7 +322,7 @@ function EnemyService.UpdateLifeBar(lifeBar, lifePercent)
 end
 
 function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
-	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local unitStorageState = unitStorage.GetState()
 	local unitId = unitStorage.GetComponentId(unitStorageState, entityId)
 
@@ -368,7 +358,7 @@ function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	ItemService.GenerateLoot(player, humanoid)
 
 	-- UnitState
-	local unitStorage = EcsState.storages[CONSTANTS.STORAGE_STORE.unit]
+	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local unitStorageState = unitStorage.GetState()
 
 	local unitId = unitStorage.GetComponentId(unitStorageState, entityId)
@@ -377,7 +367,7 @@ function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	-- Trigger Death Event
 	if deathEvent then
 		-- warn("Death Event : EntityID  = " .. entityId .. " UnitID = " .. unitId)
-		deathEvent:Fire(player) -- overKillDamage
+		deathEvent:Fire(humanoid.Parent, player) -- overKillDamage
 	end
 end
 
@@ -396,8 +386,10 @@ function EnemyService:KnitStart()
 	ItemService = Knit.GetService("ItemService")
 
 	-- Spawn Archetypes
-	EnemyService.SpawnArchetype(Enemies.Dummy)
-	-- TODO : Spawn Robot Archetype
+	EnemyService.AddArchetype(Enemies.Dummy)
+	-- EnemyService.AddArchetype(Enemies.Robot)
+
+	EcsService.CreatePools()
 
 	-- Enable Default Dummies -> Hub Only
 	local pos1 = Vector3.new(-3.15, 4.5, 70)

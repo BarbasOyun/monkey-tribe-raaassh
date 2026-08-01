@@ -49,6 +49,9 @@ function Storage.UpdateComponent(storageState, entityId)
 	-- implement in child tables
 end
 
+--- @param ecsState any
+--- @param storageState any
+--- @param entityId any
 function Storage.RemoveComponent(ecsState, storageState, entityId)
 	local componentId = storageState.sparse[entityId]
 
@@ -60,7 +63,7 @@ function Storage.RemoveComponent(ecsState, storageState, entityId)
 
 	-- Update Entity Bitmask
 	ecsState.entitiesBitmask[entityId] =
-		Gear.RemoveMask(ecsState.entitiesBitmask[entityId], Gears.GetMask(storageState.id))
+		Gears.RemoveMask(ecsState.entitiesBitmask[entityId], Gears.GetMask(storageState.id))
 
 	return componentId
 end
@@ -130,7 +133,10 @@ function GameObjectStorage.AddComponentToEntity(ecsState, entityId, gameobject)
 end
 
 function GameObjectStorage.RemoveComponent(storageState, entityId)
-	-- TODO
+	local gameObject = GameObjectStorage.GetGameObject(entityId)
+	gameObject:Destroy()
+
+	Storage.RemoveComponent(EcsState, storageState, entityId)
 end
 
 -- Remove Entity : Full Entities Update
@@ -171,7 +177,7 @@ function GameObjectStorage.RemoveEntity(storageState, entityId)
 
 	-- Update GameObject EntityId
 	lastGameObject:SetAttribute("EntityId", entityId)
-	-- lastGameObject:SetAttribute("Version", versions[entityId])
+	lastGameObject:SetAttribute("Version", EcsState.versions[entityId])
 end
 
 function GameObjectStorage.ClearComponents(storageState)
@@ -200,12 +206,11 @@ function GameObjectStorage.DisableEntity(entityId)
 	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
 	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
 
-	gameObject.Torso.Anchored = true
-	gameObject.Head.Anchored = true
-	gameObject:FindFirstChild("Right Leg").Anchored = true
-	gameObject:FindFirstChild("Left Leg").Anchored = true
-	gameObject:FindFirstChild("Right Arm").Anchored = true
-	gameObject:FindFirstChild("Right Arm").Anchored = true
+	for _, child in pairs(gameObject:GetChildren()) do
+		if child:IsA("Part") then
+			child.Anchored = true
+		end
+	end
 end
 
 -- #endregion
