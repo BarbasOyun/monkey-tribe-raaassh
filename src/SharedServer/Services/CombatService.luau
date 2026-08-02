@@ -304,6 +304,11 @@ local function autoTarget(state)
 		local targetDistance = vector.magnitude(closestEnemy.CFrame.Position - playerPos)
 
 		local playerState = Selectors.PlayerState(state, userId)
+
+		if not playerState then
+			continue
+		end
+
 		local playerStats, weaponData = Selectors.PlayerStats(playerState)
 		local isInRange = targetDistance <= playerStats.aoe * 2
 

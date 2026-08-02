@@ -200,7 +200,7 @@ function GameObjectStorage.GetGameObject(entityId)
 	return gameObject
 end
 
--- Disable Gameobject
+--- Disable Gameobject
 function GameObjectStorage.DisableEntity(entityId)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 
