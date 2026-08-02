@@ -77,8 +77,8 @@ local usablesLogicDefinition = {
 
 -- #region CREATE ITEMS
 
--- Weapon Definition -> WeaponStats Data Struct instance
-local function createWeaponData(itemDefinition, weaponModel)
+--- Create an Instance of statsDefinition.WeaponData struct using WeaponDefinition
+local function createWeapon(itemDefinition, weaponModel)
 	if itemDefinition.itemType ~= itemTypes.weapon then
 		return
 	end
@@ -237,11 +237,14 @@ function ItemService.EquipDefaultWeapon(player)
 end
 
 function ItemService.SetWeapon(player, weapon)
-	-- print(player.Name .. " new Weapon Data")
-	local patch = { weaponData = weapon }
-	Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
+	-- warn(player.Name .. " new Weapon Data")
 
-	RpgService.CalculateAllStats(player.UserId) -- TODO : Calculate Weapon Stats
+	local UserId = player.UserId
+
+	local patch = { weaponData = weapon }
+	Store:dispatch(StoreActions.PatchPlayer(UserId, patch))
+
+	RpgService.CalculateAllStats(UserId) -- TODO : Calculate only Weapon Stats
 end
 
 local function addSounds(player, weapon)
@@ -287,24 +290,24 @@ local function onUnequipped(weaponModel)
 		return
 	end
 
-	print("Unequip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
+	warn("Unequip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
 
 	local state = Store:getState()
-	local playerData = state.players[player.UserId]
+	local playerState = state.players[player.UserId]
 
-	if not playerData then
+	if not playerState then
 		return
 	end
 
-	local weaponData = playerData.weaponData
+	local weaponData = playerState.weaponData
 
 	-- Remove Sounds
 	for _, sound in pairs(weaponData.sounds) do
 		sound:Destroy()
 	end
 
-	-- Reset Data
-	ItemService.SetWeapon(player, nil)
+	-- Reset WeaponState
+	ItemService.SetWeapon(player, {})
 
 	-- Events
 	ItemService.UnequipWeapon:Fire(player)
@@ -323,7 +326,7 @@ local function SetupWeaponType(weaponType)
 		local definitionId = weaponModel:GetAttribute("DefinitionId")
 		local itemDefinition = itemDefinitions[definitionId]
 
-		local weaponData = createWeaponData(itemDefinition, weaponModel)
+		local weaponData = createWeapon(itemDefinition, weaponModel)
 
 		-- TODO : Use custom tool system
 		weaponModel.Equipped:Connect(function()

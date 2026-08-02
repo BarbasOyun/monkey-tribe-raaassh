@@ -131,15 +131,17 @@ local playerReducer = Rodux.createReducer({}, {
 		local userId = action.userId
 		local patch = action.patch
 
+		local playerState = players[userId]
+
 		for key, value in pairs(patch) do
-			local property = players[userId][key]
+			local property = playerState[key]
 
 			if not property then
 				warn("Key : " .. key .. " Doesn't exist in Player")
 				-- continue
 			end
 
-			players[userId][key] = value
+			playerState[key] = value
 		end
 
 		return players

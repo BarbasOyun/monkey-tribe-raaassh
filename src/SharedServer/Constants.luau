@@ -20,6 +20,12 @@ local PLAYER_STATES = {
 	-- menuing
 }
 
+-- TODO : Prevent Weapon Swap when Player Are Attacking
+local UNIT_STATES = {
+	Idle = 1,
+	PerformingAction = 2,
+}
+
 -- TODO : Rename
 local CURRENCIES = {
 	bananas = 1,

@@ -99,7 +99,7 @@ export type Player = {
 	metaUpgrades: ModStats,
 	augments: ModStats,
 	currentAugments: { Augment }, -- 3+ choice cards
-	weaponData: WeaponData,
+	weaponData: {}, -- WeaponData
 	-- gearData
 }
 
@@ -176,7 +176,7 @@ local DEFAULT_PLAYER: Player = {
 	metaUpgrades = Gears.DeepCopy(DEFAULT_MOD_STATS),
 	augments = Gears.DeepCopy(DEFAULT_MOD_STATS),
 	currentAugments = {}, -- 3+ choice cards
-	weaponData = nil,
+	weaponData = {},
 }
 
 -- #endregion

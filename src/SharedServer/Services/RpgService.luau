@@ -276,10 +276,10 @@ local statsCalculation = {
 		local userId = statCtx.userId
 		local augments = statCtx.augments
 		local metaUpgrades = statCtx.metaUpgrades
-		local weaponData = statCtx.weaponData
+		local weaponState = statCtx.weaponData
 
 		local totalIncreasedAoe = calcModStat(metaUpgrades, augments, modStat)
-		local useAoe = weaponData and weaponData.aoe or 0
+		local useAoe = weaponState and weaponState.aoe or 0
 
 		-- Calc
 		local aoeMultiplier = Gears.IncreaseToMultiplier(totalIncreasedAoe)
@@ -287,7 +287,7 @@ local statsCalculation = {
 
 		local patch = { [modStat] = totalIncreasedAoe, [calcStat] = totalAoe }
 
-		if not weaponData then
+		if #weaponState == 0 then
 			return patch
 		end
 
@@ -295,7 +295,7 @@ local statsCalculation = {
 		local player = Players:GetPlayerByUserId(userId)
 		local character = player.Character or player.CharacterAdded:Wait()
 		local weaponModel = character:FindFirstChildOfClass("Tool")
-		weaponModel:ScaleTo(weaponData.weaponSize * aoeMultiplier)
+		weaponModel:ScaleTo(weaponState.weaponSize * aoeMultiplier)
 
 		-- Attack VFX
 		local baseSize = 0.5
@@ -304,7 +304,7 @@ local statsCalculation = {
 			NumberSequenceKeypoint.new(0, size),
 			NumberSequenceKeypoint.new(1, size),
 		}
-		weaponData.attackVFX.Size = NumberSequence.new(keypoints)
+		weaponState.attackVFX.Size = NumberSequence.new(keypoints)
 
 		return patch
 	end,

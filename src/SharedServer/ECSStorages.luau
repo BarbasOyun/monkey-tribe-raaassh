@@ -203,14 +203,15 @@ end
 -- Disable Gameobject
 function GameObjectStorage.DisableEntity(entityId)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
-	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
-	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
 
 	for _, child in pairs(gameObject:GetChildren()) do
 		if child:IsA("Part") then
 			child.Anchored = true
 		end
 	end
+
+	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
+	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
 end
 
 -- #endregion

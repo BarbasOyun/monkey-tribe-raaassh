@@ -69,6 +69,7 @@ end
 ]]
 
 function EnemyService.Dismember(character)
+	warn("Dismember : " .. character.Name)
 	local snap = character.Torso:FindFirstChild("Snap")
 	if snap then
 		snap.Enabled = false
@@ -80,9 +81,19 @@ local dummyOnDeath = function(character, player)
 
 	task.wait(1)
 	EnemyService.SpawnDummy(character:GetPivot().Position)
-	EnemyService.ResetCharacter(character)
-	task.wait()
+
+	-- for _, child in pairs(character:GetChildren()) do
+	-- 	if child:IsA("Part") then
+	-- 		child.Anchored = true
+	-- 	end
+	-- end
+
+	-- EnemyService.ResetCharacter(character)
+	warn(character.Torso:FindFirstChild("Snap"))
+	-- task.wait()
+	warn(character.Torso:FindFirstChild("Snap"))
 	EcsService.DisableEntity(character:GetAttribute("EntityId"))
+	warn(character.Torso:FindFirstChild("Snap"))
 end
 
 local robotOnDeath = EnemyService.Dismember
@@ -118,7 +129,7 @@ local enemiesSetup = {
 	robotSetup,
 }
 
---- Setup Enemy after Spawn
+--- Setup Enemy OnSpawn
 function EnemyService.EnemySetup(character, definitionId, entityId)
 	-- warn("Enemy Setup : " .. character.Name .. " EntityID = " .. entityId)
 
@@ -244,15 +255,22 @@ function EnemyService.AddArchetype(definitionId)
 	EcsService.AddArchetype(archetype)
 end
 
+--- Spawn Dummy by Enabling an Entity in Dummy ECS Archetype
 function EnemyService.SpawnDummy(position)
 	local entityId, entityVersion = EcsService.EnableArchetypeEntity(Enemies.Dummy)
 
 	-- Setup Gameobject Component
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-	local dummy = GameObjectStorage.GetGameObject(entityId)
+	local GameObjectStorageState = GameObjectStorage.GetState()
+	local dummy = GameObjectStorageState.gameObjects[entityId]
+
+	dummy.Name = "Dummy" .. entityId
 
 	dummy:PivotTo(CFrame.new(position))
 	dummy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
+
+	-- TODO : Move to Component Storages
+	dummy:SetAttribute("Version", entityVersion)
 
 	-- Un Anchor parts
 	for _, child in pairs(dummy:GetChildren()) do
@@ -261,30 +279,26 @@ function EnemyService.SpawnDummy(position)
 		end
 	end
 
-	-- TODO : Move to Component Storages
-	dummy:SetAttribute("Version", entityVersion)
+	EnemyService.ResetCharacter(dummy)
 
 	-- Setup Unit Component
 	EnemyService.EnemySetup(dummy, Enemies.Dummy, entityId)
 end
 
+-- #endregion
+
 -- #region UTILS
 
 --- Reset a Character so that it can be enabled again (Object Pooling)
+---@param character Model
 function EnemyService.ResetCharacter(character)
+	warn("Reset Character : " .. character.Name)
+
 	local torso = character.Torso
 
-	-- World Pos
-	-- torso.CFrame = CFrame.new(Vector3.new(-3.15, 5, 70))
-	-- character.Head.CFrame = CFrame.new(Vector3.new(3.15, 6.5, 70))
-	-- character:FindFirstChild("Right Leg").CFrame = CFrame.new(Vector3.new(-2.65, 3, 70))
-	-- character:FindFirstChild("Left Leg").CFrame = CFrame.new(Vector3.new(-3.65, 3, 70))
-	-- character:FindFirstChild("Right Arm").CFrame = CFrame.new(Vector3.new(-1.65, 5, 70))
-	-- character:FindFirstChild("Left Arm").CFrame = CFrame.new(Vector3.new(-4.65, 5, 70))
+	-- TODO : Store Default Values
 
-	-- Local Pos
 	local characterPivot = character:GetPivot()
-
 	torso.CFrame = characterPivot * CFrame.new(0, 0.5, 0)
 	character.Head.CFrame = characterPivot * CFrame.new(0, 2, 0)
 	character:FindFirstChild("Right Leg").CFrame = characterPivot * CFrame.new(0.5, -1.5, 0)
@@ -292,9 +306,17 @@ function EnemyService.ResetCharacter(character)
 	character:FindFirstChild("Right Arm").CFrame = characterPivot * CFrame.new(1.5, 0.5, 0)
 	character:FindFirstChild("Left Arm").CFrame = characterPivot * CFrame.new(-1.5, 0.5, 0)
 
-	local snap = torso:FindFirstChild("Snap")
+	local neck = EnemiesPrefabs[Enemies.Dummy].Torso:FindFirstChild("Snap") :: Snap
+	local originalC0 = neck.C0
+	local originalC1 = neck.C1
+
+	local snap = torso:FindFirstChild("Snap") :: Snap
 
 	if snap then
+		snap.Part0 = character.Torso
+		snap.Part1 = character.Head
+		snap.C0 = originalC0
+		snap.C1 = originalC1
 		snap.Enabled = true
 	end
 end
@@ -398,5 +420,56 @@ function EnemyService:KnitStart()
 	EnemyService.SpawnDummy(pos1)
 	-- EnemyService.SpawnDummy(pos2)
 end
+
+local function testDummy2()
+	local dummy2 = workspace.Dummy2
+	local torso = dummy2.Torso
+
+	local neck = dummy2.Torso:FindFirstChild("Neck") :: Motor6D
+	local originalC0 = neck.C0
+	local originalC1 = neck.C1
+
+	task.wait(6)
+	-- EnemyService.Dismember(dummy2)
+	warn("Dismember")
+
+	local neck2 = torso:FindFirstChild("Neck") :: Motor6D
+
+	neck2.Enabled = false
+	-- neck2.Part0 = nil
+
+	task.wait(3)
+	-- EnemyService.ResetCharacter(dummy2)
+	warn("Reset")
+
+	local characterPivot = dummy2:GetPivot()
+	torso.CFrame = characterPivot * CFrame.new(0, 0.5, 0)
+	dummy2.Head.CFrame = characterPivot * CFrame.new(0, 2, 0)
+	dummy2:FindFirstChild("Right Leg").CFrame = characterPivot * CFrame.new(0.5, -1.5, 0)
+	dummy2:FindFirstChild("Left Leg").CFrame = characterPivot * CFrame.new(-0.5, -1.5, 0)
+	dummy2:FindFirstChild("Right Arm").CFrame = characterPivot * CFrame.new(1.5, 0.5, 0)
+	dummy2:FindFirstChild("Left Arm").CFrame = characterPivot * CFrame.new(-1.5, 0.5, 0)
+
+	if neck2 then
+		neck2.Part0 = nil
+		neck2.Part1 = nil
+
+		neck2.Part0 = torso
+		neck2.Part1 = dummy2.Head
+		neck2.C0 = originalC0
+		neck2.C1 = originalC1
+		-- neck2.Enabled = true
+	end
+end
+
+local function testRig()
+	local rig = workspace.Rig
+	local torso = rig.Torso
+end
+
+task.spawn(function()
+	-- testDummy2()
+	testRig()
+end)
 
 return EnemyService
