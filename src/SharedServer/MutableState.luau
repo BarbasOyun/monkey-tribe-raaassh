@@ -1,3 +1,5 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Signal = require(ReplicatedStorage.Packages.Signal)
 -- Dynamic State
 -- Mutable Data != RoduxStore
 -- For High Frequency Data eg ECS Components
@@ -19,7 +21,8 @@ local StatState = {
 	lifeRegenUpdates = {},
 }
 
--- ECS State
+-- #region ECS STATE
+
 -- local storageCount = 0
 
 -- Meta Table
@@ -37,16 +40,21 @@ function StorageState.new(id, name)
 	return self
 end
 
--- GameObject Storage Struct
+-- GameObject
 local GameObjectStorageState = StorageState.new(1, "GameObjectSystem")
 GameObjectStorageState.gameObjects = {}
 
--- Unit Storage Struct
+-- Unit
 local UnitStorageState = StorageState.new(2, "UnitStorageState")
 UnitStorageState.definitionId = {}
 UnitStorageState.life = {}
 UnitStorageState.lifeBar = {}
+UnitStorageState.lifeChanged = {}
 UnitStorageState.deathEvent = {}
+
+-- LifeBar
+local LifeBarStorageState = StorageState.new(3, "LifeBarStorageState")
+LifeBarStorageState.lifeBar = {}
 
 local EcsState = {
 	entitiesId = {},
@@ -56,9 +64,12 @@ local EcsState = {
 	storages = {},
 	GameObjectStorageState = GameObjectStorageState,
 	UnitStorageState = UnitStorageState,
+	LifeBarStorageState = LifeBarStorageState,
 	-- Archetypes
 	archetypes = {},
 }
+
+-- #endregion
 
 local MutState = {
 	frameCount = 0,

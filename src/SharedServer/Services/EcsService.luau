@@ -124,7 +124,7 @@ function EcsService.CreatePools()
 
 		warn("Create Pool : " .. archetype.name .. ", Entities = " .. archetype.count)
 		EcsService.CreatePool(archetype, totalEntitiesCount)
-		totalEntitiesCount += archetype.count
+		totalEntitiesCount += archetype.count + 1
 	end
 end
 

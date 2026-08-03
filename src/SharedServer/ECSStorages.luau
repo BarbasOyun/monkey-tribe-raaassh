@@ -111,7 +111,7 @@ end
 
 -- #endregion
 
--- #region GAMEOBJECT COMPONENTS STORAGE IMPL
+-- #region GAMEOBJECT ID = 1
 
 local GameObjectStorage = Storage.new()
 
@@ -216,7 +216,7 @@ end
 
 -- #endregion
 
--- #region UNIT STORAGE
+-- #region UNIT ID = 2
 
 local UnitStorage = Storage.new()
 
@@ -232,6 +232,7 @@ function UnitStorage.AddComponentToEntity(ecsState, entityId, definitionId, life
 	table.insert(storageState.definitionId, definitionId)
 	table.insert(storageState.life, life)
 	table.insert(storageState.lifeBar, lifeBar)
+	table.insert(storageState.lifeChanged, Signal.new())
 	table.insert(storageState.deathEvent, Signal.new())
 
 	return componentId
@@ -240,10 +241,6 @@ end
 function UnitStorage.UpdateComponent(storageState, entityId, life)
 	local componentId = Storage.GetComponentId(storageState, entityId)
 	storageState.life[componentId] = life
-end
-
-function UnitStorage.RemoveComponent(storageState, entityId)
-	-- TODO
 end
 
 function UnitStorage.RemoveEntity(storageState, entityId)
@@ -275,6 +272,78 @@ end
 
 -- #endregion
 
+-- #region LIFE BAR ID = 3
+-- Components Dependancies : Gameobject, Unit
+
+local LifeBarStorage = Storage.new()
+
+function LifeBarStorage.GetState()
+	return EcsState.LifeBarStorageState
+end
+
+function LifeBarStorage.AddComponentToEntity(ecsState, entityId, EcsService)
+	local hasGameObject = EcsService.HasComponent(entityId, CONSTANTS.EcsStorages.gameObject)
+	local hasUnit = EcsService.HasComponent(entityId, CONSTANTS.EcsStorages.unit)
+
+	if not hasGameObject or not hasUnit then
+		warn(entityId .. " Need Unit Component Before Adding LifeBar")
+		return
+	end
+
+	-- Register LifeBar
+	local storageState = LifeBarStorage.GetState()
+	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
+
+	local lifeBar = CONSTANTS.PREFABS_FOLDER.LifeBar:clone()
+	local bar = lifeBar:FindFirstChild("LifeBar")
+	table.insert(storageState.lifeBar, bar)
+
+	-- Link LifeBar to GameObject & Unit
+	local gameObject = GameObjectStorage.GetGameObject(entityId)
+	lifeBar.Parent = gameObject
+
+	lifeBar.Adornee = gameObject.Head
+
+	local unitStorageState = UnitStorage.GetState()
+	local unitId = UnitStorage.GetComponentId(unitStorageState, entityId)
+
+	unitStorageState.lifeChanged[unitId]:Connect(function(percent)
+		LifeBarStorage.UpdateLifeBar(bar, percent)
+	end)
+
+	return componentId
+end
+
+-- TODO : Rename OnRemoveEntity
+function LifeBarStorage.RemoveEntity(storageState, entityId)
+	local componentId, lastCompId, hasComp = Storage.RemoveEntity(storageState, entityId)
+
+	if not hasComp then
+		-- Delete at compId
+		table.remove(storageState.lifeBar, componentId)
+		return
+	end
+
+	-- Swap Values + Delete Last
+	Gears.MoveLastElement(storageState.lifeBar, componentId)
+end
+
+function LifeBarStorage.ClearComponents(storageState)
+	Storage.ClearComponents(storageState)
+
+	-- TODO : Delete All LifeBars
+	table.clear(storageState.lifeBar)
+end
+
+function LifeBarStorage.UpdateLifeBar(lifeBar, lifePercent)
+	local usePercent = math.max(0, lifePercent)
+	-- warn("Update Life Bar = " .. lifeBar.Name .. ", Percent = " .. usePercent)
+
+	lifeBar.Size = UDim2.fromScale(usePercent, 1)
+end
+
+-- #endregion
+
 -- TODO : Respawn Storage
 
 -- TODO : MOB BEHAVIOR STORAGE
@@ -282,6 +351,7 @@ end
 local EcsStorages = {
 	GameObjectStorage,
 	UnitStorage,
+	LifeBarStorage,
 }
 
 return EcsStorages

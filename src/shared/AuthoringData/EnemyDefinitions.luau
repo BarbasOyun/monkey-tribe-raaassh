@@ -37,6 +37,7 @@ local Archetypes = {
 		components = {
 			CONSTANTS.EcsStorages.gameObject,
 			CONSTANTS.EcsStorages.unit,
+			CONSTANTS.EcsStorages.lifeBar,
 		},
 		startIndex = 0,
 		endIndex = 0,
@@ -50,6 +51,7 @@ local Archetypes = {
 		components = {
 			CONSTANTS.EcsStorages.gameObject,
 			CONSTANTS.EcsStorages.unit,
+			CONSTANTS.EcsStorages.lifeBar,
 			-- CONSTANTS.EcsStorages.mobBehavior,
 		},
 		startIndex = 0,

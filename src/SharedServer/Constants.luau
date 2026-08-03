@@ -70,6 +70,7 @@ local DISABLED_POSITION = Vector3.new(0, -5000, 0)
 local EcsStorages = {
 	gameObject = 1,
 	unit = 2,
+	lifeBar = 3,
 }
 
 type Constants = {
@@ -77,7 +78,7 @@ type Constants = {
 	THROTTLED_UPDATE_FRAMES: number,
 	MAX_DISTANCE: number,
 	-- Folders
-	PREFABS_FOLDER: Folder,
+	PREFABS_FOLDER: any, -- Folder -> any = prevent errors
 	WEAPON_HIT_FOLDER: Folder,
 	DISABLED_ENTITIES_FOLDER: Folder,
 	-- Overlap Param
@@ -92,7 +93,7 @@ type Constants = {
 	-- Slices
 	-- statsDefinition: {},
 	DISABLED_POSITION: Vector3,
-	EcsStorages: { gameObject: number, unit: number },
+	EcsStorages: any,
 }
 
 local CONSTANTS: Constants = {

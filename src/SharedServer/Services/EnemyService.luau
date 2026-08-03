@@ -72,36 +72,26 @@ local dummyOnDeath = function(character, player)
 	EnemyService.Dismember(character)
 
 	task.wait(1)
-	EnemyService.SpawnDummy(character:GetPivot().Position)
+	EnemyService.SpawnDummy(character:GetPivot().Position) -- Respawn
 	EcsService.DisableEntity(character:GetAttribute("EntityId"))
 end
 
-local robotOnDeath = EnemyService.Dismember
+local robotOnDeath = function(character, player)
+	EnemyService.Dismember(character)
+	task.wait(1)
+	EcsService.DisableEntity(character:GetAttribute("EntityId"))
+end
 
 local enemiesOnDeath = {
 	dummyOnDeath,
 	robotOnDeath,
 }
 
---- Archetype Dummy Setup
-local dummySetup = function(character, entityId)
-	-- warn("Dummy Setup : " .. character.Name .. " EntityID = " .. entityId)
+-- Enemies OnSpawn
 
-	-- LifeBar
-	local lifeBar = EnemyService.TryToFindLifeBar(character)
-	local billboardGui = lifeBar.Parent
+local dummySetup = function(character, entityId) end
 
-	EnemyService.UpdateLifeBar(lifeBar, 1)
-
-	-- Force Re render of lifebar
-	billboardGui.Enabled = false
-	task.spawn(function()
-		task.wait()
-		billboardGui.Enabled = true
-	end)
-end
-
-local robotSetup = nil
+local robotSetup = function(character, entityId) end
 
 -- Per enemyType Spawn setup
 local enemiesSetup = {
@@ -115,6 +105,10 @@ function EnemyService.EnemySetup(character, definitionId, entityId)
 
 	EnemyService.ResetCharacter(character)
 
+	-- Components Setup
+	-- TODO : Move to each Components
+
+	-- Unit
 	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local UnitStorageState = UnitStorage.GetState()
 
@@ -126,19 +120,36 @@ function EnemyService.EnemySetup(character, definitionId, entityId)
 	local deathEvent = UnitStorageState.deathEvent[entityId]
 	deathEvent:DisconnectAll()
 
-	-- Per Enemy Type on Death
+	-- Per Type on Death
 	local enemyOnDeathEvent = enemiesOnDeath[definitionId]
-
 	if enemyOnDeathEvent then
 		deathEvent:Connect(enemyOnDeathEvent)
 	end
 
-	enemiesSetup[definitionId](character, entityId)
+	-- LifeBar
+	local lifeBar = EnemyService.TryToFindLifeBar(character)
+	local billboardGui = lifeBar.Parent
+
+	EnemyService.UpdateLifeBar(lifeBar, 1)
+
+	-- Force Re render of lifebar
+	billboardGui.Enabled = false
+	task.spawn(function()
+		task.wait()
+		billboardGui.Enabled = true
+	end)
+
+	-- Per Type Setup
+	-- local enemySetup = enemiesSetup[definitionId]
+	-- if enemiesSetup then
+	-- 	enemySetup(character, entityId)
+	-- end
 end
 
--- Archetypes Setup
+-- Archetypes Setups
+-- Create Custom Setup for each Archetype
 
---- GameObject Component Archetype Setup for every Enemy
+--- Global GameObject Archetype Setup
 local gameObjectSetup = function(entityId, definitionId)
 	-- warn("Archetype Setup : Game Object")
 
@@ -150,7 +161,7 @@ local gameObjectSetup = function(entityId, definitionId)
 	GameObjectStorage.DisableEntity(entityId)
 end
 
---- Unit Component Archetype Setup for every Enemy
+--- Global Unit Archetype Setup
 local unitSetup = function(entityId, definitionId)
 	local enemyDefinition = EnemiesDefinitions[definitionId]
 	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
@@ -158,31 +169,21 @@ local unitSetup = function(entityId, definitionId)
 	unitStorage.AddComponentToEntity(EcsState, entityId, Enemies.Dummy, enemyDefinition.MaxLife)
 end
 
---- Additional Unit Setup for Dummies (LifeBar)
-local dummySetupUnit = function(entityId)
-	unitSetup(entityId, Enemies.Dummy)
-
-	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
-	local unitStorageState = unitStorage.GetState()
-
-	-- Get GameObject
-	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
-	local dummy = GameObjectStorage.GetGameObject(entityId)
-
-	local lifeBar = EnemyService.TryToFindLifeBar(dummy)
-
-	unitStorageState.lifeBar[entityId] = lifeBar
+--- Global LifeBar Archetype Setup
+local lifeBarSetup = function(entityId, definitionId)
+	local lifeBarStorage = EcsState.storages[CONSTANTS.EcsStorages.lifeBar]
+	lifeBarStorage.AddComponentToEntity(EcsState, entityId, EcsService)
 end
 
-local dummyArchetypeSetup = {
-	gameObjectSetup,
-	dummySetupUnit,
-}
-
-local robotArchetypeSetup = {
+local defaultSetup = {
 	gameObjectSetup,
 	unitSetup,
+	lifeBarSetup,
 }
+
+local dummyArchetypeSetup = defaultSetup
+
+local robotArchetypeSetup = defaultSetup
 
 local enemiesArchetypeSetup = {
 	dummyArchetypeSetup,
@@ -220,7 +221,7 @@ function EnemyService.CreateEnemy(character, enemyId)
 	unitStorage.AddComponentToEntity(EcsState, entityId, enemyId, enemyDefinition.MaxLife)
 
 	-- Per Enemy type setup
-	enemiesSetup[enemyId](character, entityId)
+	-- enemiesSetup[enemyId](character, entityId)
 end
 
 -- #endregion
@@ -230,35 +231,34 @@ end
 --- Use ECS to Spawn Archetypes (Object Pooling)
 ---@param definitionId any = EnemyID
 function EnemyService.AddArchetype(definitionId)
-	-- Dummy
 	local archetype = EnemyDefinitions.Archetypes[definitionId]
 	archetype.setup = enemiesArchetypeSetup[definitionId]
 
 	EcsService.AddArchetype(archetype)
 end
 
---- Spawn Dummy by Enabling an Entity in Dummy ECS Archetype
-function EnemyService.SpawnDummy(position)
-	local entityId, entityVersion = EcsService.EnableArchetypeEntity(Enemies.Dummy)
+--- Spawn an Enemy of an Archetype by Enabling a ECS Entity
+function EnemyService.SpawnArchetypeEnemy(enemyId, position)
+	local entityId, entityVersion = EcsService.EnableArchetypeEntity(enemyId)
 
 	-- Setup Gameobject Component
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
 	local GameObjectStorageState = GameObjectStorage.GetState()
-	local dummy = GameObjectStorageState.gameObjects[entityId]
+	local character = GameObjectStorageState.gameObjects[entityId]
 
-	dummy.Name = "Dummy" .. entityId
+	-- character.Name = "character" .. entityId
 
-	dummy:PivotTo(CFrame.new(position))
-	dummy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
+	character:PivotTo(CFrame.new(position))
+	character.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
 	-- TODO : Move to Component Storages
-	dummy:SetAttribute("Version", entityVersion)
+	character:SetAttribute("Version", entityVersion)
 
 	-- Setup Unit Component
-	EnemyService.EnemySetup(dummy, Enemies.Dummy, entityId)
+	EnemyService.EnemySetup(character, enemyId, entityId)
 
 	-- Un Anchor parts
-	EnemyService.AnchorModel(dummy, false)
+	EnemyService.AnchorModel(character, false)
 end
 
 -- #endregion
@@ -370,7 +370,7 @@ end
 
 function EnemyService.TryToFindLifeBar(character)
 	local lBar = character:FindFirstChild("LifeBar")
-	local lifeBar
+	local lifeBar = nil
 
 	if lBar then
 		lifeBar = lBar.LifeBar
@@ -410,11 +410,15 @@ function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 	local definition = EnemiesDefinitions[definitionId]
 	local lifeBar = unitStorageState.lifeBar[unitId]
 
+	local percent = life / definition.MaxLife
+	unitStorageState.lifeChanged[unitId]:Fire(percent)
+
 	if lifeBar then
 		local lifePercent = life / definition.MaxLife
 		EnemyService.UpdateLifeBar(lifeBar, lifePercent)
 	end
 
+	-- Handle Death
 	if life <= 0 then
 		local overKillDamage = math.abs(life)
 		EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
