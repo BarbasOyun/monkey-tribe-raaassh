@@ -275,6 +275,8 @@ end
 
 -- #endregion
 
+-- TODO : Respawn Storage
+
 -- TODO : MOB BEHAVIOR STORAGE
 
 local EcsStorages = {

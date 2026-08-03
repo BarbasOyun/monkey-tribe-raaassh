@@ -156,7 +156,7 @@ function EcsService.EnableArchetypeEntity(archetypeId)
 	local entityVersion = EcsState.versions[entityId]
 	entityVersion += 1
 
-	warn("Enable Entity in Archetype = " .. archetype.name .. ", Entity ID = " .. entityId)
+	-- warn("Enable Entity in Archetype = " .. archetype.name .. ", Entity ID = " .. entityId)
 	return entityId, entityVersion
 end
 

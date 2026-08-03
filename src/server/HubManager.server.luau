@@ -19,12 +19,8 @@ local PlayerService = Knit.GetService("PlayerService")
 local RpgService = Knit.GetService("RpgService")
 local AugmentsService = Knit.GetService("AugmentsService")
 local EnemyService = Knit.GetService("EnemyService")
+local EcsService = Knit.GetService("EcsService")
 -- local ItemService = Knit.GetService("ItemService")
-
--- Enemies to load for this place
--- local enemyList = {
--- 	"Dummy",
--- }
 
 -- Platforms tp
 local GAME_PLACE_ID = 109804031798809
@@ -66,14 +62,8 @@ local platformsPlayers = {
 local playersLoadingTp = {}
 
 -- Store
-local hundredDonationId = 3607471778
-local thousandDonationId = 3607471867
-
-local productFunctions = {}
-
--- World Enemies
--- local dummy1 = workspace.WeaponHit.Dummy1
--- local dummy2 = workspace.WeaponHit.Dummy2
+local HUNDRED_DONATION_ID = 3607471778
+local THOUSAND_DONATION_ID = 3607471867
 
 -- Weapon Spawner
 -- local spawnWeaponButton = workspace.Wiki.RandomWeaponSpawner.Surface.SurfaceGui.TextButton
@@ -107,7 +97,7 @@ local function createGameInstance(players)
 
 	task.spawn(function()
 		task.wait(TeleportService:TeleportAsync(GAME_PLACE_ID, players, options))
-		Gears.splitTable(playersLoadingTp, players)
+		Gears.SplitTable(playersLoadingTp, players)
 	end)
 end
 
@@ -126,7 +116,7 @@ local function setupPlatforms()
 
 			-- if there is enough players on the Platform -> Launch Game
 			if #platformsPlayers[i] >= platformsMaxPlayers[i] then
-				Gears.joinTable(playersLoadingTp, platformsPlayers[i])
+				Gears.JoinTable(playersLoadingTp, platformsPlayers[i])
 				createGameInstance(platformsPlayers[i])
 
 				table.clear(platformsPlayers[i])
@@ -153,11 +143,13 @@ end
 
 -- #region STORE
 
-productFunctions[hundredDonationId] = function(receipt, player)
+local productFunctions = {}
+
+productFunctions[HUNDRED_DONATION_ID] = function(receipt, player)
 	return true
 end
 
-productFunctions[thousandDonationId] = function(receipt, player)
+productFunctions[THOUSAND_DONATION_ID] = function(receipt, player)
 	return true
 end
 
@@ -206,7 +198,31 @@ end
 
 -- #endregion
 
--- DO
+-- #region START
+
+local function setupInWorldUi()
+	-- In World Shared Ui
+	--[[
+-- Weapon Spawner
+spawnWeaponButton.MouseButton1Click:Connect(function()
+	local randomId = math.random(6, 8) -- TODO : Split per type item definitions
+	ItemService:SpawnItem(randomId, weaponSpawnPos.CFrame.Position)
+end)
+]]
+end
+
+local function setupEnemies()
+	-- Load Enemies
+	EnemyService.AddArchetype(Enemies.Dummy)
+	EcsService.CreatePools()
+
+	-- Spawn Default Dummies
+	local pos1 = Vector3.new(-3.15, 4.5, 70)
+	local pos2 = Vector3.new(5.85, 4.5, 70)
+
+	EnemyService.SpawnDummy(pos1)
+	EnemyService.SpawnDummy(pos2)
+end
 
 Players.PlayerAdded:Connect(function(player)
 	PlayerService.AddPlayer(player)
@@ -217,7 +233,7 @@ Players.PlayerAdded:Connect(function(player)
 	-- local userId = player.UserId
 	-- AugmentsService.AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
 	-- PlayerService.AddBananas(100)
-	AugmentsService.GenerateAugments(player)
+	AugmentsService.GenerateAugments(player) -- FIXME : Augment service connected to player service
 	RpgService.AddXpToAllPlayers(225)
 	RpgService.RegisterLife(player)
 	RpgService.DamagePlayer(player, 50)
@@ -235,20 +251,12 @@ Players.PlayerRemoving:Connect(function(player)
 	PlayerService.RemovePlayer(player)
 end)
 
+-- Setup Services
 setupPlayerService()
 setupRpgService()
+
+-- Hub Setup
 setupPlatforms()
+setupEnemies()
 
--- Setup Enemies
--- warn("Setup Dummies")
--- EnemyService.CreateEnemy(dummy1, Enemies.Dummy)
--- EnemyService.CreateEnemy(dummy2, Enemies.Dummy)
-
--- In World Shared Ui
---[[
--- Weapon Spawner
-spawnWeaponButton.MouseButton1Click:Connect(function()
-	local randomId = math.random(6, 8) -- TODO : Split per type item definitions
-	ItemService:SpawnItem(randomId, weaponSpawnPos.CFrame.Position)
-end)
-]]
+-- #endregion

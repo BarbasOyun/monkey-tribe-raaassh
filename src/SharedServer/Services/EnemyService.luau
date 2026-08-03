@@ -142,7 +142,7 @@ end
 local gameObjectSetup = function(entityId, definitionId)
 	-- warn("Archetype Setup : Game Object")
 
-	-- Spawn Dissabled Enemy
+	-- Spawn Disabled Enemy
 	local enemy = EnemiesPrefabs[definitionId]:Clone()
 
 	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
@@ -254,58 +254,118 @@ function EnemyService.SpawnDummy(position)
 	-- TODO : Move to Component Storages
 	dummy:SetAttribute("Version", entityVersion)
 
-	-- Un Anchor parts
-	for _, child in pairs(dummy:GetChildren()) do
-		if child:IsA("Part") then
-			child.Anchored = false
-		end
-	end
-
-	EnemyService.ResetCharacter(dummy)
-
 	-- Setup Unit Component
 	EnemyService.EnemySetup(dummy, Enemies.Dummy, entityId)
+
+	-- Un Anchor parts
+	EnemyService.AnchorModel(dummy, false)
 end
 
 -- #endregion
 
 -- #region UTILS
 
+--- Anchor Every Part in a Model
+function EnemyService.AnchorModel(character, isAnchored)
+	for _, child in pairs(character:GetChildren()) do
+		if child:IsA("Part") then
+			child.Anchored = isAnchored
+		end
+	end
+end
+
+--- Get the Body Parts of a R6 Model
+function EnemyService.GetBodyParts(character)
+	local torso = character.Torso
+	local head = character.Head
+	local leftArm = character:FindFirstChild("Left Arm")
+	local leftLeg = character:FindFirstChild("Left Leg")
+	local rightArm = character:FindFirstChild("Right Arm")
+	local rightLeg = character:FindFirstChild("Right Leg")
+
+	assert(torso, character.Name .. " Missing Body Part")
+	assert(head, character.Name .. " Missing Body Part")
+	assert(leftArm, character.Name .. " Missing Body Part")
+	assert(leftLeg, character.Name .. " Missing Body Part")
+	assert(rightArm, character.Name .. " Missing Body Part")
+	assert(rightLeg, character.Name .. " Missing Body Part")
+
+	return torso, head, leftArm, leftLeg, rightArm, rightLeg
+end
+
+--- Get the Limbs Joints of a R6 Model
+function EnemyService.GetJoints(character)
+	local torso = character.Torso
+
+	assert(torso, character.Name .. " Missing Torso")
+
+	local rootJoint
+	local neck = torso:FindFirstChild("Neck") :: Motor6D
+	local leftShoulder = torso:FindFirstChild("Left Shoulder") :: Motor6D
+	local leftHip = torso:FindFirstChild("Left Hip") :: Motor6D
+	local rightShoulder = torso:FindFirstChild("Right Shoulder") :: Motor6D
+	local rightHip = torso:FindFirstChild("Right Hip") :: Motor6D
+
+	assert(neck, character.Name .. " Missing Joint")
+	assert(leftShoulder, character.Name .. " Missing Joint")
+	assert(leftHip, character.Name .. " Missing Joint")
+	assert(rightShoulder, character.Name .. " Missing Joint")
+	assert(rightHip, character.Name .. " Missing Joint")
+
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+	if humanoidRootPart then
+		rootJoint = humanoidRootPart:FindFirstChild("RootJoint")
+	end
+
+	return rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip
+end
+
 ---@param character Model
 function EnemyService.Dismember(character)
 	-- Get Body Parts
-	local torso = character.Torso
-	local leftArm = character:FindFirstChild("Left Arm")
+	local torso, head, leftArm, leftLeg, rightArm, rightLeg = EnemyService.GetBodyParts(character)
 
 	-- Get Joints
-	local leftShoulder = torso:FindFirstChild("Left Shoulder") :: Motor6D
+	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = EnemyService.GetJoints(character)
 
+	-- Disable Joints
+	rootJoint.Enabled = false
+	neck.Enabled = false
 	leftShoulder.Enabled = false
+	leftHip.Enabled = false
+	rightShoulder.Enabled = false
+	rightHip.Enabled = false
+
+	-- Enable Collisions
 	leftArm.CanCollide = true
+	leftLeg.CanCollide = true
+	rightArm.CanCollide = true
+	rightLeg.CanCollide = true
 end
 
 --- Reset a Character so that it can be enabled again (Object Pooling)
 ---@param character Model
 function EnemyService.ResetCharacter(character)
 	-- Get Body Parts
-	local torso = character.Torso
-	local leftArm = character:FindFirstChild("Left Arm")
-
-	-- TODO : Every Body Parts & Joints
-
-	assert(leftArm, character.Name .. " Missing Body Part or Joint")
+	local torso, head, leftArm, leftLeg, rightArm, rightLeg = EnemyService.GetBodyParts(character)
 
 	-- Get Joints
-	local neck = torso:FindFirstChild("Neck") :: Motor6D
-	local leftShoulder = torso:FindFirstChild("Left Shoulder") :: Motor6D
+	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = EnemyService.GetJoints(character)
 
-	assert(neck, character.Name .. " Missing Body Part or Joint")
-	assert(leftShoulder, character.Name .. " Missing Body Part or Joint")
-
+	-- Enable Joints
+	rootJoint.Enabled = true
 	neck.Enabled = true
-
 	leftShoulder.Enabled = true
+	leftHip.Enabled = true
+	rightShoulder.Enabled = true
+	rightHip.Enabled = true
+
+	-- Disable Collisions
 	leftArm.CanCollide = false
+	-- leftLeg.CanCollide = false
+	rightArm.CanCollide = false
+	-- rightLeg.CanCollide = false
 end
 
 function EnemyService.TryToFindLifeBar(character)
@@ -393,40 +453,6 @@ end
 function EnemyService:KnitStart()
 	EcsService = Knit.GetService("EcsService")
 	ItemService = Knit.GetService("ItemService")
-
-	-- Spawn Archetypes
-	EnemyService.AddArchetype(Enemies.Dummy)
-	-- EnemyService.AddArchetype(Enemies.Robot)
-
-	EcsService.CreatePools()
-
-	-- Enable Default Dummies -> Hub Only
-	local pos1 = Vector3.new(-3.15, 4.5, 70)
-	local pos2 = Vector3.new(5.85, 4.5, 70)
-
-	EnemyService.SpawnDummy(pos1)
-	-- EnemyService.SpawnDummy(pos2)
 end
-
-local function test()
-	local dummy = workspace.Dummy
-	local robot = workspace.Robot
-
-	task.wait(8)
-	warn("Dismember")
-
-	EnemyService.Dismember(dummy)
-	EnemyService.Dismember(robot)
-
-	task.wait(3)
-	warn("Reset")
-
-	EnemyService.ResetCharacter(dummy)
-	EnemyService.ResetCharacter(robot)
-end
-
--- task.spawn(function()
--- 	test()
--- end)
 
 return EnemyService
