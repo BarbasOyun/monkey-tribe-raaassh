@@ -71,6 +71,7 @@ local EcsStorages = {
 	gameObject = 1,
 	unit = 2,
 	lifeBar = 3,
+	custom = 4,
 }
 
 type Constants = {

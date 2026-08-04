@@ -102,6 +102,16 @@ function Gears.TableSize(t)
 	return count
 end
 
+function Gears.SumTable(t)
+	local total = 0
+
+	for i = 1, #t do
+		total += t[i]
+	end
+
+	return total
+end
+
 -- #endregion
 
 -- #region INSTANCES / WORLD OBJECT
@@ -126,6 +136,36 @@ function Gears.FindHumanoidFromPart(part)
 	end
 
 	return nil
+end
+
+-- #endregion
+
+-- #region UI
+
+function Gears.UpdateBar(bar, percent)
+	local usePercent = math.max(0, percent)
+	bar.Size = UDim2.fromScale(usePercent, 1)
+end
+
+-- Placing Elements + Offsets/Gaps in a frame :
+-- Goal = find cellSize for perfect fit
+-- x = cellSize, y = columns, z -> offset size = cellSize * z%, Frame horizontal space = 1
+-- 1 = x * y + x * z * y -> Solve equation for x
+
+-- 1] Side Offsets
+-- 1 = x * y + x * z * (y + 1)
+
+-- 2] No Side Offsets
+-- 1 = x * y + x * z * (y - 1)
+
+-- eg : No Side Offsets 3 Elements
+-- y = 3, z = 0.5
+-- 1 = x * 3 + x * 0.5 * (3 - 1) -> 1 = 3x + 1x
+-- -> x = 1 / 4 = 0.25
+function Gears.ElementXSize(hasSideGaps, columns, gapSize)
+	local divisor = hasSideGaps and columns + gapSize * (columns + 1) or columns + gapSize * (columns - 1)
+	local elementXSize = 1 / divisor
+	return elementXSize
 end
 
 -- #endregion
@@ -203,14 +243,14 @@ function Gears.DrawEdge(startPos, endPos, color)
 end
 
 function Gears.DrawRay(origin, direction, color)
-	Gears.drawEdge(origin, origin + direction, color)
+	Gears.DrawEdge(origin, origin + direction, color)
 end
 
 function Gears.DrawCircle(basePos, circlePoints)
 	local function drawEdge(point1, point2)
 		local startPos = basePos + Vector3.new(point1.X, 0, point1.Y)
 		local endPos = basePos + Vector3.new(point2.X, 0, point2.Y)
-		Gears.drawEdge(startPos, endPos)
+		Gears.DrawEdge(startPos, endPos)
 	end
 
 	-- Draw Edges
@@ -243,40 +283,9 @@ function Gears.SquaredMagnitude(vector3)
 	return (vector3.X * vector3.X) + (vector3.Y * vector3.Y) + (vector3.Z * vector3.Z)
 end
 
--- Placing Elements + Offsets/Gaps in a frame :
--- Goal = find cellSize for perfect fit
--- x = cellSize, y = columns, z -> offset size = cellSize * z%, Frame horizontal space = 1
--- 1 = x * y + x * z * y -> Solve equation for x
-
--- 1] Side Offsets
--- 1 = x * y + x * z * (y + 1)
-
--- 2] No Side Offsets
--- 1 = x * y + x * z * (y - 1)
-
--- eg : No Side Offsets 3 Elements
--- y = 3, z = 0.5
--- 1 = x * 3 + x * 0.5 * (3 - 1) -> 1 = 3x + 1x
--- -> x = 1 / 4 = 0.25
-function Gears.ElementXSize(hasSideGaps, columns, gapSize)
-	local divisor = hasSideGaps and columns + gapSize * (columns + 1) or columns + gapSize * (columns - 1)
-	local elementXSize = 1 / divisor
-	return elementXSize
-end
-
 -- eg 10% Increase -> 1.1
 function Gears.IncreaseToMultiplier(increaseValue)
 	return 1 + increaseValue / 100
-end
-
-function Gears.SumTable(t)
-	local total = 0
-
-	for i = 1, #t do
-		total += t[i]
-	end
-
-	return total
 end
 
 function Gears.CirclePoints(radius, division) -- TODO : Add Progress
@@ -284,7 +293,7 @@ function Gears.CirclePoints(radius, division) -- TODO : Add Progress
 	local pointDistance = (math.pi * 2) / division
 
 	for i = 0, (division - 1), 1 do
-		table.insert(points, Gears.circlePos(radius, pointDistance * i))
+		table.insert(points, Gears.CirclePos(radius, pointDistance * i))
 	end
 
 	return points

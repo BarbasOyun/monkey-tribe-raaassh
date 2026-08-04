@@ -48,13 +48,16 @@ GameObjectStorageState.gameObjects = {}
 local UnitStorageState = StorageState.new(2, "UnitStorageState")
 UnitStorageState.definitionId = {}
 UnitStorageState.life = {}
-UnitStorageState.lifeBar = {}
 UnitStorageState.lifeChanged = {}
 UnitStorageState.deathEvent = {}
 
 -- LifeBar
 local LifeBarStorageState = StorageState.new(3, "LifeBarStorageState")
 LifeBarStorageState.lifeBar = {}
+
+-- Respawn
+local CustomStorageState = StorageState.new(4, "CustomStorageState")
+CustomStorageState.customProperties = {}
 
 local EcsState = {
 	entitiesId = {},
@@ -65,6 +68,7 @@ local EcsState = {
 	GameObjectStorageState = GameObjectStorageState,
 	UnitStorageState = UnitStorageState,
 	LifeBarStorageState = LifeBarStorageState,
+	CustomStorageState = CustomStorageState,
 	-- Archetypes
 	archetypes = {},
 }

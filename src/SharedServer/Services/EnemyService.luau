@@ -2,16 +2,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
-local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
-local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
-local Enemies = enemyDef.Enemies
-local EnemiesDefinitions = enemyDef.EnemiesDefinitions
-local EnemiesPrefabs = enemyDef.EnemiesPrefabs
+local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
+local Enemies = EnemyDefinitions.Enemies
+local EnemiesDefinitions = EnemyDefinitions.EnemiesDefinitions
+local EnemiesPrefabs = EnemyDefinitions.EnemiesPrefabs
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
@@ -68,28 +68,27 @@ local dummySetup = function(character, entityId)
 end
 ]]
 
-local dummyOnDeath = function(character, player)
-	EnemyService.Dismember(character)
-
-	task.wait(1)
-	EnemyService.SpawnDummy(character:GetPivot().Position) -- Respawn
-	EcsService.DisableEntity(character:GetAttribute("EntityId"))
-end
-
-local robotOnDeath = function(character, player)
+local defaultOnDeath = function(character, player)
 	EnemyService.Dismember(character)
 	task.wait(1)
 	EcsService.DisableEntity(character:GetAttribute("EntityId"))
 end
+
+local dummyOnDeath = defaultOnDeath
+
+local robotOnDeath = defaultOnDeath
 
 local enemiesOnDeath = {
 	dummyOnDeath,
 	robotOnDeath,
 }
 
--- Enemies OnSpawn
+-- Enemies OnEnabled (Object Pooling)
 
-local dummySetup = function(character, entityId) end
+local dummySetup = function(character, entityId)
+	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
+	CustomStorage.GetCustomProperties[entityId].respawnPos = character:GetPivot().Position
+end
 
 local robotSetup = function(character, entityId) end
 
@@ -116,21 +115,21 @@ function EnemyService.EnemySetup(character, definitionId, entityId)
 	local maxLife = EnemiesDefinitions[Enemies.Robot].MaxLife
 	UnitStorageState.life[entityId] = maxLife
 
-	-- OnDeath
-	local deathEvent = UnitStorageState.deathEvent[entityId]
-	deathEvent:DisconnectAll()
+	-- Connect OnDeath
+	-- local deathEvent = UnitStorageState.deathEvent[entityId]
+	-- deathEvent:DisconnectAll()
 
-	-- Per Type on Death
-	local enemyOnDeathEvent = enemiesOnDeath[definitionId]
-	if enemyOnDeathEvent then
-		deathEvent:Connect(enemyOnDeathEvent)
-	end
+	-- Connect OnDeath Per Type
+	-- local enemyOnDeathEvent = enemiesOnDeath[definitionId]
+	-- if enemyOnDeathEvent then
+	-- 	deathEvent:Connect(enemyOnDeathEvent)
+	-- end
 
-	-- LifeBar
+	-- Reset LifeBar
 	local lifeBar = EnemyService.TryToFindLifeBar(character)
 	local billboardGui = lifeBar.Parent
 
-	EnemyService.UpdateLifeBar(lifeBar, 1)
+	Gears.UpdateBar(lifeBar, 1)
 
 	-- Force Re render of lifebar
 	billboardGui.Enabled = false
@@ -140,14 +139,14 @@ function EnemyService.EnemySetup(character, definitionId, entityId)
 	end)
 
 	-- Per Type Setup
-	-- local enemySetup = enemiesSetup[definitionId]
-	-- if enemiesSetup then
-	-- 	enemySetup(character, entityId)
-	-- end
+	local enemySetup = enemiesSetup[definitionId]
+	if enemiesSetup then
+		enemySetup(character, entityId)
+	end
 end
 
--- Archetypes Setups
--- Create Custom Setup for each Archetype
+-- Enemies OnSpawn Setups
+-- TODO : Move Global to Respective Storage
 
 --- Global GameObject Archetype Setup
 local gameObjectSetup = function(entityId, definitionId)
@@ -163,16 +162,22 @@ end
 
 --- Global Unit Archetype Setup
 local unitSetup = function(entityId, definitionId)
+	-- Add Unit Component
 	local enemyDefinition = EnemiesDefinitions[definitionId]
-	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
+	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 
-	unitStorage.AddComponentToEntity(EcsState, entityId, Enemies.Dummy, enemyDefinition.MaxLife)
+	local unitId = UnitStorage.AddComponentToEntity(EcsState, entityId, Enemies.Dummy, enemyDefinition.MaxLife)
+
+	-- Connect OnDeath Event
+	local UnitStorageState = UnitStorage.GetState()
+	local onDeath = enemiesOnDeath[definitionId]
+	UnitStorageState.deathEvent[unitId]:Connect(onDeath)
 end
 
 --- Global LifeBar Archetype Setup
 local lifeBarSetup = function(entityId, definitionId)
-	local lifeBarStorage = EcsState.storages[CONSTANTS.EcsStorages.lifeBar]
-	lifeBarStorage.AddComponentToEntity(EcsState, entityId, EcsService)
+	local LifeBarStorage = EcsState.storages[CONSTANTS.EcsStorages.lifeBar]
+	LifeBarStorage.AddComponentToEntity(EcsState, entityId, EcsService)
 end
 
 local defaultSetup = {
@@ -181,7 +186,37 @@ local defaultSetup = {
 	lifeBarSetup,
 }
 
-local dummyArchetypeSetup = defaultSetup
+-- Dummy Setup
+local respawnSetup = function(entityId, definitionId)
+	-- Add Custom Component (Storing respawnPos)
+	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
+	local customProperties = {
+		respawnPos = Vector3.zero,
+	}
+
+	CustomStorage.AddComponentToEntity(EcsState, entityId, customProperties)
+
+	-- Connect to Unit OnDeath
+	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
+	local UnitStorageState = UnitStorage.GetState()
+	local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
+
+	UnitStorageState.deathEvent[unitId]:Connect(function(character, _player)
+		task.wait(1)
+		-- Get respawnPos Back
+		local id = character:GetAttribute("EntityId")
+		local respawnPos = CustomStorage.GetCustomProperties(id).respawnPos
+
+		EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, respawnPos) -- Respawn
+	end)
+end
+
+local dummyArchetypeSetup = {
+	gameObjectSetup,
+	unitSetup,
+	lifeBarSetup,
+	respawnSetup,
+}
 
 local robotArchetypeSetup = defaultSetup
 
@@ -214,6 +249,7 @@ function EnemyService.CreateEnemy(character, enemyId)
 	character.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
 	-- Add Components : Gameobject, Unit
+	-- TODO : Fuse with Archetype Setup
 	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
 	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 
@@ -221,7 +257,7 @@ function EnemyService.CreateEnemy(character, enemyId)
 	unitStorage.AddComponentToEntity(EcsState, entityId, enemyId, enemyDefinition.MaxLife)
 
 	-- Per Enemy type setup
-	-- enemiesSetup[enemyId](character, entityId)
+	enemiesSetup[enemyId](character, entityId)
 end
 
 -- #endregion
@@ -229,10 +265,10 @@ end
 -- #region ARCHETYPE
 
 --- Use ECS to Spawn Archetypes (Object Pooling)
----@param definitionId any = EnemyID
-function EnemyService.AddArchetype(definitionId)
-	local archetype = EnemyDefinitions.Archetypes[definitionId]
-	archetype.setup = enemiesArchetypeSetup[definitionId]
+---@param enemyId number
+function EnemyService.AddArchetype(enemyId)
+	local archetype = EnemyDefinitions.Archetypes[enemyId]
+	archetype.setup = enemiesArchetypeSetup[enemyId]
 
 	EcsService.AddArchetype(archetype)
 end
@@ -383,13 +419,6 @@ end
 
 -- #region DAMAGE + DEATH
 
-function EnemyService.UpdateLifeBar(lifeBar, lifePercent)
-	local usePercent = math.max(0, lifePercent)
-	-- warn("Update Life Bar = " .. lifeBar.Name .. ", Percent = " .. usePercent)
-
-	lifeBar.Size = UDim2.fromScale(usePercent, 1)
-end
-
 function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local unitStorageState = unitStorage.GetState()
@@ -405,18 +434,12 @@ function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 	local life = unitStorageState.life[unitId]
 	-- print(" Dealt " .. damage .. " damage to " .. humanoid.Parent.Name .. " New life : " .. life)
 
-	-- Update Lifebar
+	-- Trigger Life Changed Event
 	local definitionId = unitStorageState.definitionId[unitId]
 	local definition = EnemiesDefinitions[definitionId]
-	local lifeBar = unitStorageState.lifeBar[unitId]
 
 	local percent = life / definition.MaxLife
 	unitStorageState.lifeChanged[unitId]:Fire(percent)
-
-	if lifeBar then
-		local lifePercent = life / definition.MaxLife
-		EnemyService.UpdateLifeBar(lifeBar, lifePercent)
-	end
 
 	-- Handle Death
 	if life <= 0 then

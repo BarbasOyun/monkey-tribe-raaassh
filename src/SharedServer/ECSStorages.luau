@@ -224,14 +224,13 @@ function UnitStorage.GetState()
 	return EcsState.UnitStorageState
 end
 
-function UnitStorage.AddComponentToEntity(ecsState, entityId, definitionId, life, lifeBar)
+function UnitStorage.AddComponentToEntity(ecsState, entityId, definitionId, life)
 	local storageState = ecsState.UnitStorageState
 
 	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
 
 	table.insert(storageState.definitionId, definitionId)
 	table.insert(storageState.life, life)
-	table.insert(storageState.lifeBar, lifeBar)
 	table.insert(storageState.lifeChanged, Signal.new())
 	table.insert(storageState.deathEvent, Signal.new())
 
@@ -294,6 +293,7 @@ function LifeBarStorage.AddComponentToEntity(ecsState, entityId, EcsService)
 	local storageState = LifeBarStorage.GetState()
 	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
 
+	-- Create LifeBar
 	local lifeBar = CONSTANTS.PREFABS_FOLDER.LifeBar:clone()
 	local bar = lifeBar:FindFirstChild("LifeBar")
 	table.insert(storageState.lifeBar, bar)
@@ -308,7 +308,7 @@ function LifeBarStorage.AddComponentToEntity(ecsState, entityId, EcsService)
 	local unitId = UnitStorage.GetComponentId(unitStorageState, entityId)
 
 	unitStorageState.lifeChanged[unitId]:Connect(function(percent)
-		LifeBarStorage.UpdateLifeBar(bar, percent)
+		Gears.UpdateBar(bar, percent)
 	end)
 
 	return componentId
@@ -335,23 +335,53 @@ function LifeBarStorage.ClearComponents(storageState)
 	table.clear(storageState.lifeBar)
 end
 
-function LifeBarStorage.UpdateLifeBar(lifeBar, lifePercent)
-	local usePercent = math.max(0, lifePercent)
-	-- warn("Update Life Bar = " .. lifeBar.Name .. ", Percent = " .. usePercent)
+-- #endregion
 
-	lifeBar.Size = UDim2.fromScale(usePercent, 1)
+-- #region CUSTOM ID = 4
+
+local CustomStorage = Storage.new()
+
+function CustomStorage.GetState()
+	return EcsState.CustomStorageState
+end
+
+function CustomStorage.AddComponentToEntity(ecsState, entityId, customProperties)
+	local storageState = CustomStorage.GetState()
+
+	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
+
+	-- Register Properties
+	table.insert(storageState.customProperties, customProperties)
+
+	return componentId
+end
+
+function CustomStorage.RemoveEntity(storageState, entityId)
+	local componentId, lastCompId, lastHasComp = Storage.RemoveEntity(storageState, entityId)
+
+	if not lastHasComp then
+		table.remove(storageState.customProperties, componentId)
+		return
+	end
+
+	-- Swap Values + Delete Last
+	Gears.MoveLastElement(storageState.customProperties, componentId)
+end
+
+function CustomStorage.GetCustomProperties(entityId)
+	local state = CustomStorage.GetState()
+	return state.customProperties[entityId]
 end
 
 -- #endregion
 
--- TODO : Respawn Storage
-
--- TODO : MOB BEHAVIOR STORAGE
+-- TODO : MOB BEHAVIOR ID = 5
 
 local EcsStorages = {
 	GameObjectStorage,
 	UnitStorage,
 	LifeBarStorage,
+	CustomStorage,
 }
 
 return EcsStorages
