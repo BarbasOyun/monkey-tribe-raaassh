@@ -436,16 +436,16 @@ local function autoPickupRange(state)
 	end
 end
 
-local function stateUpdate()
+local function stateUpdate(dt: number)
 	local state = Store:getState() -- Get state once every frame
 
-	PlayerService.StateUpdate:Fire(state)
+	PlayerService.StateUpdate:Fire(state, dt)
 
 	-- Throttled Update
 	MutState.frameCount += 1
 
 	if MutState.frameCount > CONSTANTS.THROTTLED_UPDATE_FRAMES then
-		PlayerService.ThrottledUpdate:Fire(state)
+		PlayerService.ThrottledUpdate:Fire(state, dt)
 
 		autoPickupRange(state)
 		enemiesDetection(state)
@@ -465,7 +465,9 @@ function PlayerService:KnitStart()
 	RpgService = Knit.GetService("RpgService")
 	ItemService = Knit.GetService("ItemService")
 
-	RunService.Heartbeat:Connect(stateUpdate)
+	RunService.Heartbeat:Connect(function(dt: number)
+		stateUpdate(dt)
+	end)
 end
 
 return PlayerService

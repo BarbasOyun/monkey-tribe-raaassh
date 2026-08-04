@@ -1,9 +1,15 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Signal = require(ReplicatedStorage.Packages.Signal)
 -- Dynamic State
 -- Mutable Data != RoduxStore
 -- For High Frequency Data eg ECS Components
 -- This Data might be sent to the Rodux Store in the Throttled Update -> Use Commands Buffer
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Gears = require(ReplicatedStorage.Shared.Gears)
+
+-- Get Constants
+local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
+local Enemies = EnemyDefinitions.Enemies
+local EnemiesDefinitions = EnemyDefinitions.EnemiesDefinitions
 
 local CombatState = {
 	playersClosestEnemy = {},
@@ -23,6 +29,12 @@ local StatState = {
 
 local EnemyServiceState = {
 	enemiesDeathCount = 0,
+	currentRobotStats = Gears.DeepCopy(EnemiesDefinitions[Enemies.Robot]),
+	streamSpawnNbr = 2,
+	streamSpawnDelta = 0,
+	streamSpawnTimer = 0,
+	swarmWaves = 0,
+	swarmSpawnTimer = 0,
 }
 
 -- #region ECS STATE

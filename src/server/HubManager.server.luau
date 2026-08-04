@@ -231,9 +231,9 @@ local function setupEnemies()
 	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos3)
 	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos4)
 
-	-- Start Stream spawning Enemies
-	task.wait(7)
-	EnemyService.StreamSpawn()
+	-- Start Spawning Mobs
+	EnemyService.StartStreamSpawn()
+	EnemyService.StartSwarmSpawn()
 end
 
 Players.PlayerAdded:Connect(function(player)

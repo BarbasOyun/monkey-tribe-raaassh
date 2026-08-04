@@ -16,6 +16,7 @@ local DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities
 
 -- #region Player
 
+-- TODO : Rename (enum)
 local PLAYER_STATES = {
 	playing = "Playing",
 	pickingAugment = "PickingAugment",
@@ -28,7 +29,6 @@ local UNIT_STATES = {
 	PerformingAction = 2,
 }
 
--- TODO : Rename
 local CURRENCIES = {
 	bananas = 1,
 	sticks = 2,
@@ -67,18 +67,24 @@ WEAPON_HIT_PARAM.FilterType = Enum.RaycastFilterType.Include
 WEAPON_HIT_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
 WEAPON_HIT_PARAM.MaxParts = 100
 
--- EnemyService
-local SPAWN_RADIUS = 5
-local SPAWN_RADIUS_RANGE = 5
+local EnemyConst = {
+	-- Spawn
+	SPAWN_RADIUS = 20,
+	SPAWN_RADIUS_RANGE = 20,
 
-local STREAM_SPAWN_DELTA_TIME = 7
-local STREAM_SPAWN_DELTA_TIME_RANGE = 2
-local STREAM_SPAWN_NBR = 2
-local STREAM_SPAWN_NBR_RANGE = 1
+	-- Stream Spawn
+	STREAM_SPAWN_INITIAL_CD = 7,
+	STREAM_SPAWN_DELTA_TIME = 7,
+	STREAM_SPAWN_DELTA_TIME_RANGE = 2,
+	STREAM_SPAWN_NBR_RANGE = 1,
+	STREAM_SPAWN_LVL_BREAKPOINT = 3,
+	STREAM_SPAWN_BREAKPOINT_INCREMENT = 1,
 
-local SWARM_WAVES = 4
-local SWARM_NBR = 4
-local SWARM_NBR_RANGE = 2
+	-- Swarm Spawn
+	SWARM_WAVES = 4,
+	SWARM_NBR = 4,
+	SWARM_NBR_RANGE = 2,
+}
 
 -- ECS & Object Pooling
 local DISABLED_POSITION = Vector3.new(0, -5000, 0)
@@ -143,16 +149,7 @@ local CONSTANTS = {
 	CURRENCIES_NAMES = CURRENCIES_NAMES,
 	MAX_CURRENCIES = MAX_CURRENCIES,
 	-- Services
-	-- Enemy
-	SPAWN_RADIUS = SPAWN_RADIUS,
-	SPAWN_RADIUS_RANGE = SPAWN_RADIUS_RANGE,
-	STREAM_SPAWN_DELTA_TIME = STREAM_SPAWN_DELTA_TIME,
-	STREAM_SPAWN_DELTA_TIME_RANGE = STREAM_SPAWN_DELTA_TIME_RANGE,
-	STREAM_SPAWN_NBR = STREAM_SPAWN_NBR,
-	STREAM_SPAWN_NBR_RANGE = STREAM_SPAWN_NBR_RANGE,
-	SWARM_WAVES = SWARM_WAVES,
-	SWARM_NBR = SWARM_NBR,
-	SWARM_NBR_RANGE = SWARM_NBR_RANGE,
+	EnemyConst = EnemyConst,
 	-- Ecs
 	DISABLED_POSITION = DISABLED_POSITION,
 	EcsStorages = EcsStorages,

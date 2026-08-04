@@ -149,6 +149,11 @@ end
 -- Enable an Entity of an Archetype
 function EcsService.EnableArchetypeEntity(archetypeId)
 	local archetype = EcsState.archetypes[archetypeId]
+
+	if archetype.activeCount >= archetype.count then
+		warn(archetype.name .. " Reached Entities Limit of : " .. archetype.count)
+	end
+
 	archetype.activeCount += 1
 
 	local index = archetype.startIndex + archetype.activeCount

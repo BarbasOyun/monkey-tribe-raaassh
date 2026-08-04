@@ -8,6 +8,14 @@ local Enemies = {
 	Robot = 2,
 }
 
+-- Cap Definition
+local MAX_MOVEMENT_SPEED = 16
+
+-- Scaling Definition
+local DAMAGE_INCREMENT = 3
+local LIFE_INCREMENT = 5
+local MOVEMENT_SPEED_INCREMENT = 1
+
 -- Endgame Setup = csv file
 local EnemiesDefinitions = {
 	{
@@ -38,6 +46,7 @@ local Archetypes = {
 			CONSTANTS.EcsStorages.gameObject,
 			CONSTANTS.EcsStorages.unit,
 			CONSTANTS.EcsStorages.lifeBar,
+			CONSTANTS.EcsStorages.custom,
 		},
 		startIndex = 0,
 		endIndex = 0,
@@ -60,11 +69,15 @@ local Archetypes = {
 	},
 }
 
-local archetypesTotalSize = 200
-
-return {
+local EnemyDefinitions = {
 	Enemies = Enemies,
 	EnemiesDefinitions = EnemiesDefinitions,
 	EnemiesPrefabs = EnemiesPrefabs,
 	Archetypes = Archetypes,
+	MAX_MOVEMENT_SPEED = MAX_MOVEMENT_SPEED,
+	DAMAGE_INCREMENT = DAMAGE_INCREMENT,
+	LIFE_INCREMENT = LIFE_INCREMENT,
+	MOVEMENT_SPEED_INCREMENT = MOVEMENT_SPEED_INCREMENT,
 }
+
+return EnemyDefinitions

@@ -2,12 +2,14 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
+local PlayerService = require(script.Parent.PlayerService)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+local EnemyConst = CONSTANTS.EnemyConst
 
 local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 local Enemies = EnemyDefinitions.Enemies
@@ -17,14 +19,16 @@ local EnemiesPrefabs = EnemyDefinitions.EnemiesPrefabs
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
--- local StoreActions = RoduxStore.Actions
+local StoreActions = RoduxStore.Actions
 local Selectors = RoduxStore.Selectors
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
+local EnemyServiceState = MutState.EnemyServiceState
 local EcsState = MutState.EcsState
 
 -- Get Services
+local PlayerService
 local EcsService
 local ItemService
 
@@ -311,7 +315,14 @@ end
 
 --- Keep the Input Position in the Level Range (Prevent OOB)
 function EnemyService.GetSpawnPosition(position)
-	-- TODO
+	local radius = Gears.RandomRange(EnemyConst.SPAWN_RADIUS, EnemyConst.SPAWN_RADIUS_RANGE)
+	local progress = math.random(0, CONSTANTS.MAX_RADIANT)
+	local circlePos = Gears.CirclePos(radius, progress)
+	local pos = position + Vector3.new(circlePos.X, 0, circlePos.Y) -- Circle around Pos
+
+	-- TODO : Keep OOB
+
+	return pos
 end
 
 --- Anchor Every Part in a Model
@@ -484,45 +495,127 @@ end
 
 -- #region UPDATE
 
---- Start Spawning Mob Enemies every X Sec
+--- Spawn Mob Enemies
 function EnemyService.StreamSpawn()
-	local minTime = CONSTANTS.STREAM_SPAWN_DELTA_TIME
-	local maxTime = CONSTANTS.STREAM_SPAWN_DELTA_TIME + CONSTANTS.STREAM_SPAWN_DELTA_TIME_RANGE
-
-	local spawnDelta = math.random(minTime, maxTime)
-	task.wait(spawnDelta)
-
 	-- Spawn Mobs around each player
-	-- warn("STREAM SPAWN MOBS")
+	local state = Store:getState()
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		local state = Store:getState()
+		-- Check if Player is Valid
 		local playerState = Selectors.PlayerState(state, player.UserId)
-		local isPickingAugment = playerState.state == CONSTANTS.PLAYER_STATES.pickingAugment
+		-- MAYBE : isPickingAugment
 
-		local isTargetable = not isPickingAugment and not playerState.isDead and player.Character
-
-		if not isTargetable then
+		local isValid = not playerState.isDead and player.Character
+		if not isValid then
 			continue
 		end
 
 		local playerPos = player.Character:GetPivot().Position
-		local enemyNbr = Gears.RandomRange(CONSTANTS.STREAM_SPAWN_NBR, CONSTANTS.STREAM_SPAWN_NBR_RANGE)
+		local enemyNbr = Gears.RandomRange(EnemyServiceState.streamSpawnNbr, EnemyConst.STREAM_SPAWN_NBR_RANGE)
 
 		-- Spawn X Mobs
 		for _ = 1, enemyNbr, 1 do
-			local radius = Gears.RandomRange(CONSTANTS.SPAWN_RADIUS, CONSTANTS.SPAWN_RADIUS_RANGE)
-			local progress = math.random(0, CONSTANTS.MAX_RADIANT)
-
-			local pos = Gears.CirclePos(radius, progress)
-			local pos3 = Vector3.new(playerPos.X + pos.X, playerPos.Y, playerPos.Z + pos.Y) -- Take a Circle Around each Player
-			-- local spawnPos = EnemyService.GetSpawnPosition(pos3)
-
-			EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos3)
+			local spawnPos = EnemyService.GetSpawnPosition(playerPos)
+			EnemyService.SpawnArchetypeEnemy(Enemies.Robot, spawnPos)
 		end
 	end
+end
 
-	EnemyService.StreamSpawn()
+function EnemyService.RollStreamSpawnDelta()
+	local minTime = EnemyConst.STREAM_SPAWN_DELTA_TIME
+	local maxTime = EnemyConst.STREAM_SPAWN_DELTA_TIME + EnemyConst.STREAM_SPAWN_DELTA_TIME_RANGE
+
+	local spawnDelta = math.random(minTime, maxTime)
+
+	EnemyServiceState.streamSpawnDelta = spawnDelta
+end
+
+function EnemyService.StartStreamSpawn()
+	task.wait(EnemyConst.STREAM_SPAWN_INITIAL_CD)
+	EnemyService.RollStreamSpawnDelta()
+
+	PlayerService.StateUpdate:Connect(function(state, dt)
+		EnemyServiceState.streamSpawnTimer += dt
+
+		-- Spawn
+		if EnemyServiceState.streamSpawnTimer >= EnemyServiceState.streamSpawnDelta then
+			-- Reset Timers
+			EnemyServiceState.streamSpawnTimer = 0
+			EnemyService.RollStreamSpawnDelta()
+
+			EnemyService.StreamSpawn()
+		end
+	end)
+end
+
+--- Spawn Big waves of Enemies on Each Player
+function EnemyService.SwarmSpawn()
+	for _, player in ipairs(Players:GetPlayers()) do
+		local enemyNbr = Gears.RandomRange(EnemyConst.SWARM_NBR, EnemyConst.SWARM_NBR_RANGE)
+
+		local playerPos = player.Character:GetPivot().Position
+		local spawnPos = EnemyService.GetSpawnPosition(playerPos)
+
+		for _ = 1, enemyNbr, 1 do
+			EnemyService.SpawnArchetypeEnemy(Enemies.Robot, spawnPos)
+		end
+	end
+end
+
+function EnemyService.StartSwarmSpawn()
+	local swarmWaves = EnemyServiceState.swarmWaves
+	swarmWaves = EnemyConst.SWARM_WAVES
+
+	local handle
+	handle = PlayerService.StateUpdate:Connect(function(state, dt)
+		EnemyServiceState.swarmSpawnTimer += dt
+
+		-- Spawn
+		if EnemyServiceState.swarmSpawnTimer >= 1 then
+			-- Reset Timers
+			EnemyServiceState.swarmSpawnTimer = 0
+			EnemyService.RollStreamSpawnDelta()
+
+			swarmWaves -= 1
+			EnemyService.SwarmSpawn()
+
+			-- Stop Swarm
+			if swarmWaves <= 0 then
+				handle:Disconnect()
+			end
+		end
+	end)
+end
+
+--- Increment Enemies Stats
+function EnemyService.LevelUpEnemies()
+	local state = Store:getState()
+
+	local globalEnemiesLevel = state.gameState.globalEnemiesLevel + 1
+
+	-- Increment Global Stats
+	local currentRobotStats = EnemyServiceState.currentRobotStats
+
+	currentRobotStats.Damage += EnemiesDefinitions.DAMAGE_INCREMENT
+
+	currentRobotStats.MaxLife += EnemiesDefinitions.LIFE_INCREMENT
+
+	local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
+	local newMs = movementSpeed + EnemiesDefinitions.MOVEMENT_SPEED_INCREMENT
+	movementSpeed = math.clamp(newMs, 0, EnemiesDefinitions.MAX_MOVEMENT_SPEED)
+
+	-- MAYBE : Mutate Existing Entities
+
+	-- Level Breakpoints (Every X Levels)
+	local isBreakPointReached = globalEnemiesLevel % EnemyConst.STREAM_SPAWN_LVL_BREAKPOINT == 0
+
+	if isBreakPointReached then
+		EnemyServiceState.streamSpawnNbr += 1
+	end
+
+	-- Update State
+	local patch = { globalEnemiesLevel = globalEnemiesLevel }
+	Store:dispatch(StoreActions.PatchGameState(patch))
 end
 
 -- #endregion
@@ -534,6 +627,7 @@ function EnemyService:KnitInit()
 end
 
 function EnemyService:KnitStart()
+	PlayerService = Knit.GetService("PlayerService")
 	EcsService = Knit.GetService("EcsService")
 	ItemService = Knit.GetService("ItemService")
 end

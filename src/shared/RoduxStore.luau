@@ -7,6 +7,11 @@ local Rodux = require(ReplicatedStorage.Shared.Rodux)
 -- local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
+-- Immutable Default Game State
+local gameState = {
+	globalEnemiesLevel = 1,
+}
+
 -- #region SELECTORS
 
 local Selectors = {
@@ -44,6 +49,13 @@ local Actions = {
 			type = "SetGameState",
 			gameState = gameState,
 			userId = userId,
+		}
+	end,
+
+	PatchGameState = function(patch)
+		return {
+			type = "PatchGameState",
+			patch = patch,
 		}
 	end,
 
@@ -138,7 +150,6 @@ local playerReducer = Rodux.createReducer({}, {
 
 			if not property then
 				warn("Key : " .. key .. " Doesn't exist in Player")
-				-- continue
 			end
 
 			playerState[key] = value
@@ -202,12 +213,33 @@ local playerReducer = Rodux.createReducer({}, {
 	end,
 })
 
+local gameStateReducer = Rodux.createReducer({}, {
+	PatchGameState = function(state, action)
+		local gameState = table.clone(state) or gameState
+
+		local patch = action.patch
+
+		for key, value in pairs(patch) do
+			local property = gameState[key]
+
+			if not property then
+				warn("Key : " .. key .. " Doesn't exist in GameState")
+			end
+
+			gameState[key] = value
+		end
+
+		return gameState
+	end,
+})
+
 -- #endregion
 
 -- #region STORE / STATE
 
 local rootReducer = Rodux.combineReducers({
 	players = playerReducer,
+	gameState = gameStateReducer,
 	-- ... Others game data
 })
 
