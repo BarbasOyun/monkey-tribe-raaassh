@@ -16,7 +16,7 @@ local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
 local StoreActions = RoduxStore.Actions
--- local selectors = RoduxStore.Selectors
+-- local Selectors = RoduxStore.Selectors
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
@@ -49,7 +49,7 @@ local PlayerService = Knit.CreateService({
 
 -- Custom Game State for Clients -> Remove Useless Data
 local function playerGameState(player)
-	local state = store:getState()
+	local state = Store:getState()
 	local players = {}
 
 	for userId, player in pairs(state.players) do
@@ -384,7 +384,7 @@ local function enemiesDetection(state)
 	end
 end
 
--- Auto Pickup XP Per Player
+--- Auto Pickup XP Per Player
 local function autoPickup(player, itemModel)
 	if not itemModel.Parent or itemModel.Parent ~= workspace.AutoPickup then
 		return
@@ -411,18 +411,19 @@ local function autoPickup(player, itemModel)
 	ItemService.PickupItem(player, itemModel)
 end
 
+--- Detect Objects in Auto Pickup Folder
 local function autoPickupRange(state)
 	for _, player in ipairs(Players:GetPlayers()) do
 		local userId = player.UserId
-		local playerData = state.players[userId]
+		local playerState = state.players[userId]
 
-		if not playerData then
+		if not playerState then
 			continue
 		end
 
 		local character = player.Character or player.CharacterAdded:Wait()
 		local playerPos = character.HumanoidRootPart.CFrame.Position
-		local pickupRange = playerData.stats.pickupRange
+		local pickupRange = playerState.stats.pickupRange
 
 		-- DEBUG
 		-- Gears.DisplayHitBox(position, pickupRange, 0.1)

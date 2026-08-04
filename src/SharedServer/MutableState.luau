@@ -21,11 +21,13 @@ local StatState = {
 	lifeRegenUpdates = {},
 }
 
+local EnemyServiceState = {
+	enemiesDeathCount = 0,
+}
+
 -- #region ECS STATE
 
--- local storageCount = 0
-
--- Meta Table
+-- Storage State Meta Table
 local StorageState = {}
 
 function StorageState.new(id, name)
@@ -34,6 +36,7 @@ function StorageState.new(id, name)
 		name = name,
 		sparse = {},
 		entities = {},
+		-- customProperties = {}
 	}
 
 	setmetatable(self, StorageState)
@@ -50,14 +53,20 @@ UnitStorageState.definitionId = {}
 UnitStorageState.life = {}
 UnitStorageState.lifeChanged = {}
 UnitStorageState.deathEvent = {}
+UnitStorageState.attackCd = {}
 
 -- LifeBar
 local LifeBarStorageState = StorageState.new(3, "LifeBarStorageState")
 LifeBarStorageState.lifeBar = {}
 
--- Respawn
+-- Custom
 local CustomStorageState = StorageState.new(4, "CustomStorageState")
 CustomStorageState.customProperties = {}
+
+-- MobBehavior
+local MobBehaviorStorageState = StorageState.new(5, "MobBehaviorStorageState")
+MobBehaviorStorageState.target = {}
+-- MobBehaviorStorageState.attackRange = {}
 
 local EcsState = {
 	entitiesId = {},
@@ -69,6 +78,7 @@ local EcsState = {
 	UnitStorageState = UnitStorageState,
 	LifeBarStorageState = LifeBarStorageState,
 	CustomStorageState = CustomStorageState,
+	MobBehaviorStorageState = MobBehaviorStorageState,
 	-- Archetypes
 	archetypes = {},
 }
@@ -80,8 +90,9 @@ local MutState = {
 	playersDetections = {}, -- TODO : Flatten -> use playersDetectionCount
 	CombatState = CombatState,
 	StatState = StatState,
+	EnemyServiceState = EnemyServiceState,
 	EcsState = EcsState,
-	-- Current Place State (Hub / Level)
+	-- Current Place State (Hub or Level)
 }
 
 return MutState

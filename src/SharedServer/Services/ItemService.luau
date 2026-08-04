@@ -138,11 +138,12 @@ local function lootMovement(partToMove, startPos)
 	local finalTargetPos = targetPos
 	local result = workspace:Raycast(targetPos, Vector3.new(0, -10, 0))
 
-	if result then
-		finalTargetPos = result.Position
-	else
+	if not result then
 		return
 	end
+
+	local posOffset = Vector3.new(0, 0.5, 0)
+	finalTargetPos = result.Position + posOffset
 
 	local steps = 60
 	local height = math.random(2, 5)

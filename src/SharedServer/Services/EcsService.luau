@@ -91,7 +91,7 @@ end
 
 -- #endregion
 
--- #region ENTITIES ARCHETYPES / POOLING
+-- #region ARCHETYPES / POOLING
 
 function EcsService.AddArchetype(archetype)
 	table.insert(EcsState.archetypes, archetype)

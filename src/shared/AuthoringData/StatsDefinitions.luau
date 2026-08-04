@@ -279,8 +279,6 @@ local MULT_STATS_STORE = {
 
 -- #endregion
 
--- Authoring Data
-
 local STATS_DISPLAY = {
 	increasedAttackDamage = "% Attack Damage",
 	critChance = "% Crit Chance",

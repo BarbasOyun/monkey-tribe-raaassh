@@ -304,6 +304,14 @@ function Gears.FloatRandom(minNbr, maxNbr)
 	return math.random(minNbr, maxNbr - 1) + randomDecimal
 end
 
+function Gears.RandomRange(defaultValue, range)
+	local minValue = defaultValue
+	local maxValue = minValue + range
+	local value = math.random(minValue, maxValue)
+
+	return value
+end
+
 function Gears.PointsDistance(pointA, pointB)
 	return (pointA - pointB).Magnitude
 end

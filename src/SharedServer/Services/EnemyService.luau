@@ -1,5 +1,6 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
@@ -12,6 +13,12 @@ local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDef
 local Enemies = EnemyDefinitions.Enemies
 local EnemiesDefinitions = EnemyDefinitions.EnemiesDefinitions
 local EnemiesPrefabs = EnemyDefinitions.EnemiesPrefabs
+
+-- Get State
+local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
+local Store = RoduxStore.Store
+-- local StoreActions = RoduxStore.Actions
+local Selectors = RoduxStore.Selectors
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
@@ -26,7 +33,7 @@ local EnemyService = Knit.CreateService({
 	-- Client = {},
 })
 
--- #region ENEMY TYPES SETUP
+-- #region ENEMIES ON SPAWN
 
 --- Archetype less dummy setup
 --[[
@@ -83,69 +90,6 @@ local enemiesOnDeath = {
 	robotOnDeath,
 }
 
--- Enemies OnEnabled (Object Pooling)
-
-local dummySetup = function(character, entityId)
-	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
-	CustomStorage.GetCustomProperties[entityId].respawnPos = character:GetPivot().Position
-end
-
-local robotSetup = function(character, entityId) end
-
--- Per enemyType Spawn setup
-local enemiesSetup = {
-	dummySetup,
-	robotSetup,
-}
-
---- Setup Enemy OnSpawn
-function EnemyService.EnemySetup(character, definitionId, entityId)
-	-- warn("Enemy Setup : " .. character.Name .. " EntityID = " .. entityId)
-
-	EnemyService.ResetCharacter(character)
-
-	-- Components Setup
-	-- TODO : Move to each Components
-
-	-- Unit
-	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
-	local UnitStorageState = UnitStorage.GetState()
-
-	-- Life
-	local maxLife = EnemiesDefinitions[Enemies.Robot].MaxLife
-	UnitStorageState.life[entityId] = maxLife
-
-	-- Connect OnDeath
-	-- local deathEvent = UnitStorageState.deathEvent[entityId]
-	-- deathEvent:DisconnectAll()
-
-	-- Connect OnDeath Per Type
-	-- local enemyOnDeathEvent = enemiesOnDeath[definitionId]
-	-- if enemyOnDeathEvent then
-	-- 	deathEvent:Connect(enemyOnDeathEvent)
-	-- end
-
-	-- Reset LifeBar
-	local lifeBar = EnemyService.TryToFindLifeBar(character)
-	local billboardGui = lifeBar.Parent
-
-	Gears.UpdateBar(lifeBar, 1)
-
-	-- Force Re render of lifebar
-	billboardGui.Enabled = false
-	task.spawn(function()
-		task.wait()
-		billboardGui.Enabled = true
-	end)
-
-	-- Per Type Setup
-	local enemySetup = enemiesSetup[definitionId]
-	if enemiesSetup then
-		enemySetup(character, entityId)
-	end
-end
-
--- Enemies OnSpawn Setups
 -- TODO : Move Global to Respective Storage
 
 --- Global GameObject Archetype Setup
@@ -227,6 +171,70 @@ local enemiesArchetypeSetup = {
 
 -- #endregion
 
+-- #region ENEMIES ON ENABLED (OBJECT POOLING)
+
+local dummySetup = function(character, entityId)
+	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
+	CustomStorage.GetCustomProperties(entityId).respawnPos = character:GetPivot().Position
+end
+
+local robotSetup = function(character, entityId) end
+
+-- Per enemyType Spawn setup
+local enemiesSetup = {
+	dummySetup,
+	robotSetup,
+}
+
+--- Setup Enemy OnSpawn
+function EnemyService.EnemySetup(character, definitionId, entityId)
+	-- warn("Enemy Setup : " .. character.Name .. " EntityID = " .. entityId)
+
+	EnemyService.ResetCharacter(character)
+
+	-- Components Setup
+	-- TODO : Move to each Components
+
+	-- Unit
+	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
+	local UnitStorageState = UnitStorage.GetState()
+
+	-- Life
+	local maxLife = EnemiesDefinitions[Enemies.Robot].MaxLife
+	UnitStorageState.life[entityId] = maxLife
+
+	-- Connect OnDeath
+	-- local deathEvent = UnitStorageState.deathEvent[entityId]
+	-- deathEvent:DisconnectAll()
+
+	-- Connect OnDeath Per Type
+	-- local enemyOnDeathEvent = enemiesOnDeath[definitionId]
+	-- if enemyOnDeathEvent then
+	-- 	deathEvent:Connect(enemyOnDeathEvent)
+	-- end
+
+	-- Reset LifeBar
+	local lifeBar = EnemyService.TryToFindLifeBar(character)
+	local billboardGui = lifeBar.Parent
+
+	Gears.UpdateBar(lifeBar, 1)
+
+	-- Force Re render of lifebar
+	billboardGui.Enabled = false
+	task.spawn(function()
+		task.wait()
+		billboardGui.Enabled = true
+	end)
+
+	-- Per Type Setup
+	local enemySetup = enemiesSetup[definitionId]
+	if enemiesSetup then
+		enemySetup(character, entityId)
+	end
+end
+
+-- #endregion
+
 -- #region SPAWN ENEMY
 
 --- Spawn New Model + Create Enemy
@@ -300,6 +308,11 @@ end
 -- #endregion
 
 -- #region UTILS
+
+--- Keep the Input Position in the Level Range (Prevent OOB)
+function EnemyService.GetSpawnPosition(position)
+	-- TODO
+end
 
 --- Anchor Every Part in a Model
 function EnemyService.AnchorModel(character, isAnchored)
@@ -468,6 +481,49 @@ function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 end
 
 -- #endregion
+
+-- #region UPDATE
+
+--- Start Spawning Mob Enemies every X Sec
+function EnemyService.StreamSpawn()
+	local minTime = CONSTANTS.STREAM_SPAWN_DELTA_TIME
+	local maxTime = CONSTANTS.STREAM_SPAWN_DELTA_TIME + CONSTANTS.STREAM_SPAWN_DELTA_TIME_RANGE
+
+	local spawnDelta = math.random(minTime, maxTime)
+	task.wait(spawnDelta)
+
+	-- Spawn Mobs around each player
+	-- warn("STREAM SPAWN MOBS")
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		local state = Store:getState()
+		local playerState = Selectors.PlayerState(state, player.UserId)
+		local isPickingAugment = playerState.state == CONSTANTS.PLAYER_STATES.pickingAugment
+
+		local isTargetable = not isPickingAugment and not playerState.isDead and player.Character
+
+		if not isTargetable then
+			continue
+		end
+
+		local playerPos = player.Character:GetPivot().Position
+		local enemyNbr = Gears.RandomRange(CONSTANTS.STREAM_SPAWN_NBR, CONSTANTS.STREAM_SPAWN_NBR_RANGE)
+
+		-- Spawn X Mobs
+		for _ = 1, enemyNbr, 1 do
+			local radius = Gears.RandomRange(CONSTANTS.SPAWN_RADIUS, CONSTANTS.SPAWN_RADIUS_RANGE)
+			local progress = math.random(0, CONSTANTS.MAX_RADIANT)
+
+			local pos = Gears.CirclePos(radius, progress)
+			local pos3 = Vector3.new(playerPos.X + pos.X, playerPos.Y, playerPos.Z + pos.Y) -- Take a Circle Around each Player
+			-- local spawnPos = EnemyService.GetSpawnPosition(pos3)
+
+			EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos3)
+		end
+	end
+
+	EnemyService.StreamSpawn()
+end
 
 -- #endregion
 

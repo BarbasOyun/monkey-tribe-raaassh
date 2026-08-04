@@ -375,7 +375,49 @@ end
 
 -- #endregion
 
--- TODO : MOB BEHAVIOR ID = 5
+-- #region MOB BEHAVIOR ID = 5
+
+local MobBehaviorStorage = Storage.new()
+
+function MobBehaviorStorage.GetState()
+	return EcsState.MobBehaviorStorageState
+end
+
+function MobBehaviorStorage.AddComponentToEntity(ecsState, entityId, PlayerService)
+	local storageState = MobBehaviorStorage.GetState()
+
+	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
+
+	-- Register Properties
+	table.insert(storageState.target, nil)
+
+	-- Throttled Update : Target Detection + Attack Check (Distance, CD)
+	PlayerService.ThrottledUpdate:Connect(function(_state)
+		-- TODO
+	end)
+
+	return componentId
+end
+
+function MobBehaviorStorage.RemoveEntity(storageState, entityId)
+	local componentId, lastCompId, lastHasComp = Storage.RemoveEntity(storageState, entityId)
+
+	if not lastHasComp then
+		table.remove(storageState.target, componentId)
+		return
+	end
+
+	-- Swap Values + Delete Last
+	Gears.MoveLastElement(storageState.target, componentId)
+end
+
+function MobBehaviorStorage.DisableEntity(entityId)
+	-- TODO : Disable Behavior
+end
+
+-- #endregion
+
+-- TODO : SKILLS ID = 6
 
 local EcsStorages = {
 	GameObjectStorage,
