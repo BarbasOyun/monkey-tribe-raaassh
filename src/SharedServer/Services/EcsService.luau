@@ -99,7 +99,18 @@ end
 
 --- Create a pool of Entity of an Archetype
 function EcsService.CreatePool(archetype, startIndex)
-	local endIndex = startIndex + archetype.count
+	local endIndex = startIndex + archetype.count - 1
+	warn(
+		"Create Pool : "
+			.. archetype.name
+			.. ", Entities = "
+			.. archetype.count
+			.. ", StartIndex = "
+			.. startIndex
+			.. ", EndIndex = "
+			.. endIndex
+	)
+
 	archetype.startIndex = startIndex
 	archetype.endIndex = endIndex
 
@@ -117,14 +128,13 @@ end
 --- Create every pools of added Archetypes
 function EcsService.CreatePools()
 	local archetypes = EcsState.archetypes
-	local totalEntitiesCount = 0 -- Archetype Entities Should Always be The Firsts
+	local currentIndex = 1 -- Archetype Entities Should Always be The Firsts
 
 	for i = 1, #archetypes, 1 do
 		local archetype = archetypes[i]
 
-		warn("Create Pool : " .. archetype.name .. ", Entities = " .. archetype.count)
-		EcsService.CreatePool(archetype, totalEntitiesCount)
-		totalEntitiesCount += archetype.count + 1
+		EcsService.CreatePool(archetype, currentIndex)
+		currentIndex += archetype.count -- + 1
 	end
 end
 

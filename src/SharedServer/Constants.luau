@@ -57,7 +57,7 @@ AUTO_PICKUP_PARAM.MaxParts = 50
 local DETECTION_PARAM = OverlapParams.new()
 DETECTION_PARAM.FilterType = Enum.RaycastFilterType.Include
 DETECTION_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
-DETECTION_PARAM.MaxParts = 50
+DETECTION_PARAM.MaxParts = 500
 
 -- #endregion
 

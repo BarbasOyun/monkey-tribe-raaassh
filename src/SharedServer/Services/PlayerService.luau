@@ -100,6 +100,9 @@ function PlayerService.AddPlayer(player)
 	local state = Store:getState()
 	PlayerService.Client.ReplicateStore:Fire(player, state)
 
+	-- Set Detection to empty
+	MutState.playersDetections[player.UserId] = {}
+
 	-- Events
 	PlayerService.PlayerAdded:Fire(userId)
 	PlayerService.Client.PlayerAdded:FireAll(userId, username)
@@ -355,31 +358,53 @@ end
 
 -- #region UPDATES
 
--- Enemies Detection
+--- For each Player Detect and Store Distance with each enemies in range
 local function enemiesDetection(state)
 	for _, player in pairs(Players:GetPlayers()) do
 		local userId = player.UserId
-		local playerData = state.players[player.userId]
+		local playerState = state.players[userId]
 
 		MutState.playersDetections[userId] = {}
 
-		if not playerData then
+		if not playerState then
 			continue
 		end
 
 		local character = player.Character or player.CharacterAdded:Wait()
-		local playerPos = character.HumanoidRootPart.CFrame.Position
+		local playerPos = character.UpperTorso.CFrame.Position -- FIXME : R6 Model
 
 		-- DEBUG
 		-- Gears.DisplayHitBox(position, 10, 0.1)
 
 		-- Get the Squared Distance Player -> Enemy
-		local detectedEnemies = workspace:GetPartBoundsInRadius(playerPos, 15, CONSTANTS.DETECTION_PARAM)
+		local hits = workspace:GetPartBoundsInRadius(playerPos, 50, CONSTANTS.DETECTION_PARAM)
+		local detectedEnemies = {} -- Unique Humanoids
 
-		for _, enemy in pairs(detectedEnemies) do
-			local playerToEnemyDirection = enemy.CFrame.Position - playerPos
-			local playerToEnemyDistanceSquared = Gears.SquaredMagnitude(playerToEnemyDirection)
+		-- Detect Enemy Humanoids
+		for _, hit in pairs(hits) do
+			-- print("Hit Part: " .. hit.Name)
+			local humanoid = Gears.FindHumanoidFromPart(hit)
+
+			if not humanoid or table.find(detectedEnemies, humanoid) then
+				continue
+			end
+
+			-- Enemy Hit
+			table.insert(detectedEnemies, humanoid)
+		end
+
+		-- Calculate Distance Player to Humanoids
+		for _, humanoid in pairs(detectedEnemies) do
+			local enemy = humanoid.Parent
+			local enemyPos = enemy.Torso.CFrame.Position
+
+			local playerToEnemyDirection = enemyPos - playerPos
+
+			-- local playerToEnemyDistanceSquared = Gears.SquaredMagnitude(playerToEnemyDirection)
+			local playerToEnemyDistanceSquared = vector.magnitude(playerToEnemyDirection)
 			MutState.playersDetections[userId][enemy] = playerToEnemyDistanceSquared
+
+			-- TODO : Calculate Normals
 		end
 	end
 end

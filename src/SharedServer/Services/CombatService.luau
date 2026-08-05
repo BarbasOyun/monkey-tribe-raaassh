@@ -70,7 +70,7 @@ local function rollAttackDamage(playerStats, isCrit)
 end
 
 -- Return a table of every unique humanoid in a Sphere
-local function hitsDetection(position, radius, param, charactersBanned)
+function CombatService.HitsDetection(position, radius, param, charactersBanned)
 	local hits = workspace:GetPartBoundsInRadius(position, radius, param)
 	local humanoidsHit = {} -- Unique Humanoids
 
@@ -109,10 +109,11 @@ local function getAttackPosition(player, weaponData)
 	local closestEnemy = CombatState.playersClosestEnemy[userId]
 
 	if closestEnemy then
-		local playerToEnemyDirection = vector.normalize(closestEnemy.CFrame.Position - playerPos)
+		local targetPart = closestEnemy.Head
+		local playerToEnemyNormal = vector.normalize(targetPart.CFrame.Position - playerPos)
 
 		local hitDistance = vector.magnitude(weaponData.attackPoint.WorldCFrame.Position - playerPos)
-		attackPosition = playerPos + playerToEnemyDirection * hitDistance
+		attackPosition = playerPos + playerToEnemyNormal * hitDistance
 	end
 
 	-- Adjust VFX pos
@@ -130,7 +131,7 @@ local function attackHit(player, playerStats, weaponData)
 	local attackPosition = getAttackPosition(player, weaponData)
 
 	-- Hits Detection
-	local hits = hitsDetection(attackPosition, playerStats.aoe, CONSTANTS.WEAPON_HIT_PARAM, { character })
+	local hits = CombatService.HitsDetection(attackPosition, playerStats.aoe, CONSTANTS.WEAPON_HIT_PARAM, { character })
 
 	local isCrit = rollCrit(playerStats)
 
@@ -263,7 +264,6 @@ end
 local function findClosestEnemies()
 	for _, player in pairs(Players:GetPlayers()) do
 		local userId = player.UserId
-
 		local playerDetection = MutState.playersDetections[userId]
 
 		if not playerDetection then
@@ -301,7 +301,7 @@ local function autoTarget(state)
 
 		-- Check closestDistance
 		-- > StartAttack
-		local targetDistance = vector.magnitude(closestEnemy.CFrame.Position - playerPos)
+		local targetDistance = vector.magnitude(closestEnemy:GetPivot().Position - playerPos)
 
 		local playerState = Selectors.PlayerState(state, userId)
 

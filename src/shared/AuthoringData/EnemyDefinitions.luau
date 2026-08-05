@@ -17,7 +17,7 @@ local LIFE_INCREMENT = 5
 local MOVEMENT_SPEED_INCREMENT = 1
 
 -- Endgame Setup = csv file
-local EnemiesDefinitions = {
+local EnemiesStats = {
 	{
 		Name = "Dummy",
 		MaxLife = 100,
@@ -27,6 +27,7 @@ local EnemiesDefinitions = {
 		MaxLife = 100,
 		Damage = 10,
 		AttackSpeed = 1,
+		Range = 10,
 		MovementSpeed = 5,
 	},
 }
@@ -71,7 +72,7 @@ local Archetypes = {
 
 local EnemyDefinitions = {
 	Enemies = Enemies,
-	EnemiesDefinitions = EnemiesDefinitions,
+	EnemiesStats = EnemiesStats,
 	EnemiesPrefabs = EnemiesPrefabs,
 	Archetypes = Archetypes,
 	MAX_MOVEMENT_SPEED = MAX_MOVEMENT_SPEED,

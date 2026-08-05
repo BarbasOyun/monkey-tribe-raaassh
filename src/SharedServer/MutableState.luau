@@ -9,7 +9,7 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 -- Get Constants
 local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 local Enemies = EnemyDefinitions.Enemies
-local EnemiesDefinitions = EnemyDefinitions.EnemiesDefinitions
+local EnemiesStats = EnemyDefinitions.EnemiesStats
 
 local CombatState = {
 	playersClosestEnemy = {},
@@ -29,10 +29,12 @@ local StatState = {
 
 local EnemyServiceState = {
 	enemiesDeathCount = 0,
-	currentRobotStats = Gears.DeepCopy(EnemiesDefinitions[Enemies.Robot]),
+	currentRobotStats = Gears.DeepCopy(EnemiesStats[Enemies.Robot]),
+	-- Stream Spawn
 	streamSpawnNbr = 2,
 	streamSpawnDelta = 0,
 	streamSpawnTimer = 0,
+	-- SwarmSpawn
 	swarmWaves = 0,
 	swarmSpawnTimer = 0,
 }
@@ -77,7 +79,10 @@ CustomStorageState.customProperties = {}
 
 -- MobBehavior
 local MobBehaviorStorageState = StorageState.new(5, "MobBehaviorStorageState")
+MobBehaviorStorageState.timer = 0
+MobBehaviorStorageState.timerDelta = 0.5
 MobBehaviorStorageState.target = {}
+-- MobBehaviorStorageState.damage = {}
 -- MobBehaviorStorageState.attackRange = {}
 
 local EcsState = {

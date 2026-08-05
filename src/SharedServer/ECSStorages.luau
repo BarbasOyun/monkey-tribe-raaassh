@@ -233,6 +233,7 @@ function UnitStorage.AddComponentToEntity(ecsState, entityId, definitionId, life
 	table.insert(storageState.life, life)
 	table.insert(storageState.lifeChanged, Signal.new())
 	table.insert(storageState.deathEvent, Signal.new())
+	table.insert(storageState.attackCd, 1)
 
 	return componentId
 end
@@ -383,18 +384,13 @@ function MobBehaviorStorage.GetState()
 	return EcsState.MobBehaviorStorageState
 end
 
-function MobBehaviorStorage.AddComponentToEntity(ecsState, entityId, PlayerService)
+function MobBehaviorStorage.AddComponentToEntity(ecsState, entityId)
 	local storageState = MobBehaviorStorage.GetState()
 
 	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
 
 	-- Register Properties
 	table.insert(storageState.target, nil)
-
-	-- Throttled Update : Target Detection + Attack Check (Distance, CD)
-	PlayerService.ThrottledUpdate:Connect(function(_state)
-		-- TODO
-	end)
 
 	return componentId
 end
@@ -424,6 +420,7 @@ local EcsStorages = {
 	UnitStorage,
 	LifeBarStorage,
 	CustomStorage,
+	MobBehaviorStorage,
 }
 
 return EcsStorages
