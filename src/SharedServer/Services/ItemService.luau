@@ -287,7 +287,7 @@ local function onUnequipped(weaponModel)
 
 	local player = weaponModel.Parent.Parent
 
-	if not player then
+	if not player or not player:IsA("Model") then
 		return
 	end
 

@@ -11,9 +11,7 @@ Knit.OnStart():await()
 local PlayerController = Knit.GetController("PlayerController")
 local player = Players.LocalPlayer
 
--- ROACT COMPONENTS
-
--- Image Component : ImageId, Pos, Size
+--- Image Component : ImageId, Pos, Size
 local function Image(props)
 	local position = props.position or UDim2.fromScale(0, 0)
 	local size = props.size or UDim2.fromScale(0.2, 0.2)
@@ -27,13 +25,14 @@ local function Image(props)
 	})
 end
 
+-- #region BANANAS COUNT
+
 local bananaImageProp = {
 	position = UDim2.fromScale(0.77, 0),
 	size = UDim2.fromScale(0.08, 0.18),
 	imageLink = "rbxassetid://92617984020165",
 }
 
--- Bananas Count
 local function Bananas(props)
 	local position = props.position or UDim2.fromScale(0, 0)
 	local size = props.size or UDim2.fromScale(0.2, 0.2)
@@ -67,7 +66,10 @@ BananasMain = RoactRodux.connect(function(state, props)
 	}
 end)(Bananas)
 
--- Score = Kills + Destruction
+-- #endregion
+
+-- #region SCORE = Kills + Destruction
+
 local function PlayerScore(props)
 	local position = props.position or UDim2.new(0, 0, 0, 0)
 	local size = props.size or UDim2.new(0.2, 0, 0.2, 0)
@@ -105,7 +107,10 @@ PlayerScoreMain = RoactRodux.connect(function(state, props)
 	}
 end)(PlayerScore)
 
--- ScoreBoard
+-- #endregion
+
+-- #region SCORE BOARD
+
 local function ScoreBoard(props)
 	local players = props.players
 	local playerScores = {}
@@ -150,6 +155,8 @@ ScoreBoard = RoactRodux.connect(function(state, props)
 		players = players,
 	}
 end)(ScoreBoard)
+
+-- #endregion
 
 -- App
 local app = Roact.createElement(RoactRodux.StoreProvider, {

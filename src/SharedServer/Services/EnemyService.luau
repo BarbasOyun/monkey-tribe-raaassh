@@ -28,14 +28,16 @@ local EnemyServiceState = MutState.EnemyServiceState
 local EcsState = MutState.EcsState
 
 -- Get Services
-local PlayerService
+local LevelService
 local RpgService
 local EcsService
 local ItemService
 
 local EnemyService = Knit.CreateService({
 	Name = "EnemyService",
-	-- Client = {},
+	Client = {
+		EnemyLevelUpdate = Knit.CreateSignal(),
+	},
 })
 
 -- #region ENEMIES ON SPAWN
@@ -81,7 +83,8 @@ end
 ]]
 
 local defaultOnDeath = function(character, player)
-	EnemyService.Dismember(character)
+	-- EnemyService.Dismember(character)
+	EnemyService.TDismember(character)
 	task.wait(1)
 	EcsService.DisableEntity(character:GetAttribute("EntityId"))
 end
@@ -320,11 +323,11 @@ function EnemyService.GetSpawnPosition(position)
 	local radius = Gears.RandomRange(EnemyConst.SPAWN_RADIUS, EnemyConst.SPAWN_RADIUS_RANGE)
 	local progress = math.random(0, CONSTANTS.MAX_RADIANT)
 	local circlePos = Gears.CirclePos(radius, progress)
+
 	local pos = position + Vector3.new(circlePos.X, 0, circlePos.Y) -- Circle around Pos
+	local usePos = LevelService.KeepPointInLimits(pos)
 
-	-- TODO : Keep OOB
-
-	return pos
+	return usePos
 end
 
 --- return player
@@ -357,7 +360,7 @@ end
 
 --- Get the Body Parts of a R6 Model
 function EnemyService.GetBodyParts(character)
-	local torso = character.Torso
+	local torso = character.Torso or character.UpperTorso
 	local head = character.Head
 	local leftArm = character:FindFirstChild("Left Arm")
 	local leftLeg = character:FindFirstChild("Left Leg")
@@ -423,6 +426,29 @@ function EnemyService.Dismember(character)
 	leftLeg.CanCollide = true
 	rightArm.CanCollide = true
 	rightLeg.CanCollide = true
+end
+
+function EnemyService.TDismember(character)
+	-- Enable Collisions
+	local torso, head, leftArm, leftLeg, rightArm, rightLeg = EnemyService.GetBodyParts(character)
+
+	leftArm.CanCollide = true
+	leftLeg.CanCollide = true
+	rightArm.CanCollide = true
+	rightLeg.CanCollide = true
+
+	-- Disable Joints
+	for Index, Child in pairs(character:GetChildren()) do
+		print(Child)
+		if Child:IsA("Motor6D") then
+			Child.Enabled = false
+		end
+
+		-- Recursive
+		if #Child:GetChildren() > 0 then
+			EnemyService.TDismember(Child)
+		end
+	end
 end
 
 --- Reset a Character so that it can be enabled again (Object Pooling)
@@ -494,6 +520,12 @@ function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 end
 
 function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
+	-- Check Enemies Global Lvl
+	local isLvlBreakpointReached = EnemyServiceState.enemiesDeathCount % EnemyConst.ENEMY_LVL_UP_BREAKPOINT == 0
+	if isLvlBreakpointReached then
+		EnemyService.LevelUpEnemies()
+	end
+
 	-- TODO : Check if userId is nil -> attribute the kill to nearest Player
 	-- Rewards
 	ItemService.GenerateLoot(player, humanoid)
@@ -512,11 +544,42 @@ function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	end
 end
 
--- #endregion
+--- Increment Enemies Stats
+function EnemyService.LevelUpEnemies()
+	local state = Store:getState()
+	local globaleEnemyLvl = state.gameState.globaleEnemyLvl + 1
 
--- #region UPDATE
+	-- Increment Global Stats
+	local currentRobotStats = EnemyServiceState.currentRobotStats
 
--- TODO : AttackValidation
+	-- Offense
+	currentRobotStats.Damage += EnemyDefinitions.DAMAGE_INCREMENT
+
+	-- Defense
+	currentRobotStats.MaxLife += EnemyDefinitions.LIFE_INCREMENT
+
+	-- Utils
+	local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
+	local newMs = movementSpeed + EnemyDefinitions.MOVEMENT_SPEED_INCREMENT
+	movementSpeed = math.clamp(newMs, 0, EnemyDefinitions.MAX_MOVEMENT_SPEED)
+
+	-- MAYBE : Mutate Existing Entities
+
+	-- Level Breakpoints (Every X Levels)
+	local isBreakPointReached = globaleEnemyLvl % EnemyConst.STREAM_SPAWN_LVL_BREAKPOINT == 0
+
+	if isBreakPointReached then
+		EnemyServiceState.streamSpawnNbr += 1
+	end
+
+	-- Update State
+	local patch = { globaleEnemyLvl = globaleEnemyLvl }
+	Store:dispatch(StoreActions.PatchGameState(patch))
+
+	EnemyService.Client.EnemyLevelUpdate:FireAll(globaleEnemyLvl)
+end
+
+-- TODO : AttackValidation + AttackCtx
 
 function EnemyService.Attack(entityId, enemy, player)
 	local robotStats = EnemiesStats[Enemies.Robot]
@@ -533,12 +596,16 @@ function EnemyService.Attack(entityId, enemy, player)
 		return
 	end
 
-	warn(entityId .. " Robot Attack")
+	-- warn(entityId .. " Robot Attack")
 	UnitStorageState.attackCd[unitId] = 0
 	RpgService.DamagePlayer(player, robotStats.Damage)
 end
 
-function EnemyService.MoveToPlayers()
+-- #endregion
+
+-- #region UPDATE
+
+function EnemyService.MobBehavior()
 	local robotStats = EnemiesStats[Enemies.Robot]
 
 	for _, entityId in pairs(EcsState.MobBehaviorStorageState.entities) do
@@ -550,21 +617,21 @@ function EnemyService.MoveToPlayers()
 		local targetPlayer, distance = EnemyService.GetNearestPlayer(enemy)
 		local humanoid = enemy.Humanoid
 
-		-- if Target found : Attack or Move to
-		if targetPlayer then
-			local isWithinRange = distance <= robotStats.Range
-
-			if isWithinRange then
-				EnemyService.Attack(entityId, enemy, targetPlayer)
-				continue
-			end
-
-			humanoid:MoveTo(targetPlayer.character:GetPivot().Position)
+		if not targetPlayer then
+			-- Stop if no target found
+			humanoid:MoveTo(enemy.HumanoidRootPart.Position)
 			continue
 		end
 
-		-- Stop if no target found
-		humanoid:MoveTo(enemy.HumanoidRootPart.Position)
+		-- Target found : Attack or Move to
+		local isWithinRange = distance <= robotStats.Range
+
+		if isWithinRange then
+			EnemyService.Attack(entityId, enemy, targetPlayer)
+			continue
+		end
+
+		humanoid:MoveTo(targetPlayer.character:GetPivot().Position)
 	end
 end
 
@@ -580,7 +647,7 @@ function EnemyService.StartMobBehavior()
 			-- Reset Timer
 			EcsState.MobBehaviorStorageState.timer = 0
 
-			EnemyService.MoveToPlayers()
+			EnemyService.MobBehavior()
 		end
 
 		-- Attack CD
@@ -691,37 +758,6 @@ function EnemyService.StartSwarmSpawn()
 	end)
 end
 
---- Increment Enemies Stats
-function EnemyService.LevelUpEnemies()
-	local state = Store:getState()
-
-	local globalEnemiesLevel = state.gameState.globalEnemiesLevel + 1
-
-	-- Increment Global Stats
-	local currentRobotStats = EnemyServiceState.currentRobotStats
-
-	currentRobotStats.Damage += EnemyDefinitions.DAMAGE_INCREMENT
-
-	currentRobotStats.MaxLife += EnemyDefinitions.LIFE_INCREMENT
-
-	local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
-	local newMs = movementSpeed + EnemyDefinitions.MOVEMENT_SPEED_INCREMENT
-	movementSpeed = math.clamp(newMs, 0, EnemyDefinitions.MAX_MOVEMENT_SPEED)
-
-	-- MAYBE : Mutate Existing Entities
-
-	-- Level Breakpoints (Every X Levels)
-	local isBreakPointReached = globalEnemiesLevel % EnemyConst.STREAM_SPAWN_LVL_BREAKPOINT == 0
-
-	if isBreakPointReached then
-		EnemyServiceState.streamSpawnNbr += 1
-	end
-
-	-- Update State
-	local patch = { globalEnemiesLevel = globalEnemiesLevel }
-	Store:dispatch(StoreActions.PatchGameState(patch))
-end
-
 -- #endregion
 
 -- SERVICE
@@ -731,7 +767,7 @@ function EnemyService:KnitInit()
 end
 
 function EnemyService:KnitStart()
-	PlayerService = Knit.GetService("PlayerService")
+	LevelService = Knit.GetService("LevelService")
 	RpgService = Knit.GetService("RpgService")
 	EcsService = Knit.GetService("EcsService")
 	ItemService = Knit.GetService("ItemService")

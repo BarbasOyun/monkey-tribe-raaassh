@@ -27,7 +27,7 @@ local EnemiesStats = {
 		MaxLife = 100,
 		Damage = 10,
 		AttackSpeed = 1,
-		Range = 10,
+		Range = 9,
 		MovementSpeed = 5,
 	},
 }

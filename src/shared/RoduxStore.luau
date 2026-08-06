@@ -9,7 +9,9 @@ local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefi
 
 -- Immutable Default Game State
 local gameState = {
-	globalEnemiesLevel = 1,
+	globaleEnemyLvl = 1,
+	minLimit = Vector2.new(-100, -100),
+	maxLimit = Vector2.new(100, 100),
 }
 
 -- #region SELECTORS
@@ -44,11 +46,11 @@ local Selectors = {
 -- #region RODUX ACTIONS
 
 local Actions = {
-	SetGameState = function(gameState, userId)
+	SetWorldState = function(userId, worldState)
 		return {
-			type = "SetGameState",
-			gameState = gameState,
+			type = "SetWorldState",
 			userId = userId,
+			worldState = worldState,
 		}
 	end,
 
@@ -215,7 +217,7 @@ local playerReducer = Rodux.createReducer({}, {
 
 local gameStateReducer = Rodux.createReducer({}, {
 	PatchGameState = function(state, action)
-		local gameState = table.clone(state) or gameState
+		-- local gameState = table.clone(state) or gameState
 
 		local patch = action.patch
 
@@ -224,6 +226,7 @@ local gameStateReducer = Rodux.createReducer({}, {
 
 			if not property then
 				warn("Key : " .. key .. " Doesn't exist in GameState")
+				return
 			end
 
 			gameState[key] = value
@@ -244,18 +247,10 @@ local rootReducer = Rodux.combineReducers({
 })
 
 local function masterReducer(state, action)
-	if action.type == "SetGameState" then
-		local players = table.clone(state.players) or {}
-		local gamePlayers = action.gameState.players -- playerList from the server
+	if action.type == "SetWorldState" then
+		local worldState = action.worldState
 
-		for userId, player in pairs(gamePlayers) do
-			players[userId] = player
-		end
-
-		return {
-			players = players,
-			-- Other game data
-		}
+		return worldState
 	end
 
 	return rootReducer(state, action)

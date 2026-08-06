@@ -12,7 +12,7 @@ local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
--- Get Rodux Store
+-- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
 local StoreActions = RoduxStore.Actions
@@ -29,9 +29,9 @@ local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
 
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
-	MutState = MutState,
 	PlayerAdded = Signal.new(),
 	PlayerRemoved = Signal.new(),
+	PlayerDied = Signal.new(),
 	BananasChanged = Signal.new(),
 	StateUpdate = Signal.new(),
 	ThrottledUpdate = Signal.new(),
@@ -120,24 +120,6 @@ end
 
 function PlayerService.Client.ToggleMusic(player, isEnabled)
 	Store:dispatch(StoreActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
-end
-
--- Prevent Players from going OOB
-function PlayerService.LimitInBound(limit)
-	RunService.Heartbeat:Connect(function()
-		for _, player in pairs(Players:GetPlayers()) do
-			local character = player.Character or player.CharacterAdded:Wait()
-			local root = character.Humanoid.HumanoidRootPart
-
-			local pos = root.Position
-			local flatPos = Vector2.new(pos.X, pos.Z) -- Check 2D distance
-
-			if flatPos.Magnitude > CONSTANTS.MAX_DISTANCE then -- TODO : Squared Magnitude
-				character:PivotTo(CFrame.new(Vector3.zero))
-				root.AssemblyLinearVelocity = Vector3.zero -- Reset momentum
-			end
-		end
-	end)
 end
 
 -- #endregion
@@ -256,7 +238,6 @@ end
 -- #endregion
 
 -- GAME
--- TODO : Move to GameManager
 
 function PlayerService.GameOver()
 	print("Game Over -> Saving Bananas & Going back to Hub")
@@ -273,15 +254,7 @@ function PlayerService.GameOver()
 	end)
 end
 
-function PlayerService.OnPlayerDeath(player)
-	print(player.Name .. " died -> Waiting Next Stage to respawn...")
-	local userId = player.UserId
-
-	-- Events.PlayerDied:FireClient(player) -- TODO : Event
-
-	local patch = { isDead = true }
-	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
-
+function PlayerService.CheckGameOver()
 	local state = Store:getState()
 	local players = state.players
 
@@ -296,6 +269,23 @@ function PlayerService.OnPlayerDeath(player)
 	if deadPlayersCount >= #players then
 		PlayerService.GameOver()
 	end
+end
+
+function PlayerService.KillPlayer(player)
+	-- TODO : Custom Death = Dismember, Disable controls
+	player.character.Humanoid.Health = 0
+
+	print(player.Name .. " died -> Waiting Next Stage to respawn...")
+	local userId = player.UserId
+
+	local patch = { isDead = true }
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+
+	PlayerService.PlayerDied:Fire()
+	-- Events.PlayerDied:FireClient(player) -- TODO : Client Event
+
+	-- TODO : CheckGameOver COnnect to playerDeadEVent on GameManager
+	-- PlayerService.CheckGameOver()
 end
 
 -- #region CURRENCIES
@@ -377,7 +367,7 @@ local function enemiesDetection(state)
 		-- Gears.DisplayHitBox(position, 10, 0.1)
 
 		-- Get the Squared Distance Player -> Enemy
-		local hits = workspace:GetPartBoundsInRadius(playerPos, 50, CONSTANTS.DETECTION_PARAM)
+		local hits = workspace:GetPartBoundsInRadius(playerPos, CONSTANTS.DETECTION_RADIUS, CONSTANTS.DETECTION_PARAM)
 		local detectedEnemies = {} -- Unique Humanoids
 
 		-- Detect Enemy Humanoids

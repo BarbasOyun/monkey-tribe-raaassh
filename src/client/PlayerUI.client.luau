@@ -49,7 +49,9 @@ local function image(props)
 	})
 end
 
--- Main Gui
+-- #endregion
+
+-- #region MAIN GUI MISC
 
 -- Bananas Count
 local bananaImageProps = {
@@ -76,67 +78,10 @@ end)(textLabel)
 
 local enteringGameLabel = require(ReplicatedStorage.Shared.Components.EnteringGame)
 
--- Augments Panel + LevelUp
-local augmentPanel = require(ReplicatedStorage.Shared.Components.AugmentPanel)
+-- #endregion
 
-AugmentPanel = RoactRodux.connect(function(state, props)
-	local isVisible = false
-	local augments = {}
+-- #region RESOURCE BARS
 
-	local playerState = Selectors.PlayerState(state, player.UserId)
-
-	if playerState then
-		isVisible = playerState.state == "PickingAugment"
-		augments = playerState.currentAugments
-	end
-
-	return {
-		isVisible = isVisible,
-		augments = augments,
-	}
-end)(augmentPanel)
-
-local function levelUpLabel(props)
-	if not props.isVisible then
-		return nil
-	end
-
-	local waitingLevel = props.waitingLevel
-
-	return Roact.createElement("Frame", {
-		Position = UDim2.fromScale(0.0, 0.8),
-		Size = UDim2.fromScale(0.15, 0.2),
-		BackgroundColor3 = Color3.new(0.75, 0.75, 0.0),
-	}, {
-		Label = textLabel({
-			text = "Lvl Up (A) +" .. waitingLevel,
-			textColor = Color3.new(0, 0, 0),
-			transparency = 1,
-			position = UDim2.fromScale(0.05, 0.05),
-			size = UDim2.fromScale(0.9, 0.9),
-			textStrokeTransparency = 1,
-		}),
-	})
-end
-
-LevelUpLabel = RoactRodux.connect(function(state, props)
-	local isVisible = false
-	local waitingLevel = 0
-
-	local playerState = Selectors.PlayerState(state, player.UserId)
-
-	if playerState then
-		waitingLevel = playerState.waitingLevel
-		isVisible = waitingLevel > 0
-	end
-
-	return {
-		isVisible = isVisible,
-		waitingLevel = waitingLevel,
-	}
-end)(levelUpLabel)
-
--- Resource Bars
 XpBar = RoactRodux.connect(function(state, props)
 	local currentXp = 0
 	local xpRequired = 10
@@ -179,6 +124,71 @@ local lifeBar = resourceBar({
 	resourceName = "Life",
 })
 
+-- #endregion
+
+-- #region LVL UP + AUGMENTS PANEL
+
+local function levelUpLabel(props)
+	if not props.isVisible then
+		return nil
+	end
+
+	local waitingLevel = props.waitingLevel
+
+	return Roact.createElement("Frame", {
+		Position = UDim2.fromScale(0.0, 0.8),
+		Size = UDim2.fromScale(0.15, 0.2),
+		BackgroundColor3 = Color3.new(0.75, 0.75, 0.0),
+	}, {
+		Label = textLabel({
+			text = "Lvl Up (A) +" .. waitingLevel,
+			textColor = Color3.new(0, 0, 0),
+			transparency = 1,
+			position = UDim2.fromScale(0.05, 0.05),
+			size = UDim2.fromScale(0.9, 0.9),
+			textStrokeTransparency = 1,
+		}),
+	})
+end
+
+LevelUpLabel = RoactRodux.connect(function(state, props)
+	local isVisible = false
+	local waitingLevel = 0
+
+	local playerState = Selectors.PlayerState(state, player.UserId)
+
+	if playerState then
+		waitingLevel = playerState.waitingLevel
+		isVisible = waitingLevel > 0
+	end
+
+	return {
+		isVisible = isVisible,
+		waitingLevel = waitingLevel,
+	}
+end)(levelUpLabel)
+
+local augmentPanel = require(ReplicatedStorage.Shared.Components.AugmentPanel)
+
+AugmentPanel = RoactRodux.connect(function(state, props)
+	local isVisible = false
+	local augments = {}
+
+	local playerState = Selectors.PlayerState(state, player.UserId)
+
+	if playerState then
+		isVisible = playerState.state == "PickingAugment"
+		augments = playerState.currentAugments
+	end
+
+	return {
+		isVisible = isVisible,
+		augments = augments,
+	}
+end)(augmentPanel)
+
+-- #endregion
+
 -- Controls
 local controlsText = textLabel({
 	text = "WASD = Movements\nSpace = Jump\n123... = Equip Weapon\nA = Open Augment Menu\nF = Center Camera\nT = Toggle Music",
@@ -203,7 +213,30 @@ local thousandDonationProps = {
 	end,
 }
 
--- #endregion
+-- TEST IN GAME UI
+-- TODO : Move to Game UI
+-- Global Enemy Lvl Display
+
+local robotImageProps = {
+	position = UDim2.fromScale(0.05, 0),
+	size = UDim2.fromScale(0.08, 0.18),
+	imageLink = "rbxassetid://130840043704422",
+}
+
+globalEnemyLvlText = RoactRodux.connect(function(state, props)
+	-- mapStateToProps
+	local globalEnemyLvl = 1
+
+	if state.gameState.globalEnemyLvl then
+		globalEnemyLvl = state.gameState.globalEnemyLvl
+	end
+
+	return {
+		position = UDim2.fromScale(0.1, 0),
+		size = UDim2.fromScale(0.2, 0.2),
+		text = "Lvl " .. globalEnemyLvl,
+	}
+end)(textLabel)
 
 -- #region FINAL GUIS
 
@@ -216,6 +249,9 @@ local function mainGui()
 		AugmentPanel = Roact.createElement(AugmentPanel),
 		XpBar = Roact.createElement(XpBar),
 		LifeBar = lifeBar,
+		-- Test Game Gui
+		RobotImage = image(robotImageProps),
+		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
 	})
 end
 
@@ -266,7 +302,7 @@ Roact.mount(app, playerGui)
 
 -- #endregion
 
--- #region AFTER UI IS CREATED
+-- #region AFTER UI CREATION
 
 -- LifeBar Update
 local lBar = playerGui.RoactTree.MainGui.LifeBar[2]

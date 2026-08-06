@@ -25,6 +25,9 @@
             "StarterPlayerScripts": {
                 "Client": {
                     "$path": "src/game/client"
+                },
+                "SharedClient": {
+                    "$path": "src/SharedClient"
                 }
             }
         },

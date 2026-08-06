@@ -16,10 +16,13 @@ local Enemies = enemyDef.Enemies
 
 -- Get Services
 local PlayerService = Knit.GetService("PlayerService")
+local LevelService = Knit.GetService("LevelService")
+
 local RpgService = Knit.GetService("RpgService")
 local AugmentsService = Knit.GetService("AugmentsService")
-local EnemyService = Knit.GetService("EnemyService")
+
 local EcsService = Knit.GetService("EcsService")
+local EnemyService = Knit.GetService("EnemyService")
 -- local ItemService = Knit.GetService("ItemService")
 
 -- Platforms tp
@@ -211,6 +214,16 @@ end)
 ]]
 end
 
+local function setupLevel()
+	local minLimitPart = workspace.Map.Limits.MinLimit
+	local maxLimitPart = workspace.Map.Limits.MaxLimit
+
+	local minLimit = LevelService.ToFlatVector(minLimitPart.CFrame.Position)
+	local maxLimit = LevelService.ToFlatVector(maxLimitPart.CFrame.Position)
+
+	LevelService.SetLimits(minLimit, maxLimit)
+end
+
 local function setupEnemies()
 	-- Load Enemies
 	EnemyService.AddArchetype(Enemies.Dummy)
@@ -232,9 +245,9 @@ local function setupEnemies()
 	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos4)
 
 	-- Start Spawning Mobs
-	-- EnemyService.StartStreamSpawn()
-	-- EnemyService.StartSwarmSpawn()
-	EnemyService.StartMobBehavior()
+	EnemyService.StartStreamSpawn()
+	EnemyService.StartSwarmSpawn()
+	-- EnemyService.StartMobBehavior()
 end
 
 Players.PlayerAdded:Connect(function(player)
@@ -266,6 +279,7 @@ end)
 
 -- Setup Services
 setupPlayerService()
+setupLevel()
 setupRpgService()
 
 -- Hub Setup

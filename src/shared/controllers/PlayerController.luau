@@ -16,8 +16,12 @@ local StoreActions = RoduxStore.Actions
 
 -- Get Services
 local PlayerService
+local LevelService
+local EnemyService
+
 local RpgService
 local AugmentsService
+
 local CombatService
 local ItemService
 
@@ -40,7 +44,7 @@ local visualLife = 0
 local serverLife = 0
 
 -- Sounds
-local soundFolder = playerGui.ClientSounds
+local soundFolder = playerGui.ClientSounds -- TODO : Shared CONSTANTS
 local getOrbSound = soundFolder.GetOrb
 local enteringGameSound = soundFolder.EnteringGame
 local levelUpSound = soundFolder.LevelUp
@@ -55,8 +59,8 @@ local isLClickDown = false
 local PlayerController = Knit.CreateController({
 	Name = "PlayerController",
 	SoundFolder = soundFolder,
-	LifeUpdate = Signal.new(),
 	StateUpdate = Signal.new(),
+	LifeUpdate = Signal.new(),
 	-- Stores
 	STATS_STORE = statsDefinition.STATS_STORE,
 	MOD_STATS_STORE = statsDefinition.MOD_STATS_STORE,
@@ -116,7 +120,8 @@ local function toggleMusic(isEnabled)
 		music:Stop()
 	end
 
-	Store:dispatch(StoreActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
+	local patch = { isMusicEnabled = isEnabled }
+	Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
 	PlayerService:ToggleMusic(isEnabled)
 end
 
@@ -184,20 +189,20 @@ local function setupPlayerService()
 	-- Players Join/Leave
 
 	-- On joining game -> Replicate Server Game State
-	PlayerService.ReplicateStore:Connect(function(gameState)
-		-- converte string key to number
+	PlayerService.ReplicateStore:Connect(function(worldState)
+		-- Convert string UserIds back to number
 		-- TODO : use RunService:IsStudio to run only in editor
 		local players = {}
 
-		for userId, player in pairs(gameState.players) do
+		for userId, player in pairs(worldState.players) do
 			players[tonumber(userId)] = player
 		end
 
-		gameState.players = players
+		worldState.players = players
 
-		-- print("Replicating gameState from Server :")
-		-- print(gameState)
-		Store:dispatch(StoreActions.SetGameState(gameState, player.UserId))
+		-- print("Replicating worldState from Server :")
+		-- print(worldState)
+		Store:dispatch(StoreActions.SetWorldState(player.UserId, worldState))
 	end)
 
 	-- Players Added & Removed
@@ -232,7 +237,7 @@ local function setupRpgService()
 		serverLife = life
 	end)
 
-	-- Level
+	-- Level Up
 	RpgService.LevelUp:Connect(function(patch)
 		levelUpSound:Play()
 		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
@@ -280,18 +285,32 @@ local function setupItemService()
 	end)
 end
 
+function PlayerController.SetupEnemyService()
+	EnemyService.EnemyLevelUpdate(function(globalEnemyLevel)
+		local patch = { globaleEnemyLvl = globalEnemyLevel }
+		Store:dispatch(StoreActions.PatchGameState(patch))
+	end)
+end
+
 -- #endregion
 
-local function stateUpdate()
-	local state = Store:getState() -- Get state once every frame
+-- #region UPDATE
 
-	PlayerController.StateUpdate:Fire(state)
-
+function PlayerController.UpdateLife(state)
 	visualLife = math.lerp(visualLife, serverLife, 0.1)
 
 	-- Apply to UI
 	PlayerController.LifeUpdate:Fire(state, visualLife)
 end
+
+local function stateUpdate()
+	local state = Store:getState() -- Get state once every frame
+
+	PlayerController.UpdateLife(state)
+	PlayerController.StateUpdate:Fire(state)
+end
+
+-- #endregion
 
 -- Start Controller
 function PlayerController:KnitInit()
@@ -303,8 +322,12 @@ end
 
 function PlayerController:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
+	LevelService = Knit.GetService("LevelService")
+	EnemyService = Knit.GetService("EnemyService")
+
 	RpgService = Knit.GetService("RpgService")
 	AugmentsService = Knit.GetService("AugmentsService")
+
 	CombatService = Knit.GetService("CombatService")
 	ItemService = Knit.GetService("ItemService")
 
@@ -324,6 +347,7 @@ function PlayerController:KnitStart()
 		music:Play()
 	end
 
+	-- Start StateUpdate
 	RunService.Heartbeat:Connect(stateUpdate)
 end
 

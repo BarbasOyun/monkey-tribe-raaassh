@@ -11,13 +11,8 @@ local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDef
 local Enemies = EnemyDefinitions.Enemies
 local EnemiesStats = EnemyDefinitions.EnemiesStats
 
-local CombatState = {
-	playersClosestEnemy = {},
-	expectingAttack = {},
-	attackBuffer = {},
-	lastAttacks = {},
-	comboIndexes = {}, -- For Weapon Animation
-	comboReset = {},
+local LevelState = {
+	stageProgress = 0,
 }
 
 local StatState = {
@@ -102,9 +97,19 @@ local EcsState = {
 
 -- #endregion
 
+local CombatState = {
+	playersClosestEnemy = {},
+	expectingAttack = {},
+	attackBuffer = {},
+	lastAttacks = {},
+	comboIndexes = {}, -- For Weapon Animation
+	comboReset = {},
+}
+
 local MutState = {
 	frameCount = 0,
 	playersDetections = {}, -- TODO : Flatten -> use playersDetectionCount
+	LevelState = LevelState,
 	CombatState = CombatState,
 	StatState = StatState,
 	EnemyServiceState = EnemyServiceState,

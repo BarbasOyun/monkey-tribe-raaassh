@@ -7,13 +7,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Get Authoring Data
 -- local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
-local MAX_RADIANT = math.pi * 2
-
--- Folders
-local WEAPON_HIT_FOLDER = workspace.WeaponHit
-local PREFABS_FOLDER = ReplicatedStorage.Shared.Prefabs
-local DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities
-
 -- #region Player
 
 -- TODO : Rename (enum)
@@ -58,6 +51,7 @@ local DETECTION_PARAM = OverlapParams.new()
 DETECTION_PARAM.FilterType = Enum.RaycastFilterType.Include
 DETECTION_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
 DETECTION_PARAM.MaxParts = 500
+local DETECTION_RADIUS = 100
 
 -- #endregion
 
@@ -68,6 +62,8 @@ WEAPON_HIT_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
 WEAPON_HIT_PARAM.MaxParts = 100
 
 local EnemyConst = {
+	ENEMY_LVL_UP_BREAKPOINT = 30,
+
 	-- Spawn
 	SPAWN_RADIUS = 20,
 	SPAWN_RADIUS_RANGE = 20,
@@ -129,19 +125,18 @@ type Constants = {
 }
 --]]
 
--- : Constants
 local CONSTANTS = {
-	MAX_RADIANT = MAX_RADIANT,
+	MAX_RADIANT = math.pi * 2,
 	HUB_PLACE_ID = 95975992291805,
 	THROTTLED_UPDATE_FRAMES = 5,
-	MAX_DISTANCE = 250,
 	-- Folders
-	PREFABS_FOLDER = PREFABS_FOLDER,
-	WEAPON_HIT_FOLDER = WEAPON_HIT_FOLDER,
-	DISABLED_ENTITIES_FOLDER = DISABLED_ENTITIES_FOLDER,
+	PREFABS_FOLDER = ReplicatedStorage.Shared.Prefabs,
+	WEAPON_HIT_FOLDER = workspace.WeaponHit,
+	DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities,
 	-- Overlap Param
 	AUTO_PICKUP_PARAM = AUTO_PICKUP_PARAM,
 	DETECTION_PARAM = DETECTION_PARAM,
+	DETECTION_RADIUS = DETECTION_RADIUS,
 	WEAPON_HIT_PARAM = WEAPON_HIT_PARAM,
 	-- Enums
 	PLAYER_STATES = PLAYER_STATES,

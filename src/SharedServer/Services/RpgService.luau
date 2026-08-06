@@ -77,9 +77,16 @@ function RpgService.RegisterLife(player)
 end
 
 function RpgService.DamagePlayer(player, damage)
+	assert(damage > 0, "Damage needs to be greater than 0")
+
 	local userId = player.UserId
 
-	StatState.playersLife[userId] -= damage
+	local life = StatState.playersLife[userId] - damage
+	StatState.playersLife[userId] = math.max(life, 0)
+
+	if life <= 0 then
+		PlayerService.KillPlayer(player)
+	end
 end
 
 -- #endregion
