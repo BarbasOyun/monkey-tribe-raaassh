@@ -9,9 +9,10 @@ local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefi
 
 -- Immutable Default Game State
 local gameState = {
-	globaleEnemyLvl = 1,
+	globalEnemyLvl = 1,
 	minLimit = Vector2.new(-100, -100),
 	maxLimit = Vector2.new(100, 100),
+	currentEvents = {},
 }
 
 -- #region SELECTORS

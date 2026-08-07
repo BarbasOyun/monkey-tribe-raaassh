@@ -13,7 +13,9 @@ local Selectors = RoduxStore.Selectors
 local StoreActions = RoduxStore.Actions
 
 -- Get Constants
--- local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+local RpgConst = CONSTANTS.RpgConst
+
 local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
 local STATS_STORE = statsDefinition.STATS_STORE
@@ -109,7 +111,9 @@ local function levelUp(state, player, currentXp)
 	while overXp >= newXpRequired do
 		overXp = overXp - newXpRequired
 		newWaitingLevel += 1
-		newXpRequired = math.floor(newXpRequired + 3 * 1.1)
+
+		-- New XP Formula
+		newXpRequired = math.floor(newXpRequired + RpgConst.ADDITIONAL_XP * RpgConst.MULTIPLIER_XP)
 	end
 
 	-- Patch

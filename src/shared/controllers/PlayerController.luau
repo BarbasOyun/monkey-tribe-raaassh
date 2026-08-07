@@ -17,7 +17,6 @@ local StoreActions = RoduxStore.Actions
 -- Get Services
 local PlayerService
 local LevelService
-local EnemyService
 
 local RpgService
 local AugmentsService
@@ -226,6 +225,10 @@ local function setupPlayerService()
 		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
 	end)
 
+	PlayerService.PatchGameState:Connect(function(patch)
+		Store:dispatch(StoreActions.PatchGameState(patch))
+	end)
+
 	PlayerService.EnteringGame:Connect(function()
 		enteringGameSound:Play()
 	end)
@@ -285,13 +288,6 @@ local function setupItemService()
 	end)
 end
 
-function PlayerController.SetupEnemyService()
-	EnemyService.EnemyLevelUpdate(function(globalEnemyLevel)
-		local patch = { globaleEnemyLvl = globalEnemyLevel }
-		Store:dispatch(StoreActions.PatchGameState(patch))
-	end)
-end
-
 -- #endregion
 
 -- #region UPDATE
@@ -323,7 +319,6 @@ end
 function PlayerController:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 	LevelService = Knit.GetService("LevelService")
-	EnemyService = Knit.GetService("EnemyService")
 
 	RpgService = Knit.GetService("RpgService")
 	AugmentsService = Knit.GetService("AugmentsService")

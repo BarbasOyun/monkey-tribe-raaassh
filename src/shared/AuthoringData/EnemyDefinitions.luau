@@ -25,7 +25,7 @@ local EnemiesStats = {
 	{
 		Name = "Robot",
 		MaxLife = 100,
-		Damage = 10,
+		Damage = 3,
 		AttackSpeed = 1,
 		Range = 9,
 		MovementSpeed = 5,

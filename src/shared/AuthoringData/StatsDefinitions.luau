@@ -154,7 +154,7 @@ local DEFAULT_MOD_STATS: ModStats = {
 
 local DEFAULT_PLAYER: Player = {
 	username = "",
-	state = "Playing",
+	state = "Playing", -- TODO : rename logicState
 	isMusicEnabled = true,
 	isDead = false,
 	-- Currencies

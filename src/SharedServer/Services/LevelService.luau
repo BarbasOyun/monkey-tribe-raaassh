@@ -9,6 +9,10 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 -- Get Constants
 -- local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
+local LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
+local Maps = LevelDefinitions.Maps
+local Events = LevelDefinitions.Events
+
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
@@ -21,6 +25,8 @@ local LevelState = MutState.LevelState
 
 -- Get Services
 local PlayerService
+local EnemyService
+local ItemService
 
 local LevelService = Knit.CreateService({
 	Name = "LevelService",
@@ -101,13 +107,21 @@ end
 
 -- #endregion
 
--- #region Stage + Map Generation
+-- #region STAGE
 
+--- Start a New Stage
 function LevelService.StartStage()
 	LevelState.stageProgress = 0
-	LevelService.GenerateMap()
+	LevelState.currentMapId = math.random(1, #Maps)
 
-	-- TODO : ItemService.ClearGroundItems
+	LevelService.GenerateEvents()
+	-- LevelService.GenerateMap()
+end
+
+function LevelService.ResetLevel()
+	LevelService.ClearBuildings()
+
+	ItemService.ClearGroundItems()
 
 	-- Reset every players Pos
 	for _, player in pairs(Players:GetPlayers()) do
@@ -115,15 +129,119 @@ function LevelService.StartStage()
 	end
 end
 
-function LevelService.GenerateSwarmWaves()
-	-- TODO : Roll 3 or 4
+--- Called on destroying Building
+function LevelService.ProgressStage()
+	if LevelState.isWaitingForNextStage then
+		return
+	end
+
+	LevelState.partsCount += 1
+	local stageProgress = LevelState.partsCount / LevelState.totalParts
+
+	LevelService.CheckEvents(stageProgress)
+
+	-- Is Stage Finished
+	if stageProgress >= 1 then
+		LevelService.FinishStage()
+	end
 end
 
-function LevelService.ProgressStage()
+function LevelService.FinishStage()
+	-- TODO
+	-- Start Countdown
+	-- Stage Increments
+	-- stageBuildingNbr = math.clamp(stageBuildingNbr + ADDITIONAL_BUILDINGS, 0, BUILDING_LIMIT)
+
+	task.wait()
+	LevelService.ResetLevel()
+	LevelService.StartStage()
+end
+
+-- #endregion
+
+-- #region EVENTS
+
+local EventsLogic = {
+	-- Swarm
+	function()
+		EnemyService.StartSwarmSpawn()
+	end,
+}
+
+function LevelService.GenerateEvents()
+	LevelState.maxEvents = math.random(3, 4)
+	-- print("Generating " .. maxEvents .. " Events")
+
+	local currentEvents = {}
+
+	for i = 1, LevelState.maxEvents do
+		-- print("Stage Event " .. i .. " : " .. eventsEnum.SWARM)
+		table.insert(currentEvents, Events.Swarm)
+	end
+
+	-- patch
+	local patch = { currentEvents = currentEvents }
+	Store:dispatch(StoreActions.PatchGameState(patch))
+
+	PlayerService.PatchGameState:FireAll(patch)
+end
+
+function LevelService.CheckEvents(stageProgress)
+	local nextEventProgress = LevelState.currentEventIndex / (LevelState.maxEvents + 1)
+	local isEventReached = nextEventProgress < 1 and stageProgress >= nextEventProgress
+
+	if isEventReached then
+		local state = Store:getState()
+		local currentEventId = state.gameState.currentEvents[LevelState.currentEventIndex]
+		warn("Trigger Event ID = " .. currentEventId)
+
+		EventsLogic[currentEventId]()
+
+		LevelState.currentEventIndex += 1
+	end
+end
+
+-- #endregion
+
+-- #region MAP GENERATION
+
+--- Generate Random Buildings
+function LevelService.GenerateMap(mapId, stageRadiusSize, buildingsAmount)
+	-- TODO
+	-- 1] Create Nodes at random Positions
+	local randomAmount = 0
+
+	LevelService.CreateNodes(randomAmount)
+
+	-- 2] Collisions Detection + Solver
+	LevelService.CollisionsDetection()
+	LevelService.Solver()
+
+	-- 3] Spawn Buildings
+	LevelService.SpawnBuildings()
+end
+
+function LevelService.CreateNodes(amount)
 	-- TODO
 end
 
-function LevelService.GenerateMap()
+--- Detect the Collisions between (Circular) Nodes
+function LevelService.CollisionsDetection()
+	-- TODO
+end
+
+--- Solve collisions between Nodes
+function LevelService.Solver()
+	-- TODO
+end
+
+--- Spawn Buildings based on Node Locations
+function LevelService.SpawnBuildings()
+	-- TODO
+end
+
+--- Destroy Every Buildings
+function LevelService.ClearBuildings()
 	-- TODO
 end
 
@@ -136,6 +254,8 @@ end
 
 function LevelService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
+	EnemyService = Knit.GetService("EnemyService")
+	ItemService = Knit.GetService("ItemService")
 end
 
 return LevelService

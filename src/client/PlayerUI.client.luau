@@ -1,3 +1,5 @@
+-- Player Ui in Hub
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -189,6 +191,8 @@ end)(augmentPanel)
 
 -- #endregion
 
+-- #region WORLD PANELS
+
 -- Controls
 local controlsText = textLabel({
 	text = "WASD = Movements\nSpace = Jump\n123... = Equip Weapon\nA = Open Augment Menu\nF = Center Camera\nT = Toggle Music",
@@ -213,10 +217,12 @@ local thousandDonationProps = {
 	end,
 }
 
+-- #endregion
+
 -- TEST IN GAME UI
 -- TODO : Move to Game UI
--- Global Enemy Lvl Display
 
+-- Global Enemy Lvl Display
 local robotImageProps = {
 	position = UDim2.fromScale(0.05, 0),
 	size = UDim2.fromScale(0.08, 0.18),
@@ -238,6 +244,35 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 	}
 end)(textLabel)
 
+-- Stage Progress Bar
+local swarmIconProps = {
+	position = UDim2.fromScale(0.05, 0),
+	size = UDim2.fromScale(0.08, 0.18),
+	imageLink = "rbxassetid://137332832474710",
+}
+
+local progressBarProps = {
+	-- Background
+	position = UDim2.fromScale(0.35, 0.0),
+	size = UDim2.fromScale(0.4, 0.05),
+	value = 0,
+	maxValue = 100,
+	backgroundTransparency = 0.5,
+	borderPixels = 5,
+	-- Bar
+	barColor = Color3.fromRGB(223, 151, 17),
+	barTransparency = 0.2,
+	-- Text
+	resourceName = "Stage Progress",
+}
+
+-- GameTimer
+local gameTimerProps = {
+	position = UDim2.fromScale(0.8, 0),
+	size = UDim2.fromScale(0.2, 0.2),
+	text = 0,
+}
+
 -- #region FINAL GUIS
 
 local function mainGui()
@@ -252,6 +287,8 @@ local function mainGui()
 		-- Test Game Gui
 		RobotImage = image(robotImageProps),
 		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
+		ProgressBar = resourceBar(progressBarProps),
+		GameTimer = textLabel(gameTimerProps),
 	})
 end
 
@@ -303,6 +340,7 @@ Roact.mount(app, playerGui)
 -- #endregion
 
 -- #region AFTER UI CREATION
+-- Manual / Roact less UI -> Dynamic UI
 
 -- LifeBar Update
 local lBar = playerGui.RoactTree.MainGui.LifeBar[2]
@@ -322,5 +360,7 @@ PlayerController.LifeUpdate:Connect(function(state, life)
 
 	lifeText.Text = "Life : " .. math.ceil(life) .. " / " .. maxLife
 end)
+
+-- GameTimer Update
 
 --#endregion

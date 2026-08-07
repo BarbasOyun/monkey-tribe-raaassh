@@ -12,7 +12,18 @@ local Enemies = EnemyDefinitions.Enemies
 local EnemiesStats = EnemyDefinitions.EnemiesStats
 
 local LevelState = {
+	-- Map
+	currentMapId = 1,
+	totalParts = 0,
+	partsCount = 0,
+	-- Stage
 	stageProgress = 0,
+	isWaitingForNextStage = false,
+	currentStage = 1,
+	buildingAmount = 3,
+	-- Events
+	maxEvents = 0,
+	currentEventIndex = 1,
 }
 
 local StatState = {
@@ -107,6 +118,9 @@ local CombatState = {
 }
 
 local MutState = {
+	-- globalTimer = 0,
+	gameTimer = 0,
+	gameTimerCount = 0,
 	frameCount = 0,
 	playersDetections = {}, -- TODO : Flatten -> use playersDetectionCount
 	LevelState = LevelState,

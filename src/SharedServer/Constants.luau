@@ -55,6 +55,11 @@ local DETECTION_RADIUS = 100
 
 -- #endregion
 
+local RpgConst = {
+	ADDITIONAL_XP = 20,
+	MULTIPLIER_XP = 1.2,
+}
+
 -- Combat
 local WEAPON_HIT_PARAM = OverlapParams.new()
 WEAPON_HIT_PARAM.FilterType = Enum.RaycastFilterType.Include
@@ -144,6 +149,7 @@ local CONSTANTS = {
 	CURRENCIES_NAMES = CURRENCIES_NAMES,
 	MAX_CURRENCIES = MAX_CURRENCIES,
 	-- Services
+	RpgConst = RpgConst,
 	EnemyConst = EnemyConst,
 	-- Ecs
 	DISABLED_POSITION = DISABLED_POSITION,

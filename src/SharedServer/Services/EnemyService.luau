@@ -35,9 +35,7 @@ local ItemService
 
 local EnemyService = Knit.CreateService({
 	Name = "EnemyService",
-	Client = {
-		EnemyLevelUpdate = Knit.CreateSignal(),
-	},
+	-- Client = {},
 })
 
 -- #region ENEMIES ON SPAWN
@@ -83,8 +81,7 @@ end
 ]]
 
 local defaultOnDeath = function(character, player)
-	-- EnemyService.Dismember(character)
-	EnemyService.TDismember(character)
+	Gears.Dismember(character)
 	task.wait(1)
 	EcsService.DisableEntity(character:GetAttribute("EntityId"))
 end
@@ -204,7 +201,7 @@ local enemiesSetup = {
 function EnemyService.EnemySetup(character, definitionId, entityId)
 	-- warn("Enemy Setup : " .. character.Name .. " EntityID = " .. entityId)
 
-	EnemyService.ResetCharacter(character)
+	Gears.ResetCharacter(character)
 
 	-- Components Setup
 	-- TODO : Move to each Components
@@ -311,7 +308,7 @@ function EnemyService.SpawnArchetypeEnemy(enemyId, position)
 	EnemyService.EnemySetup(character, enemyId, entityId)
 
 	-- Un Anchor parts
-	EnemyService.AnchorModel(character, false)
+	Gears.AnchorModel(character, false)
 end
 
 -- #endregion
@@ -331,11 +328,17 @@ function EnemyService.GetSpawnPosition(position)
 end
 
 --- return player
-function EnemyService.GetNearestPlayer(enemy)
+function EnemyService.GetNearestPlayer(state, enemy)
 	local minDistance = math.huge
 	local p = nil
 
 	for _, player in pairs(Players:GetPlayers()) do
+		-- Avoid non ready player
+		local playerState = Selectors.PlayerState(state, player.UserId)
+		if not playerState or playerState.state ~= CONSTANTS.PLAYER_STATES.playing then
+			continue
+		end
+
 		local distance = MutState.playersDetections[player.UserId][enemy]
 		-- warn(enemy.Name .. " Distance With " .. player.Name .. " = " .. distance)
 		local isCloser = distance and distance < minDistance
@@ -347,132 +350,6 @@ function EnemyService.GetNearestPlayer(enemy)
 	end
 
 	return p, minDistance
-end
-
---- Anchor Every Part in a Model
-function EnemyService.AnchorModel(character, isAnchored)
-	for _, child in pairs(character:GetChildren()) do
-		if child:IsA("Part") then
-			child.Anchored = isAnchored
-		end
-	end
-end
-
---- Get the Body Parts of a R6 Model
-function EnemyService.GetBodyParts(character)
-	local torso = character.Torso or character.UpperTorso
-	local head = character.Head
-	local leftArm = character:FindFirstChild("Left Arm")
-	local leftLeg = character:FindFirstChild("Left Leg")
-	local rightArm = character:FindFirstChild("Right Arm")
-	local rightLeg = character:FindFirstChild("Right Leg")
-
-	assert(torso, character.Name .. " Missing Body Part")
-	assert(head, character.Name .. " Missing Body Part")
-	assert(leftArm, character.Name .. " Missing Body Part")
-	assert(leftLeg, character.Name .. " Missing Body Part")
-	assert(rightArm, character.Name .. " Missing Body Part")
-	assert(rightLeg, character.Name .. " Missing Body Part")
-
-	return torso, head, leftArm, leftLeg, rightArm, rightLeg
-end
-
---- Get the Limbs Joints of a R6 Model
-function EnemyService.GetJoints(character)
-	local torso = character.Torso
-
-	assert(torso, character.Name .. " Missing Torso")
-
-	local rootJoint
-	local neck = torso:FindFirstChild("Neck") :: Motor6D
-	local leftShoulder = torso:FindFirstChild("Left Shoulder") :: Motor6D
-	local leftHip = torso:FindFirstChild("Left Hip") :: Motor6D
-	local rightShoulder = torso:FindFirstChild("Right Shoulder") :: Motor6D
-	local rightHip = torso:FindFirstChild("Right Hip") :: Motor6D
-
-	assert(neck, character.Name .. " Missing Joint")
-	assert(leftShoulder, character.Name .. " Missing Joint")
-	assert(leftHip, character.Name .. " Missing Joint")
-	assert(rightShoulder, character.Name .. " Missing Joint")
-	assert(rightHip, character.Name .. " Missing Joint")
-
-	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-
-	if humanoidRootPart then
-		rootJoint = humanoidRootPart:FindFirstChild("RootJoint")
-	end
-
-	return rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip
-end
-
----@param character Model
-function EnemyService.Dismember(character)
-	-- Get Body Parts
-	local torso, head, leftArm, leftLeg, rightArm, rightLeg = EnemyService.GetBodyParts(character)
-
-	-- Get Joints
-	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = EnemyService.GetJoints(character)
-
-	-- Disable Joints
-	rootJoint.Enabled = false
-	neck.Enabled = false
-	leftShoulder.Enabled = false
-	leftHip.Enabled = false
-	rightShoulder.Enabled = false
-	rightHip.Enabled = false
-
-	-- Enable Collisions
-	leftArm.CanCollide = true
-	leftLeg.CanCollide = true
-	rightArm.CanCollide = true
-	rightLeg.CanCollide = true
-end
-
-function EnemyService.TDismember(character)
-	-- Enable Collisions
-	local torso, head, leftArm, leftLeg, rightArm, rightLeg = EnemyService.GetBodyParts(character)
-
-	leftArm.CanCollide = true
-	leftLeg.CanCollide = true
-	rightArm.CanCollide = true
-	rightLeg.CanCollide = true
-
-	-- Disable Joints
-	for Index, Child in pairs(character:GetChildren()) do
-		print(Child)
-		if Child:IsA("Motor6D") then
-			Child.Enabled = false
-		end
-
-		-- Recursive
-		if #Child:GetChildren() > 0 then
-			EnemyService.TDismember(Child)
-		end
-	end
-end
-
---- Reset a Character so that it can be enabled again (Object Pooling)
----@param character Model
-function EnemyService.ResetCharacter(character)
-	-- Get Body Parts
-	local torso, head, leftArm, leftLeg, rightArm, rightLeg = EnemyService.GetBodyParts(character)
-
-	-- Get Joints
-	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = EnemyService.GetJoints(character)
-
-	-- Enable Joints
-	rootJoint.Enabled = true
-	neck.Enabled = true
-	leftShoulder.Enabled = true
-	leftHip.Enabled = true
-	rightShoulder.Enabled = true
-	rightHip.Enabled = true
-
-	-- Disable Collisions
-	leftArm.CanCollide = false
-	-- leftLeg.CanCollide = false
-	rightArm.CanCollide = false
-	-- rightLeg.CanCollide = false
 end
 
 function EnemyService.TryToFindLifeBar(character)
@@ -489,6 +366,7 @@ end
 -- #endregion
 
 -- #region DAMAGE + DEATH
+-- TODO : Move to RpgService
 
 function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 	local unitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
@@ -520,11 +398,7 @@ function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 end
 
 function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
-	-- Check Enemies Global Lvl
-	local isLvlBreakpointReached = EnemyServiceState.enemiesDeathCount % EnemyConst.ENEMY_LVL_UP_BREAKPOINT == 0
-	if isLvlBreakpointReached then
-		EnemyService.LevelUpEnemies()
-	end
+	EnemyServiceState.enemiesDeathCount += 1
 
 	-- TODO : Check if userId is nil -> attribute the kill to nearest Player
 	-- Rewards
@@ -546,8 +420,10 @@ end
 
 --- Increment Enemies Stats
 function EnemyService.LevelUpEnemies()
+	warn("Up Global Enemy Lvl")
+
 	local state = Store:getState()
-	local globaleEnemyLvl = state.gameState.globaleEnemyLvl + 1
+	local globalEnemyLvl = state.gameState.globalEnemyLvl + 1
 
 	-- Increment Global Stats
 	local currentRobotStats = EnemyServiceState.currentRobotStats
@@ -566,17 +442,17 @@ function EnemyService.LevelUpEnemies()
 	-- MAYBE : Mutate Existing Entities
 
 	-- Level Breakpoints (Every X Levels)
-	local isBreakPointReached = globaleEnemyLvl % EnemyConst.STREAM_SPAWN_LVL_BREAKPOINT == 0
+	local isBreakPointReached = globalEnemyLvl % EnemyConst.STREAM_SPAWN_LVL_BREAKPOINT == 0
 
 	if isBreakPointReached then
 		EnemyServiceState.streamSpawnNbr += 1
 	end
 
 	-- Update State
-	local patch = { globaleEnemyLvl = globaleEnemyLvl }
+	local patch = { globalEnemyLvl = globalEnemyLvl }
 	Store:dispatch(StoreActions.PatchGameState(patch))
 
-	EnemyService.Client.EnemyLevelUpdate:FireAll(globaleEnemyLvl)
+	PlayerService.Client.PatchGameState:FireAll(patch)
 end
 
 -- TODO : AttackValidation + AttackCtx
@@ -605,7 +481,9 @@ end
 
 -- #region UPDATE
 
-function EnemyService.MobBehavior()
+-- TODO : Archetype loops
+--- MobBehavior Component Logic
+function EnemyService.MobBehavior(state)
 	local robotStats = EnemiesStats[Enemies.Robot]
 
 	for _, entityId in pairs(EcsState.MobBehaviorStorageState.entities) do
@@ -614,7 +492,7 @@ function EnemyService.MobBehavior()
 		local enemy = GameObjectStorage.GetGameObject(entityId)
 
 		-- Get Nearest Player
-		local targetPlayer, distance = EnemyService.GetNearestPlayer(enemy)
+		local targetPlayer, distance = EnemyService.GetNearestPlayer(state, enemy)
 		local humanoid = enemy.Humanoid
 
 		if not targetPlayer then
@@ -635,7 +513,7 @@ function EnemyService.MobBehavior()
 	end
 end
 
---- MobBehavior Component Logic > Search player + MoveTo
+--- Start MobBehavior in Throttled update
 function EnemyService.StartMobBehavior()
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		-- Movements
@@ -647,7 +525,7 @@ function EnemyService.StartMobBehavior()
 			-- Reset Timer
 			EcsState.MobBehaviorStorageState.timer = 0
 
-			EnemyService.MobBehavior()
+			EnemyService.MobBehavior(state)
 		end
 
 		-- Attack CD

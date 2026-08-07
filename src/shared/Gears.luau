@@ -114,7 +114,7 @@ end
 
 -- #endregion
 
--- #region INSTANCES / WORLD OBJECT
+-- #region INSTANCES & CHARACTERS
 
 function Gears.GetPartCount(parentObject)
 	local count = 0
@@ -136,6 +136,113 @@ function Gears.FindHumanoidFromPart(part)
 	end
 
 	return nil
+end
+
+--- Anchor Every Part in a Model
+function Gears.AnchorModel(character, isAnchored)
+	for _, child in pairs(character:GetChildren()) do
+		if child:IsA("Part") then
+			child.Anchored = isAnchored
+		end
+	end
+end
+
+--- Get the Body Parts of a R6 Model
+function Gears.GetBodyParts(character)
+	local torso = character.Torso or character.UpperTorso
+	local head = character.Head
+	local leftArm = character:FindFirstChild("Left Arm")
+	local leftLeg = character:FindFirstChild("Left Leg")
+	local rightArm = character:FindFirstChild("Right Arm")
+	local rightLeg = character:FindFirstChild("Right Leg")
+
+	assert(torso, character.Name .. " Missing Body Part")
+	assert(head, character.Name .. " Missing Body Part")
+	assert(leftArm, character.Name .. " Missing Body Part")
+	assert(leftLeg, character.Name .. " Missing Body Part")
+	assert(rightArm, character.Name .. " Missing Body Part")
+	assert(rightLeg, character.Name .. " Missing Body Part")
+
+	return torso, head, leftArm, leftLeg, rightArm, rightLeg
+end
+
+--- Get the Limbs Joints of a R6 Model
+function Gears.GetJoints(character)
+	local torso = character.Torso
+
+	assert(torso, character.Name .. " Missing Torso")
+
+	local rootJoint
+	local neck = torso:FindFirstChild("Neck") :: Motor6D
+	local leftShoulder = torso:FindFirstChild("Left Shoulder") :: Motor6D
+	local leftHip = torso:FindFirstChild("Left Hip") :: Motor6D
+	local rightShoulder = torso:FindFirstChild("Right Shoulder") :: Motor6D
+	local rightHip = torso:FindFirstChild("Right Hip") :: Motor6D
+
+	assert(neck, character.Name .. " Missing Joint")
+	assert(leftShoulder, character.Name .. " Missing Joint")
+	assert(leftHip, character.Name .. " Missing Joint")
+	assert(rightShoulder, character.Name .. " Missing Joint")
+	assert(rightHip, character.Name .. " Missing Joint")
+
+	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+	if humanoidRootPart then
+		rootJoint = humanoidRootPart:FindFirstChild("RootJoint")
+	end
+
+	return rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip
+end
+
+---@param character Model
+function Gears.Dismember(character)
+	local torso, head, leftArm, leftLeg, rightArm, rightLeg = Gears.GetBodyParts(character)
+
+	leftArm.CanCollide = true
+	leftLeg.CanCollide = true
+	rightArm.CanCollide = true
+	rightLeg.CanCollide = true
+
+	Gears.DisableJoints(character)
+end
+
+function Gears.DisableJoints(character)
+	-- Disable Joints
+	for Index, Child in pairs(character:GetChildren()) do
+		print(Child)
+		if Child:IsA("Motor6D") then
+			Child.Enabled = false
+		end
+
+		-- Recursive
+		if #Child:GetChildren() > 0 then
+			Gears.DisableJoints(Child)
+		end
+	end
+end
+
+--- Reset a Character so that it can be enabled again (Object Pooling)
+---@param character Model
+function Gears.ResetCharacter(character)
+	-- Get Body Parts
+	local torso, head, leftArm, leftLeg, rightArm, rightLeg = Gears.GetBodyParts(character)
+
+	-- Get Joints
+	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = Gears.GetJoints(character)
+
+	-- Enable Joints
+	rootJoint.Enabled = true
+	neck.Enabled = true
+	leftShoulder.Enabled = true
+	leftHip.Enabled = true
+	rightShoulder.Enabled = true
+	rightHip.Enabled = true
+
+	-- Disable Collisions
+	leftArm.CanCollide = false
+	-- leftLeg.CanCollide = false
+	rightArm.CanCollide = false
+	-- rightLeg.CanCollide = false
 end
 
 -- #endregion

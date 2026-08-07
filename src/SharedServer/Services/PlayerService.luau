@@ -23,6 +23,7 @@ local MutState = require(ServerScriptService.SharedServer.MutableState)
 
 local RpgService
 local ItemService
+local EnemyService
 
 -- Get DataStore
 local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
@@ -40,6 +41,7 @@ local PlayerService = Knit.CreateService({
 		PlayerAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
 		PatchPlayer = Knit.CreateSignal(),
+		PatchGameState = Knit.CreateSignal(),
 		-- Hub
 		EnteringGame = Knit.CreateSignal(),
 	},
@@ -272,9 +274,6 @@ function PlayerService.CheckGameOver()
 end
 
 function PlayerService.KillPlayer(player)
-	-- TODO : Custom Death = Dismember, Disable controls
-	player.character.Humanoid.Health = 0
-
 	print(player.Name .. " died -> Waiting Next Stage to respawn...")
 	local userId = player.UserId
 
@@ -284,8 +283,10 @@ function PlayerService.KillPlayer(player)
 	PlayerService.PlayerDied:Fire()
 	-- Events.PlayerDied:FireClient(player) -- TODO : Client Event
 
-	-- TODO : CheckGameOver COnnect to playerDeadEVent on GameManager
 	-- PlayerService.CheckGameOver()
+
+	-- TODO : Custom Death = Dismember, Disable controls
+	player.character.Humanoid.Health = 0
 end
 
 -- #region CURRENCIES
@@ -347,6 +348,20 @@ end
 -- #endregion
 
 -- #region UPDATES
+
+function PlayerService.GameTimer(dt)
+	MutState.gameTimerCount += dt
+
+	if MutState.gameTimerCount >= 1 then
+		MutState.gameTimerCount -= 1
+		MutState.gameTimer += 1
+
+		local isLvlBreakpointReached = (MutState.gameTimer % CONSTANTS.EnemyConst.ENEMY_LVL_UP_BREAKPOINT) == 0
+		if isLvlBreakpointReached then
+			EnemyService.LevelUpEnemies()
+		end
+	end
+end
 
 --- For each Player Detect and Store Distance with each enemies in range
 local function enemiesDetection(state)
@@ -455,6 +470,7 @@ local function stateUpdate(dt: number)
 	local state = Store:getState() -- Get state once every frame
 
 	PlayerService.StateUpdate:Fire(state, dt)
+	PlayerService.GameTimer(dt)
 
 	-- Throttled Update
 	MutState.frameCount += 1
@@ -479,6 +495,7 @@ end
 function PlayerService:KnitStart()
 	RpgService = Knit.GetService("RpgService")
 	ItemService = Knit.GetService("ItemService")
+	EnemyService = Knit.GetService("EnemyService")
 
 	RunService.Heartbeat:Connect(function(dt: number)
 		stateUpdate(dt)
