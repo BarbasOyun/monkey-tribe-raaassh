@@ -580,6 +580,7 @@ function EnemyService.StartStreamSpawn()
 	task.wait(EnemyConst.STREAM_SPAWN_INITIAL_CD)
 	EnemyService.StartMobBehavior()
 	EnemyService.RollStreamSpawnDelta()
+	LevelService.StartGameTimer()
 
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		EnemyServiceState.streamSpawnTimer += dt

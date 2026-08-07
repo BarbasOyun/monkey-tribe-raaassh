@@ -8,14 +8,13 @@ local PlayerController = Knit.GetController("PlayerController")
 local AUGMENTS = PlayerController.AUGMENTS
 local STATS_DISPLAY = PlayerController.STATS_DISPLAY
 
-local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
-
 local playerController = Knit.GetController("PlayerController")
 local augmentPickSound = playerController.SoundFolder.AugmentPick
 
--- Rarity
--- Value
--- ModStat
+-- Components
+local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
+
+--- Rarity, ModStat, Value
 local function augmentCard(props)
 	local xSize = props.xSize
 	local size = UDim2.fromScale(xSize, 0.75)

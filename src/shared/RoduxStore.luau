@@ -12,6 +12,7 @@ local gameState = {
 	globalEnemyLvl = 1,
 	minLimit = Vector2.new(-100, -100),
 	maxLimit = Vector2.new(100, 100),
+	currentStage = 1,
 	currentEvents = {},
 }
 

@@ -1,4 +1,5 @@
 -- Player Ui in Hub
+-- TODO : Use UiAspectRatioConstraint
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -6,9 +7,14 @@ local MarketplaceService = game:GetService("MarketplaceService")
 
 local RoactRodux = require(ReplicatedStorage.Shared.RoactRodux)
 local Roact = require(ReplicatedStorage.Shared.Roact)
+local Gears = require(ReplicatedStorage.Shared.Gears)
 
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await() -- Wait for KnitControllersStart
+
+-- Get Constants
+local LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
+local EventsIcons = LevelDefinitions.EventsIcons
 
 -- Get Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -17,6 +23,7 @@ local Selectors = RoduxStore.Selectors
 
 -- Get Services & Controller
 local PlayerController = Knit.GetController("PlayerController")
+LevelService = Knit.GetService("LevelService")
 
 -- TODO : Client side Mutable State
 local player = Players.LocalPlayer
@@ -26,17 +33,18 @@ local controlsBoard = workspace.Wiki.ControlsBoard.Board
 local shopBoard = workspace.Main.ShopBoard.Board
 
 -- Shop
--- TODO : Shop Module or Service in ReplicatedStorage
+-- TODO : ShopDefinitions Module in ReplicatedStorage
 local hundredDonationId = 3607471778
 local thousandDonationId = 3607471867
 
 -- #region ROACT COMPONENTS
 
+-- Basic
+
 local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
 local textButton = require(ReplicatedStorage.Shared.Components.TextButton)
-local resourceBar = require(ReplicatedStorage.Shared.Components.ResourceBar)
 
--- Image Component : ImageId, Pos, Size
+--- Image Component : ImageLink, Pos, Size
 local function image(props)
 	local position = props.position or UDim2.fromScale(0, 0)
 	local size = props.size or UDim2.fromScale(0.2, 0.2)
@@ -48,6 +56,40 @@ local function image(props)
 		Position = position,
 		Size = size,
 		BackgroundTransparency = 1,
+	})
+end
+
+-- Composed
+
+local resourceBar = require(ReplicatedStorage.Shared.Components.ResourceBar)
+local augmentPanel = require(ReplicatedStorage.Shared.Components.AugmentPanel)
+
+--- Horizontal Grid Layout
+local function frameGridLayout(props)
+	local position = props.position
+	local size = props.size
+
+	local listItems = props.listItems
+	local xPadding = props.xPadding
+	local cellYSize = props.cellYSize
+
+	-- Calculate Properties
+	local columns = #listItems
+	local cellXSize = Gears.ElementXSize(false, columns, xPadding)
+
+	return Roact.createElement("Frame", {
+		Position = position,
+		Size = size,
+		BackgroundTransparency = 1,
+		ZIndex = 5,
+	}, {
+		Layout = Roact.createElement("UIGridLayout", {
+			HorizontalAlignment = "Center",
+			VerticalAlignment = "Center",
+			CellSize = UDim2.new(cellXSize, cellYSize),
+			Padding = UDim.new(xPadding),
+		}),
+		ListItems = listItems,
 	})
 end
 
@@ -170,8 +212,6 @@ LevelUpLabel = RoactRodux.connect(function(state, props)
 	}
 end)(levelUpLabel)
 
-local augmentPanel = require(ReplicatedStorage.Shared.Components.AugmentPanel)
-
 AugmentPanel = RoactRodux.connect(function(state, props)
 	local isVisible = false
 	local augments = {}
@@ -224,8 +264,8 @@ local thousandDonationProps = {
 
 -- Global Enemy Lvl Display
 local robotImageProps = {
-	position = UDim2.fromScale(0.05, 0),
-	size = UDim2.fromScale(0.08, 0.18),
+	position = UDim2.fromScale(0.22, 0.1),
+	size = UDim2.fromScale(0.05, 0.1),
 	imageLink = "rbxassetid://130840043704422",
 }
 
@@ -238,22 +278,32 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 	end
 
 	return {
-		position = UDim2.fromScale(0.1, 0),
-		size = UDim2.fromScale(0.2, 0.2),
+		position = UDim2.fromScale(0.25, 0.1),
+		size = UDim2.fromScale(0.1, 0.1),
 		text = "Lvl " .. globalEnemyLvl,
 	}
 end)(textLabel)
 
--- Stage Progress Bar
-local swarmIconProps = {
-	position = UDim2.fromScale(0.05, 0),
-	size = UDim2.fromScale(0.08, 0.18),
-	imageLink = "rbxassetid://137332832474710",
-}
+-- Current Stage Text
+currentStageText = RoactRodux.connect(function(state, props)
+	-- mapStateToProps
+	local currentStage = 1
 
+	if state.gameState.currentStage then
+		currentStage = state.gameState.currentStage
+	end
+
+	return {
+		position = UDim2.fromScale(0.23, 0),
+		size = UDim2.fromScale(0.05, 0.05),
+		text = "Stage " .. currentStage,
+	}
+end)(textLabel)
+
+-- Stage Progress Bar
 local progressBarProps = {
 	-- Background
-	position = UDim2.fromScale(0.35, 0.0),
+	position = UDim2.fromScale(0.3, 0.0),
 	size = UDim2.fromScale(0.4, 0.05),
 	value = 0,
 	maxValue = 100,
@@ -266,12 +316,47 @@ local progressBarProps = {
 	resourceName = "Stage Progress",
 }
 
+-- TODO : Events Icons
+
+eventsIcons = RoactRodux.connect(function(state)
+	-- mapStateToProps
+	local iconList = {}
+
+	if state.gameState.currentEvents then
+		local currentEvents = state.gameState.currentEvents
+
+		-- Create each Event's Icon
+		for i = 1, #currentEvents do
+			local iconLink = EventsIcons[currentEvents[i]]
+			local iconProps = {
+				imageLink = iconLink,
+			}
+			local icon = image(iconProps)
+
+			table.insert(iconList, icon)
+		end
+	end
+
+	return {
+		position = UDim2.fromScale(0.3, 0.0),
+		size = UDim2.fromScale(0.4, 0.05),
+		listItems = iconList,
+		xPadding = 0.1,
+		cellYSize = 0.9,
+	}
+end)(frameGridLayout)
+
+EventsIcons = Roact.createElement(eventsIcons)
+warn(EventsIcons)
+
 -- GameTimer
 local gameTimerProps = {
-	position = UDim2.fromScale(0.8, 0),
-	size = UDim2.fromScale(0.2, 0.2),
-	text = 0,
+	position = UDim2.fromScale(0.45, 0.05),
+	size = UDim2.fromScale(0.05, 0.05),
+	text = "0",
 }
+
+-- Currencies
 
 -- #region FINAL GUIS
 
@@ -287,7 +372,9 @@ local function mainGui()
 		-- Test Game Gui
 		RobotImage = image(robotImageProps),
 		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
+		CurrentStageText = Roact.createElement(currentStageText),
 		ProgressBar = resourceBar(progressBarProps),
+		-- EventsIcons = EventsIcons,
 		GameTimer = textLabel(gameTimerProps),
 	})
 end
@@ -321,7 +408,7 @@ local function shopGui()
 	})
 end
 
-local upgradeGui = require(ReplicatedStorage.Shared.Components.UpgradesGui)
+local metaUpgradeBoard = require(ReplicatedStorage.Shared.Components.UpgradesGui)
 
 -- App
 local app = Roact.createElement(RoactRodux.StoreProvider, {
@@ -331,7 +418,7 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 		MainGui = mainGui(),
 		ControlsGui = controlsGui(),
 		ShopGui = shopGui(),
-		UpgradeGui = upgradeGui,
+		MetaUpgradeBoard = metaUpgradeBoard,
 	}),
 })
 
@@ -342,9 +429,11 @@ Roact.mount(app, playerGui)
 -- #region AFTER UI CREATION
 -- Manual / Roact less UI -> Dynamic UI
 
+local mainGuiRef = playerGui.RoactTree.MainGui
+
 -- LifeBar Update
-local lBar = playerGui.RoactTree.MainGui.LifeBar[2]
-local lifeText = playerGui.RoactTree.MainGui.LifeBar[1]
+local lBar = mainGuiRef.LifeBar[2]
+local lifeText = mainGuiRef.LifeBar[1]
 
 PlayerController.LifeUpdate:Connect(function(state, life)
 	local playerState = Selectors.PlayerState(state, player.UserId)
@@ -361,6 +450,18 @@ PlayerController.LifeUpdate:Connect(function(state, life)
 	lifeText.Text = "Life : " .. math.ceil(life) .. " / " .. maxLife
 end)
 
+-- ProgressBar
+local progressBarRef = mainGuiRef.ProgressBar[2]
+
+LevelService.ProgressUpdate:Connect(function(progress)
+	progressBarRef.Size = UDim2.fromScale(progress, 1)
+end)
+
 -- GameTimer Update
+local timerText = mainGuiRef.GameTimer
+
+LevelService.GameTimerUpdate:Connect(function(gameTimer)
+	timerText.Text = gameTimer
+end)
 
 --#endregion

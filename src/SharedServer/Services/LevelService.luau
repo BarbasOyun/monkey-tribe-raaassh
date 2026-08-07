@@ -7,10 +7,10 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 -- Get Constants
--- local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
 local LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
-local Maps = LevelDefinitions.Maps
+-- local Maps = LevelDefinitions.Maps
 local Events = LevelDefinitions.Events
 
 -- Get State
@@ -30,7 +30,10 @@ local ItemService
 
 local LevelService = Knit.CreateService({
 	Name = "LevelService",
-	-- Client = {},
+	Client = {
+		GameTimerUpdate = Knit.CreateSignal(),
+		ProgressUpdate = Knit.CreateSignal(),
+	},
 })
 
 -- #region Bounds
@@ -109,10 +112,33 @@ end
 
 -- #region STAGE
 
+function LevelService.GameTimer(dt)
+	MutState.gameTimerCount += dt
+
+	if MutState.gameTimerCount >= 1 then
+		MutState.gameTimerCount -= 1
+		MutState.gameTimer += 1
+
+		LevelService.Client.GameTimerUpdate:FireAll(MutState.gameTimer)
+
+		local isLvlBreakpointReached = (MutState.gameTimer % CONSTANTS.EnemyConst.ENEMY_LVL_UP_BREAKPOINT) == 0
+		if isLvlBreakpointReached then
+			EnemyService.LevelUpEnemies()
+		end
+	end
+end
+
+function LevelService.StartGameTimer()
+	PlayerService.StateUpdate:Connect(function(state, dt)
+		LevelService.GameTimer(dt)
+	end)
+end
+
 --- Start a New Stage
 function LevelService.StartStage()
 	LevelState.stageProgress = 0
-	LevelState.currentMapId = math.random(1, #Maps)
+	LevelState.currentMapId = math.random(1, 2) -- FIXME : replace 2 with Map Count
+	EnemyService.StartStreamSpawn()
 
 	LevelService.GenerateEvents()
 	-- LevelService.GenerateMap()
@@ -144,6 +170,8 @@ function LevelService.ProgressStage()
 	if stageProgress >= 1 then
 		LevelService.FinishStage()
 	end
+
+	LevelService.Client.ProgressUpdate:FireAll(stageProgress)
 end
 
 function LevelService.FinishStage()
@@ -153,6 +181,14 @@ function LevelService.FinishStage()
 	-- stageBuildingNbr = math.clamp(stageBuildingNbr + ADDITIONAL_BUILDINGS, 0, BUILDING_LIMIT)
 
 	task.wait()
+	local state = Store:getState()
+	local currentStage = state.gameState.currentStage + 1
+
+	local patch = { currentStage = currentStage }
+	Store:dispatch(StoreActions.PatchGameState(patch))
+
+	PlayerService.PatchGameState:FireALl(patch)
+
 	LevelService.ResetLevel()
 	LevelService.StartStage()
 end
@@ -183,7 +219,7 @@ function LevelService.GenerateEvents()
 	local patch = { currentEvents = currentEvents }
 	Store:dispatch(StoreActions.PatchGameState(patch))
 
-	PlayerService.PatchGameState:FireAll(patch)
+	PlayerService.Client.PatchGameState:FireAll(patch)
 end
 
 function LevelService.CheckEvents(stageProgress)

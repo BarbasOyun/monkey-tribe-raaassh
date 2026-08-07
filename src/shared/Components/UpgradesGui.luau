@@ -12,6 +12,7 @@ local META_UPRGADES = PlayerController.META_UPRGADES
 local upgradesBoard = workspace.Main.UpgradeBoard.Board
 local player = Players.LocalPlayer
 
+-- Components
 local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
 local textButton = require(ReplicatedStorage.Shared.Components.TextButton)
 
@@ -119,7 +120,7 @@ local luckButton = statButton(MOD_STATS_STORE.luck, Color3.new(0, 1, 0))
 local increasedXpButton = statButton(MOD_STATS_STORE.increasedXp, Color3.new(0, 1, 0))
 local increasedPickupRangeButton = statButton(MOD_STATS_STORE.increasedPickupRange, Color3.new(0, 1, 0))
 
-return Roact.createElement("SurfaceGui", {
+local metaUpgradeBoard = Roact.createElement("SurfaceGui", {
 	Adornee = upgradesBoard,
 	Face = "Left",
 }, {
@@ -151,3 +152,5 @@ return Roact.createElement("SurfaceGui", {
 		critMultiButton,
 	}),
 })
+
+return metaUpgradeBoard

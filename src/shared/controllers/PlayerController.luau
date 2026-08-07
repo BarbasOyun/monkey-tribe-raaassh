@@ -292,18 +292,18 @@ end
 
 -- #region UPDATE
 
-function PlayerController.UpdateLife(state)
-	visualLife = math.lerp(visualLife, serverLife, 0.1)
-
-	-- Apply to UI
-	PlayerController.LifeUpdate:Fire(state, visualLife)
-end
-
 local function stateUpdate()
 	local state = Store:getState() -- Get state once every frame
 
 	PlayerController.UpdateLife(state)
 	PlayerController.StateUpdate:Fire(state)
+end
+
+function PlayerController.UpdateLife(state)
+	visualLife = math.lerp(visualLife, serverLife, 0.1)
+
+	-- Apply to UI
+	PlayerController.LifeUpdate:Fire(state, visualLife)
 end
 
 -- #endregion

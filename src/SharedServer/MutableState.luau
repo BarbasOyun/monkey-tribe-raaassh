@@ -19,7 +19,6 @@ local LevelState = {
 	-- Stage
 	stageProgress = 0,
 	isWaitingForNextStage = false,
-	currentStage = 1,
 	buildingAmount = 3,
 	-- Events
 	maxEvents = 0,

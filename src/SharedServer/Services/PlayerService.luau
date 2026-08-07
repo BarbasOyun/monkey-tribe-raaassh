@@ -349,20 +349,6 @@ end
 
 -- #region UPDATES
 
-function PlayerService.GameTimer(dt)
-	MutState.gameTimerCount += dt
-
-	if MutState.gameTimerCount >= 1 then
-		MutState.gameTimerCount -= 1
-		MutState.gameTimer += 1
-
-		local isLvlBreakpointReached = (MutState.gameTimer % CONSTANTS.EnemyConst.ENEMY_LVL_UP_BREAKPOINT) == 0
-		if isLvlBreakpointReached then
-			EnemyService.LevelUpEnemies()
-		end
-	end
-end
-
 --- For each Player Detect and Store Distance with each enemies in range
 local function enemiesDetection(state)
 	for _, player in pairs(Players:GetPlayers()) do
@@ -470,7 +456,6 @@ local function stateUpdate(dt: number)
 	local state = Store:getState() -- Get state once every frame
 
 	PlayerService.StateUpdate:Fire(state, dt)
-	PlayerService.GameTimer(dt)
 
 	-- Throttled Update
 	MutState.frameCount += 1
