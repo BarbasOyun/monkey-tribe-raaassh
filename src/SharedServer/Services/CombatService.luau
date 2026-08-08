@@ -209,9 +209,9 @@ end
 -- 2) Server Validation + Setup Expected Attack
 -- Player is asking to Attack using their Weapon
 local function attackValidation(player, playerStats, weaponState)
-	local next = next(weaponState)
+	local hasWeapon = next(weaponState) ~= nil
 
-	if not playerStats or next == nil then
+	if not playerStats or not hasWeapon then
 		-- warn("No playerStats or weaponState")
 		return
 	end

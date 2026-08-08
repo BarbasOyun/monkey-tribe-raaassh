@@ -1,19 +1,30 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+
+local RoactRodux = require(ReplicatedStorage.Shared.RoactRodux)
 local Roact = require(ReplicatedStorage.Shared.Roact)
-local Knit = require(ReplicatedStorage.Packages.Knit)
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
+-- Get Knit
+local Knit = require(ReplicatedStorage.Packages.Knit)
 local AugmentsService = Knit.GetService("AugmentsService")
 local PlayerController = Knit.GetController("PlayerController")
+
+-- Get Constants
 local AUGMENTS = PlayerController.AUGMENTS
 local STATS_DISPLAY = PlayerController.STATS_DISPLAY
+local augmentPickSound = PlayerController.SoundFolder.AugmentPick
 
-local playerController = Knit.GetController("PlayerController")
-local augmentPickSound = playerController.SoundFolder.AugmentPick
+-- Get Store
+local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
+local Selectors = RoduxStore.Selectors
 
 -- Components
 local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
 
+local player = Players.LocalPlayer
+
+-- TODO : Move to Components
 --- Rarity, ModStat, Value
 local function augmentCard(props)
 	local xSize = props.xSize
@@ -63,6 +74,7 @@ local function augmentCard(props)
 	})
 end
 
+-- TODO : Replace with frameGridLayout Component
 local function cardsPanel(props)
 	local augments = props.augments
 
@@ -122,4 +134,21 @@ local function augmentPanel(props)
 	})
 end
 
-return augmentPanel
+AugmentPanel = RoactRodux.connect(function(state, props)
+	local isVisible = false
+	local augments = {}
+
+	local playerState = Selectors.PlayerState(state, player.UserId)
+
+	if playerState then
+		isVisible = playerState.state == "PickingAugment"
+		augments = playerState.currentAugments
+	end
+
+	return {
+		isVisible = isVisible,
+		augments = augments,
+	}
+end)(augmentPanel)
+
+return AugmentPanel

@@ -1,0 +1,20 @@
+-- Environment SFX
+Enemy Kill = https://create.roblox.com/store/asset/132481628664023/bossfinish
+Building Hit = https://create.roblox.com/store/asset/119071629128044/CollisionMedium
+Building Destruction = https://create.roblox.com/store/asset/95480639427378/CollisionMaximum2
+
+-- Player SFX
+XP & Bananas = https://create.roblox.com/store/asset/87437544236708/UI-Click-1
+Player Damaged = https://freesound.org/people/Raclure/sounds/458867/
+Level Up = https://create.roblox.com/store/asset/133977339172345/power-up-1
+Stage Completed = https://create.roblox.com/store/asset/106372595530401/Generator-complete
+Attack = https://create.roblox.com/store/asset/10730819/MaceNoise
+
+-- UI SFX
+Augment Menu = https://create.roblox.com/store/asset/18133558673/UISelect
+Augment Pick = https://create.roblox.com/store/asset/6373199071/Arcade-heal-sfx
+
+-- Music
+Hub = https://create.roblox.com/store/asset/1843287081/Tribal-1
+Millitary Map = https://create.roblox.com/store/asset/1837362990/Roof-Pursuit
+Laboratory Map = https://create.roblox.com/store/asset/1839999365/Even-the-Odds-e

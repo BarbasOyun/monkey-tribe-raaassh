@@ -209,7 +209,6 @@ end
 function Gears.DisableJoints(character)
 	-- Disable Joints
 	for Index, Child in pairs(character:GetChildren()) do
-		print(Child)
 		if Child:IsA("Motor6D") then
 			Child.Enabled = false
 		end

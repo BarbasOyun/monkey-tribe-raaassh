@@ -227,7 +227,7 @@ end
 local function setupEnemies()
 	-- Load Enemies
 	EnemyService.AddArchetype(Enemies.Dummy)
-	EnemyService.AddArchetype(Enemies.Robot)
+	-- EnemyService.AddArchetype(Enemies.Robot)
 	EcsService.CreatePools()
 
 	-- Spawn Default Dummies
@@ -238,11 +238,11 @@ local function setupEnemies()
 	EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, pos2)
 
 	-- Spawn Test Robots
-	local pos3 = Vector3.new(-3.15, 4.5, 50)
-	local pos4 = Vector3.new(5.85, 4.5, 50)
+	-- local pos3 = Vector3.new(-3.15, 4.5, 50)
+	-- local pos4 = Vector3.new(5.85, 4.5, 50)
 
-	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos3)
-	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos4)
+	-- EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos3)
+	-- EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos4)
 
 	-- Start Spawning Mobs
 	-- EnemyService.StartStreamSpawn()
@@ -250,7 +250,7 @@ local function setupEnemies()
 	-- EnemyService.StartMobBehavior()
 
 	-- Start Stage
-	LevelService.StartStage()
+	-- LevelService.StartStage()
 end
 
 Players.PlayerAdded:Connect(function(player)

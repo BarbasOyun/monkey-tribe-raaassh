@@ -9,9 +9,10 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
-local LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
--- local Maps = LevelDefinitions.Maps
-local Events = LevelDefinitions.Events
+local LevelDefinitions
+-- local Maps
+local Events
+local EventsSounds
 
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -112,26 +113,11 @@ end
 
 -- #region STAGE
 
-function LevelService.GameTimer(dt)
-	MutState.gameTimerCount += dt
-
-	if MutState.gameTimerCount >= 1 then
-		MutState.gameTimerCount -= 1
-		MutState.gameTimer += 1
-
-		LevelService.Client.GameTimerUpdate:FireAll(MutState.gameTimer)
-
-		local isLvlBreakpointReached = (MutState.gameTimer % CONSTANTS.EnemyConst.ENEMY_LVL_UP_BREAKPOINT) == 0
-		if isLvlBreakpointReached then
-			EnemyService.LevelUpEnemies()
-		end
-	end
-end
-
-function LevelService.StartGameTimer()
-	PlayerService.StateUpdate:Connect(function(state, dt)
-		LevelService.GameTimer(dt)
-	end)
+function LevelService.LoadLevelDefinitions()
+	LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
+	-- local Maps = LevelDefinitions.Maps
+	Events = LevelDefinitions.Events
+	EventsSounds = LevelDefinitions.EventsSounds
 end
 
 --- Start a New Stage
@@ -193,6 +179,28 @@ function LevelService.FinishStage()
 	LevelService.StartStage()
 end
 
+function LevelService.GameTimer(dt)
+	MutState.gameTimerCount += dt
+
+	if MutState.gameTimerCount >= 1 then
+		MutState.gameTimerCount -= 1
+		MutState.gameTimer += 1
+
+		LevelService.Client.GameTimerUpdate:FireAll(MutState.gameTimer)
+
+		local isLvlBreakpointReached = (MutState.gameTimer % CONSTANTS.EnemyConst.ENEMY_LVL_UP_BREAKPOINT) == 0
+		if isLvlBreakpointReached then
+			EnemyService.LevelUpEnemies()
+		end
+	end
+end
+
+function LevelService.StartGameTimer()
+	PlayerService.StateUpdate:Connect(function(state, dt)
+		LevelService.GameTimer(dt)
+	end)
+end
+
 -- #endregion
 
 -- #region EVENTS
@@ -226,11 +234,13 @@ function LevelService.CheckEvents(stageProgress)
 	local nextEventProgress = LevelState.currentEventIndex / (LevelState.maxEvents + 1)
 	local isEventReached = nextEventProgress < 1 and stageProgress >= nextEventProgress
 
+	-- Trigger Event
 	if isEventReached then
 		local state = Store:getState()
 		local currentEventId = state.gameState.currentEvents[LevelState.currentEventIndex]
 		warn("Trigger Event ID = " .. currentEventId)
 
+		EventsSounds[currentEventId]:Play()
 		EventsLogic[currentEventId]()
 
 		LevelState.currentEventIndex += 1

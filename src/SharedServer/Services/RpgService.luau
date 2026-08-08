@@ -62,6 +62,7 @@ local RpgService = Knit.CreateService({
 		MetaUpgradesChanged = Knit.CreateSignal(),
 		LevelUp = Knit.CreateSignal(),
 		LifeUpdate = Knit.CreateSignal(),
+		PlayerDamaged = Knit.CreateSignal(),
 	},
 })
 
@@ -83,9 +84,13 @@ function RpgService.DamagePlayer(player, damage)
 
 	local userId = player.UserId
 
+	-- Take Damage
 	local life = StatState.playersLife[userId] - damage
 	StatState.playersLife[userId] = math.max(life, 0)
 
+	RpgService.Client.PlayerDamaged:Fire(player)
+
+	-- Check Death
 	if life <= 0 then
 		PlayerService.KillPlayer(player)
 	end

@@ -1,4 +1,5 @@
 local Players = game:GetService("Players")
+local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -48,6 +49,7 @@ local getOrbSound = soundFolder.GetOrb
 local enteringGameSound = soundFolder.EnteringGame
 local levelUpSound = soundFolder.LevelUp
 local augmentPanelSound = soundFolder.AugmentMenu
+local playerDamagedSfx = soundFolder.PlayerDamaged
 
 local music = soundFolder.Music
 
@@ -235,6 +237,10 @@ local function setupPlayerService()
 end
 
 local function setupRpgService()
+	RpgService.PlayerDamaged:Connect(function()
+		playerDamagedSfx:Play()
+	end)
+
 	-- Resource Bars
 	RpgService.LifeUpdate:Connect(function(life)
 		serverLife = life
