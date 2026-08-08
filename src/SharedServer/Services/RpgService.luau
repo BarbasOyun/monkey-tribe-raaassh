@@ -166,35 +166,6 @@ end
 
 -- #region CALCULATIONS
 
-function RpgService.StopLifeRegen(userId)
-	local lifeRegenUpdates = StatState.lifeRegenUpdates
-
-	if lifeRegenUpdates[userId] then
-		lifeRegenUpdates[userId]:Disconnect()
-		lifeRegenUpdates[userId] = nil
-	end
-end
-
-function RpgService.StartLifeRegen(userId, lifeRegen)
-	local playersLife = StatState.playersLife
-	local lifeRegenUpdates = StatState.lifeRegenUpdates
-
-	if lifeRegen > 0 and StatState.playersLife[userId] then
-		lifeRegenUpdates[userId] = PlayerService.StateUpdate:Connect(function(state)
-			local playerState = Selectors.PlayerState(state, userId)
-
-			if not playerState then
-				RpgService.StopLifeRegen(userId)
-			end
-
-			local maxLife = playerState.stats.maxLife
-			local lifeUpdate = playersLife[userId] + lifeRegen / 60 -- 60 FPS
-
-			playersLife[userId] = math.min(lifeUpdate, maxLife)
-		end)
-	end
-end
-
 -- Sum modStats from each Power Systems
 local function calcModStat(metaUpgrades, augments, modStat)
 	local metaUpgradeStat = metaUpgrades[modStat]
@@ -298,7 +269,8 @@ local statsCalculation = {
 
 		local patch = { [modStat] = totalIncreasedAoe, [calcStat] = totalAoe }
 
-		if #weaponState == 0 then
+		local next = next(weaponState)
+		if next == nil then
 			return patch
 		end
 
@@ -563,6 +535,39 @@ end
 
 -- ARTIFACTS
 -- ...
+
+-- #region UPDATE
+
+function RpgService.StartLifeRegen(userId, lifeRegen)
+	local playersLife = StatState.playersLife
+	local lifeRegenUpdates = StatState.lifeRegenUpdates
+
+	if lifeRegen > 0 and StatState.playersLife[userId] then
+		lifeRegenUpdates[userId] = PlayerService.StateUpdate:Connect(function(state)
+			local playerState = Selectors.PlayerState(state, userId)
+
+			if not playerState then
+				RpgService.StopLifeRegen(userId)
+			end
+
+			local maxLife = playerState.stats.maxLife
+			local lifeUpdate = playersLife[userId] + lifeRegen / 60 -- 60 FPS
+
+			playersLife[userId] = math.min(lifeUpdate, maxLife)
+		end)
+	end
+end
+
+function RpgService.StopLifeRegen(userId)
+	local lifeRegenUpdates = StatState.lifeRegenUpdates
+
+	if lifeRegenUpdates[userId] then
+		lifeRegenUpdates[userId]:Disconnect()
+		lifeRegenUpdates[userId] = nil
+	end
+end
+
+-- #endregion
 
 -- Start Service
 function RpgService:KnitInit()

@@ -208,9 +208,11 @@ end
 
 -- 2) Server Validation + Setup Expected Attack
 -- Player is asking to Attack using their Weapon
-local function attackValidation(player, playerStats, weaponData)
-	if not playerStats or not weaponData then
-		-- warn("No playerStats or weaponData")
+local function attackValidation(player, playerStats, weaponState)
+	local next = next(weaponState)
+
+	if not playerStats or next == nil then
+		-- warn("No playerStats or weaponState")
 		return
 	end
 
@@ -309,11 +311,11 @@ local function autoTarget(state)
 			continue
 		end
 
-		local playerStats, weaponData = Selectors.PlayerStats(playerState)
+		local playerStats, weaponState = Selectors.PlayerStats(playerState)
 		local isInRange = targetDistance <= playerStats.aoe * 2
 
-		if weaponData and isInRange then
-			attackValidation(player, playerStats, weaponData)
+		if weaponState and isInRange then
+			attackValidation(player, playerStats, weaponState)
 		end
 	end
 end

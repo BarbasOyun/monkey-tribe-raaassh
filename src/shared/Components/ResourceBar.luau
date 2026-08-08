@@ -21,6 +21,7 @@ return function(props)
 	local barTransparency = props.barTransparency
 
 	-- Text
+	local textPos = props.textPos or UDim2.fromScale(0, 0)
 	local resourceName = props.resourceName or "Resources"
 	local textColor = props.textColor or Color3.new(0, 0, 0)
 
@@ -36,6 +37,7 @@ return function(props)
 	})
 
 	local resourcesText = textLabel({
+		position = textPos,
 		size = UDim2.fromScale(1.0, 1.0),
 		text = resourceName .. " " .. value .. " / " .. maxValue,
 		textColor3 = textColor,

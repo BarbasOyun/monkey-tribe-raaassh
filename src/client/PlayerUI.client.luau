@@ -69,13 +69,14 @@ local function frameGridLayout(props)
 	local position = props.position
 	local size = props.size
 
-	local listItems = props.listItems
-	local xPadding = props.xPadding
-	local cellYSize = props.cellYSize
+	local listItems = props.listItems or {}
+	local xPadding = props.xPadding or 0.1
 
 	-- Calculate Properties
 	local columns = #listItems
-	local cellXSize = Gears.ElementXSize(false, columns, xPadding)
+	-- local cellXSize = Gears.ElementXSize(true, columns, xPadding)
+
+	local t = (1 - 0.1 * columns) / (columns + 1)
 
 	return Roact.createElement("Frame", {
 		Position = position,
@@ -86,10 +87,10 @@ local function frameGridLayout(props)
 		Layout = Roact.createElement("UIGridLayout", {
 			HorizontalAlignment = "Center",
 			VerticalAlignment = "Center",
-			CellSize = UDim2.new(cellXSize, cellYSize),
-			Padding = UDim.new(xPadding),
+			CellSize = UDim2.fromScale(0.1, 1.0),
+			CellPadding = UDim2.fromScale(t, 0),
 		}),
-		ListItems = listItems,
+		ListItems = Roact.createFragment(listItems),
 	})
 end
 
@@ -264,7 +265,8 @@ local thousandDonationProps = {
 
 -- Global Enemy Lvl Display
 local robotImageProps = {
-	position = UDim2.fromScale(0.22, 0.1),
+	-- position = UDim2.fromScale(0.22, 0.1),
+	position = UDim2.fromScale(0, 0),
 	size = UDim2.fromScale(0.05, 0.1),
 	imageLink = "rbxassetid://130840043704422",
 }
@@ -278,7 +280,8 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 	end
 
 	return {
-		position = UDim2.fromScale(0.25, 0.1),
+		-- position = UDim2.fromScale(0.25, 0.1),
+		position = UDim2.fromScale(0.05, 0),
 		size = UDim2.fromScale(0.1, 0.1),
 		text = "Lvl " .. globalEnemyLvl,
 	}
@@ -313,10 +316,9 @@ local progressBarProps = {
 	barColor = Color3.fromRGB(223, 151, 17),
 	barTransparency = 0.2,
 	-- Text
+	textPos = UDim2.fromScale(0, -1),
 	resourceName = "Stage Progress",
 }
-
--- TODO : Events Icons
 
 eventsIcons = RoactRodux.connect(function(state)
 	-- mapStateToProps
@@ -339,15 +341,11 @@ eventsIcons = RoactRodux.connect(function(state)
 
 	return {
 		position = UDim2.fromScale(0.3, 0.0),
-		size = UDim2.fromScale(0.4, 0.05),
+		size = UDim2.fromScale(0.4, 0.04),
 		listItems = iconList,
 		xPadding = 0.1,
-		cellYSize = 0.9,
 	}
 end)(frameGridLayout)
-
-EventsIcons = Roact.createElement(eventsIcons)
-warn(EventsIcons)
 
 -- GameTimer
 local gameTimerProps = {
@@ -374,7 +372,7 @@ local function mainGui()
 		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
 		CurrentStageText = Roact.createElement(currentStageText),
 		ProgressBar = resourceBar(progressBarProps),
-		-- EventsIcons = EventsIcons,
+		EventsIcons = Roact.createElement(eventsIcons),
 		GameTimer = textLabel(gameTimerProps),
 	})
 end
