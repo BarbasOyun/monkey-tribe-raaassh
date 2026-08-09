@@ -11,42 +11,65 @@ local image = require(ReplicatedStorage.Shared.Components.Image)
 local player = Players.LocalPlayer
 
 -- Hub Version
-local bananaImageProps = {
+local hubImageProps = {
 	position = UDim2.fromScale(0.77, 0),
 	size = UDim2.fromScale(0.08, 0.18),
 	imageLink = "rbxassetid://92617984020165",
 }
 
-BananasConnection = RoactRodux.connect(function(state, props)
-	-- mapStateToProps
-	local bananas = 0
+local hubConnectionProps = {
+	position = UDim2.fromScale(0.56, 0), -- X_pos = 0.75 - size.x / 2
+	size = UDim2.fromScale(0.2, 0.2),
+}
 
-	if state.players[player.UserId] then
-		bananas = state.players[player.UserId].bananas
-	end
+-- Game Version
+local gameImageProps = {
+	position = UDim2.fromScale(0.77, 0),
+	size = UDim2.fromScale(0.05, 0.09),
+	imageLink = "rbxassetid://92617984020165",
+}
 
-	return {
-		position = UDim2.fromScale(0.57, 0), -- X_pos = 0.75 - size.x / 2
-		size = UDim2.fromScale(0.2, 0.2),
-		text = bananas,
-		textXAlign = "Right",
-	}
-end)(textLabel)
+local gameConnectionProps = {
+	position = UDim2.fromScale(0.56, 0), -- X_pos = 0.75 - size.x / 2
+	size = UDim2.fromScale(0.1, 0.1),
+}
 
--- TODO : Game Version
+local imageProps = {
+	hubImageProps,
+	gameImageProps,
+}
 
-local BananaIcon = image(bananaImageProps)
-local BananasText = Roact.createElement(BananasConnection)
-
-local Bananas = {
-	BananaIcon = BananaIcon,
-	BananasText = BananasText,
+local connectionsProps = {
+	hubConnectionProps,
+	gameConnectionProps,
 }
 
 local function GetBananasUi(sceneId: number)
-	if sceneId == 0 then
-		-- TODO
-	end
+	-- Create Image
+	local BananaIcon = image(imageProps[sceneId])
+
+	-- Create Text
+	local connectionProps = connectionsProps[sceneId]
+
+	local Connection = RoactRodux.connect(function(state)
+		-- mapStateToProps
+		local bananas = 0
+
+		if state.players[player.UserId] then
+			bananas = state.players[player.UserId].bananas
+		end
+
+		return {
+			position = connectionProps.position,
+			size = connectionProps.size,
+			text = bananas,
+			textXAlign = "Right",
+		}
+	end)(textLabel)
+
+	local BananasText = Roact.createElement(Connection)
+
+	return BananaIcon, BananasText
 end
 
-return Bananas
+return GetBananasUi

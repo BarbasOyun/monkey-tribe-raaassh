@@ -37,7 +37,6 @@ local thousandDonationId = 3607471867
 -- Get Components
 local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
 local textButton = require(ReplicatedStorage.Shared.Components.TextButton)
-local image = require(ReplicatedStorage.Shared.Components.Image)
 
 -- Get Elements
 local AugmentPanel = require(ReplicatedStorage.Shared.Elements.AugmentPanel)
@@ -46,9 +45,8 @@ local Bars = require(ReplicatedStorage.Shared.Elements.ResourceBars)
 local XpBar = Bars.XpBar
 local lifeBar = Bars.lifeBar
 local enteringGameLabel = require(ReplicatedStorage.Shared.Components.EnteringGame)
-local Bananas = require(ReplicatedStorage.Shared.Elements.BananasText)
-local BananaIcon = Bananas.BananaIcon
-local BananasText = Bananas.BananasText
+local GetBananasUi = require(ReplicatedStorage.Shared.Elements.BananasText)
+local BananaIcon, BananasText = GetBananasUi(1)
 
 -- #region WORLD PANELS
 

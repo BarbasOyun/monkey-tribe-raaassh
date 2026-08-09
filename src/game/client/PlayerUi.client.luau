@@ -32,7 +32,6 @@ local playerGui = Players.LocalPlayer.PlayerGui
 
 -- Get Components
 local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
--- local textButton = require(ReplicatedStorage.Shared.Components.TextButton)
 local image = require(ReplicatedStorage.Shared.Components.Image)
 local resourceBar = require(ReplicatedStorage.Shared.Components.ResourceBar)
 local frameGridLayout = require(ReplicatedStorage.Shared.Components.FrameGridLayout)
@@ -40,9 +39,11 @@ local frameGridLayout = require(ReplicatedStorage.Shared.Components.FrameGridLay
 -- Get Elements
 local AugmentPanel = require(ReplicatedStorage.Shared.Elements.AugmentPanel)
 local LevelUpLabel = require(ReplicatedStorage.Shared.Elements.LevelUpLabel)
-local Bars = require(ReplicatedStorage.Shared.Components.ResourceBars)
+local Bars = require(ReplicatedStorage.Shared.Elements.ResourceBars)
 local XpBar = Bars.XpBar
 local lifeBar = Bars.lifeBar
+local GetBananasUi = require(ReplicatedStorage.Shared.Elements.BananasText)
+local BananaIcon, BananasText = GetBananasUi(2)
 
 -- #endregion
 
@@ -230,56 +231,14 @@ local gameTimerProps = {
 
 -- #endregion
 
--- #region CURRENCIES
-
-local bananaImageProp = {
-	position = UDim2.fromScale(0.77, 0),
-	size = UDim2.fromScale(0.08, 0.18),
-	imageLink = "rbxassetid://92617984020165",
-}
-
-local function Bananas(props)
-	local position = props.position or UDim2.fromScale(0, 0)
-	local size = props.size or UDim2.fromScale(0.2, 0.2)
-
-	local text = props.text or "Bananas: "
-	local bananas = props.bananas or 0
-
-	return Roact.createElement("TextLabel", {
-		Text = text .. bananas,
-		Position = position,
-		Size = size,
-		BackgroundTransparency = 1,
-		TextScaled = true,
-		TextColor3 = Color3.fromRGB(255, 255, 255),
-	})
-end
-
-BananasMain = RoactRodux.connect(function(state, props)
-	-- mapStateToProps
-	local bananas = 0
-
-	if state.players[player.UserId] then
-		bananas = state.players[player.UserId].bananas
-	end
-
-	return {
-		position = UDim2.fromScale(0.65, 0), -- X_pos = 0.75 - size.x / 2
-		size = UDim2.fromScale(0.2, 0.2),
-		bananas = bananas,
-		text = "",
-	}
-end)(Bananas)
-
--- TODO : Sticks, Rocks
-
--- #endregion
-
 -- #region APP
 
 local function mainGui()
 	return Roact.createElement("ScreenGui", {}, {
 		-- Top
+		BananaIcon = BananaIcon,
+		BananasText = BananasText,
+		-- TODO : Sticks, Rocks
 		RobotImage = image(robotImageProps),
 		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
 		CurrentStageText = Roact.createElement(currentStageText),
