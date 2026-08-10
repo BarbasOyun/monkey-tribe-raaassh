@@ -2,7 +2,7 @@ local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- local Gears = require(ReplicatedStorage.Shared.Gears)
+local Gears = require(ReplicatedStorage.Shared.Gears)
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
@@ -10,9 +10,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
 local LevelDefinitions
--- local Maps
-local Events
-local EventsSounds
+local Events, EventsSounds, Maps, MapsMusics, MapsBuildings
 
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -115,19 +113,56 @@ end
 
 function LevelService.LoadLevelDefinitions()
 	LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
-	-- local Maps = LevelDefinitions.Maps
+
+	Maps = LevelDefinitions.Maps
+	MapsMusics = LevelDefinitions.MapsMusics
+	MapsBuildings = LevelDefinitions.MapsBuildings
+
 	Events = LevelDefinitions.Events
 	EventsSounds = LevelDefinitions.EventsSounds
 end
 
 --- Start a New Stage
 function LevelService.StartStage()
+	-- EnemyService.StartStreamSpawn()
+
+	-- Generate Map
 	LevelState.stageProgress = 0
-	LevelState.currentMapId = math.random(1, 2) -- FIXME : replace 2 with Map Count
-	EnemyService.StartStreamSpawn()
+	LevelState.currentMapId = math.random(1, #MapsBuildings)
+	local buildingsAmount = LevelState.buildingAmount
+	LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
+
+	warn("Start Stage MapID = " .. LevelState.currentMapId)
+
+	LevelService.SetMusic(LevelState.currentMapId)
+
+	LevelService.GenerateWeapons()
 
 	LevelService.GenerateEvents()
-	-- LevelService.GenerateMap()
+end
+
+function LevelService.SetMusic(mapId)
+	local state = Store:getState()
+
+	for _, player in pairs(Players:GetPlayers()) do
+		local playerState = state.players[player.UserId]
+		local music = player.PlayerGui.ClientSounds:FindFirstChild("Music")
+
+		-- Destroy old music
+		if music then
+			music:Destroy()
+		end
+
+		-- Add new music
+		local mapMusic = MapsMusics[mapId]:clone()
+		mapMusic.Parent = player.PlayerGui.ClientSounds
+		mapMusic.Name = "Music"
+
+		-- Play Music
+		if playerState and playerState.isMusicEnabled then
+			mapMusic:Play()
+		end
+	end
 end
 
 function LevelService.ResetLevel()
@@ -161,19 +196,21 @@ function LevelService.ProgressStage()
 end
 
 function LevelService.FinishStage()
-	-- TODO
+	-- TODO :
 	-- Start Countdown
-	-- Stage Increments
-	-- stageBuildingNbr = math.clamp(stageBuildingNbr + ADDITIONAL_BUILDINGS, 0, BUILDING_LIMIT)
+	task.wait() -- Countdown
 
-	task.wait()
+	-- Increments
+	local newBuildingAmount = LevelState.buildingAmount + LevelDefinitions.BUILDINGS_INCREMENT
+	LevelState.buildingAmount = math.min(newBuildingAmount, LevelDefinitions.BUILDING_LIMIT)
+
 	local state = Store:getState()
 	local currentStage = state.gameState.currentStage + 1
 
 	local patch = { currentStage = currentStage }
 	Store:dispatch(StoreActions.PatchGameState(patch))
 
-	PlayerService.PatchGameState:FireALl(patch)
+	PlayerService.PatchGameState:FireAll(patch)
 
 	LevelService.ResetLevel()
 	LevelService.StartStage()
@@ -253,41 +290,108 @@ end
 
 --- Generate Random Buildings
 function LevelService.GenerateMap(mapId, stageRadiusSize, buildingsAmount)
-	-- TODO
-	-- 1] Create Nodes at random Positions
-	local randomAmount = 0
+	local buildings = MapsBuildings[mapId]
 
-	LevelService.CreateNodes(randomAmount)
+	-- DEBUG : Draw Stage Radius + Minimum Radius
+	PlayerService.StateUpdate:Connect(function(state, dt)
+		-- Outer Radius
+		local outerRadiusPoints = Gears.CirclePoints(stageRadiusSize, 20)
+		Gears.DrawCircle(Vector3.new(0, 3, 0), outerRadiusPoints)
+
+		-- Inner Radius
+		local pos = Vector3.new(LevelDefinitions.SPAWN_POS.X, 3, LevelDefinitions.SPAWN_POS.Y)
+		local innerRadiusPoints = Gears.CirclePoints(LevelDefinitions.MINIMUM_RADIUS, 20)
+		Gears.DrawCircle(pos, innerRadiusPoints)
+	end)
+
+	-- 1] Create Nodes at random Positions
+	local buildingAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
+	local minRadius = LevelDefinitions.MINIMUM_RADIUS
+	local buildingNodes = LevelService.GenerateNodes(buildings, minRadius, stageRadiusSize, buildingAmount)
 
 	-- 2] Collisions Detection + Solver
-	LevelService.CollisionsDetection()
-	LevelService.Solver()
+	-- local collisions = LevelService.CollisionsDetection(buildingNodes)
+	-- LevelService.Solver(buildingNodes, collisions)
 
 	-- 3] Spawn Buildings
-	LevelService.SpawnBuildings()
+	-- Add Prefab in the Nodes
+	for i = 1, buildingAmount do
+		buildingNodes[i].prefab = buildings[i].prefab
+	end
+
+	LevelService.SpawnBuildings(buildingNodes)
+
+	LevelState.totalParts *= 0.5 -- Require 50% of the stage to be completed
 end
 
-function LevelService.CreateNodes(amount)
-	-- TODO
+--- Generate Building Nodes at random positions within 2 Circles
+function LevelService.GenerateNodes(buildings, innerRadius, outerRadius, amount)
+	local buildingNodes = {}
+
+	local buildingIndex = math.random(1, #buildings)
+	local positions = LevelService.GetPosWithinCircles(innerRadius, outerRadius, amount)
+
+	-- Generate Building Nodes
+	for i = 1, amount do
+		-- Roll Building
+		local building = buildings[buildingIndex]
+		buildingIndex = Gears.LoopValue(buildingIndex + 1, #buildings, 1)
+		LevelState.totalParts += building.nbrOfParts
+
+		-- Build Circular Nodes
+		local buildingNode = { position = positions[i], radius = building.radius }
+		buildingNodes[i] = buildingNode
+	end
+
+	return buildingNodes
+end
+
+--- Get random points within 2 Circles
+function LevelService.GetPosWithinCircles(innerRadius, outerRadius, amount)
+	local positions = {}
+
+	for i = 1, amount, 1 do
+		local radius = Gears.FloatRandom(innerRadius, outerRadius)
+		local progress = Gears.FloatRandom(0, CONSTANTS.MAX_RADIANT)
+
+		positions[i] = Gears.CirclePos(radius, progress)
+	end
+
+	return positions
 end
 
 --- Detect the Collisions between (Circular) Nodes
-function LevelService.CollisionsDetection()
+function LevelService.CollisionsDetection(circularNodes)
+	local collisions = {}
 	-- TODO
+	return collisions
 end
 
---- Solve collisions between Nodes
-function LevelService.Solver()
+--- Solve collisions between Nodes within 2 Circles
+function LevelService.Solver(innerRadius, outerRadius, circularNodes, collisions)
 	-- TODO
 end
 
 --- Spawn Buildings based on Node Locations
-function LevelService.SpawnBuildings()
-	-- TODO
+function LevelService.SpawnBuildings(buildingNodes)
+	for i = 1, #buildingNodes do
+		-- DEBUG : Draw Nodes Radius
+		local node = buildingNodes[i]
+		PlayerService.StateUpdate:Connect(function(state, dt)
+			local pos = Vector3.new(node.position.X, 3, node.position.Y)
+			local outerRadiusPoints = Gears.CirclePoints(node.radius, 20)
+			Gears.DrawCircle(pos, outerRadiusPoints)
+		end)
+	end
 end
 
 --- Destroy Every Buildings
 function LevelService.ClearBuildings()
+	-- TODO
+end
+
+--- Scatter random weapons in the Map
+function LevelService.GenerateWeapons()
 	-- TODO
 end
 

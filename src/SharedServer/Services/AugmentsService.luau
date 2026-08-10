@@ -2,8 +2,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
-local Knit = require(ReplicatedStorage.Packages.Knit)
--- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
@@ -22,7 +20,10 @@ local StoreActions = RoduxStore.Actions
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local StatState = MutState.StatState
 
--- Get Services
+-- Get Knit
+local Knit = require(ReplicatedStorage.Packages.Knit)
+-- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+
 local RpgService
 local PlayerService
 
@@ -34,7 +35,7 @@ local AugmentsService = Knit.CreateService({
 	},
 })
 
--- Generate a patch of the specified augment
+--- Generate a patch of the specified augment
 local function augmentPatch(state, userId, modStat, value)
 	local playerData = state.players[userId]
 
@@ -46,7 +47,7 @@ local function augmentPatch(state, userId, modStat, value)
 	return patch
 end
 
--- Debug func : Add a Specific Stat
+--- Debug func : Add a Specific Stat
 function AugmentsService.AddAugmentStat(userId, modStat, value)
 	local state = Store:getState()
 
@@ -56,7 +57,7 @@ end
 
 -- #region AUGMENTS GENERATION
 
--- Generate Weight for each Rarity based on Luck Value
+--- Generate Weight for each Rarity based on Luck Value
 local function getWeights(luck)
 	-- local weights = AUGMENTS.weights -- TODO : Per Augment type weight
 	local baseLuckValue = AUGMENTS.baseLuckValue
@@ -81,7 +82,7 @@ local function getWeights(luck)
 	return weights
 end
 
--- Get a Rarity based on Weights
+--- Get a Rarity based on Weights
 local function rollRarity(weights, totalWeight)
 	local roll = math.random(0, totalWeight)
 	local count = 1
@@ -96,7 +97,7 @@ local function rollRarity(weights, totalWeight)
 	return AUGMENTS.rarity[count]
 end
 
--- Get a random valid augment of a Rarity
+--- Get a random valid augment of a Rarity
 local function getAugment(rarity, banList)
 	-- Build Possible List
 	local optionList = Gears.DeepCopy(MOD_STATS_INDEX)
@@ -148,7 +149,7 @@ local function getAugment(rarity, banList)
 	return augment
 end
 
--- Make the next set of Augments available
+--- Make the next set of Augments available
 function AugmentsService.GenerateAugments(player)
 	local userId = player.UserId
 	local state = Store:getState()

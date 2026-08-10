@@ -30,10 +30,11 @@ local gameImageProps = {
 }
 
 local gameConnectionProps = {
-	position = UDim2.fromScale(0.56, 0), -- X_pos = 0.75 - size.x / 2
+	position = UDim2.fromScale(0.66, 0), -- X_pos = 0.75 - size.x / 2
 	size = UDim2.fromScale(0.1, 0.1),
 }
 
+-- Registry
 local imageProps = {
 	hubImageProps,
 	gameImageProps,

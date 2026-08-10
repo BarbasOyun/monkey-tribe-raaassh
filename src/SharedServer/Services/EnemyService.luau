@@ -2,9 +2,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
-local PlayerService = require(script.Parent.PlayerService)
-local Knit = require(ReplicatedStorage.Packages.Knit)
--- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
@@ -27,7 +24,12 @@ local MutState = require(ServerScriptService.SharedServer.MutableState)
 local EnemyServiceState = MutState.EnemyServiceState
 local EcsState = MutState.EcsState
 
--- Get Services
+-- Get Knit
+local Knit = require(ReplicatedStorage.Packages.Knit)
+-- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+
+-- local PlayerService = require(script.Parent.PlayerService)
+local PlayerService
 local LevelService
 local RpgService
 local EcsService
@@ -86,7 +88,16 @@ local defaultOnDeath = function(character, player)
 	EcsService.DisableEntity(character:GetAttribute("EntityId"))
 end
 
-local dummyOnDeath = defaultOnDeath
+local dummyOnDeath = function(character, player)
+	defaultOnDeath(character, player)
+
+	-- Get Back respawnPos
+	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
+	local id = character:GetAttribute("EntityId")
+	local respawnPos = CustomStorage.GetCustomProperties(id).respawnPos
+
+	EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, respawnPos) -- Respawn
+end
 
 local robotOnDeath = defaultOnDeath
 
@@ -145,18 +156,18 @@ local respawnSetup = function(entityId, definitionId)
 	CustomStorage.AddComponentToEntity(EcsState, entityId, customProperties)
 
 	-- Connect to Unit OnDeath
-	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
-	local UnitStorageState = UnitStorage.GetState()
-	local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
+	-- local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
+	-- local UnitStorageState = UnitStorage.GetState()
+	-- local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
 
-	UnitStorageState.deathEvent[unitId]:Connect(function(character, _player)
-		task.wait(1)
-		-- Get respawnPos Back
-		local id = character:GetAttribute("EntityId")
-		local respawnPos = CustomStorage.GetCustomProperties(id).respawnPos
+	-- UnitStorageState.deathEvent[unitId]:Connect(function(character, _player)
+	-- 	task.wait(1)
+	-- 	-- Get Back respawnPos
+	-- 	local id = character:GetAttribute("EntityId")
+	-- 	local respawnPos = CustomStorage.GetCustomProperties(id).respawnPos
 
-		EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, respawnPos) -- Respawn
-	end)
+	-- 	EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, respawnPos) -- Respawn
+	-- end)
 end
 
 local dummyArchetypeSetup = {
@@ -420,7 +431,7 @@ end
 
 --- Increment Enemies Stats
 function EnemyService.LevelUpEnemies()
-	warn("Up Global Enemy Lvl")
+	-- warn("Up Global Enemy Lvl")
 
 	local state = Store:getState()
 	local globalEnemyLvl = state.gameState.globalEnemyLvl + 1
@@ -457,7 +468,7 @@ end
 
 -- TODO : AttackValidation + AttackCtx
 
-function EnemyService.Attack(entityId, enemy, player)
+function EnemyService.EnemyAttack(entityId, enemy, player)
 	local robotStats = EnemiesStats[Enemies.Robot]
 
 	enemy.Humanoid:MoveTo(enemy.HumanoidRootPart.Position) -- Stop
@@ -505,7 +516,7 @@ function EnemyService.MobBehavior(state)
 		local isWithinRange = distance <= robotStats.Range
 
 		if isWithinRange then
-			EnemyService.Attack(entityId, enemy, targetPlayer)
+			-- EnemyService.EnemyAttack(entityId, enemy, targetPlayer)
 			continue
 		end
 
@@ -578,8 +589,8 @@ end
 
 function EnemyService.StartStreamSpawn()
 	task.wait(EnemyConst.STREAM_SPAWN_INITIAL_CD)
-	EnemyService.StartMobBehavior()
 	EnemyService.RollStreamSpawnDelta()
+	EnemyService.StartMobBehavior()
 	LevelService.StartGameTimer()
 
 	PlayerService.StateUpdate:Connect(function(state, dt)
@@ -646,6 +657,7 @@ function EnemyService:KnitInit()
 end
 
 function EnemyService:KnitStart()
+	PlayerService = Knit.GetService("PlayerService")
 	LevelService = Knit.GetService("LevelService")
 	RpgService = Knit.GetService("RpgService")
 	EcsService = Knit.GetService("EcsService")

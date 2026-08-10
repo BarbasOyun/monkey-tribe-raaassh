@@ -42,6 +42,12 @@ end
 
 -- #region TABLES
 
+function Gears.UniqueInsert(t, element)
+	if not table.find(t, element) then
+		table.insert(t, element)
+	end
+end
+
 function Gears.MoveLastElement(t, index)
 	local lastElement = table.remove(t, #t)
 	t[index] = lastElement

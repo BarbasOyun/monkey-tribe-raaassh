@@ -49,7 +49,7 @@ local PlayerService = Knit.CreateService({
 
 -- #region PLAYERS
 
--- Custom Game State for Clients -> Remove Useless Data
+--- Generate Custom Game State for Clients -> Remove Useless Data
 local function playerGameState(player)
 	local state = Store:getState()
 	local players = {}
@@ -87,7 +87,6 @@ local function playerGameState(player)
 	return gameState
 end
 
--- TODO : AddHubPlayer
 function PlayerService.AddPlayer(player)
 	local userId = player.UserId
 	local username = player.Name
@@ -96,14 +95,14 @@ function PlayerService.AddPlayer(player)
 	Store:dispatch(StoreActions.AddPlayer(userId, username))
 
 	-- Stats
-	PlayerService.GetMetaUpgrades(userId)
+	-- PlayerService.GetMetaUpgrades(userId)
 
 	-- Send the full store to the new player
 	local state = Store:getState()
 	PlayerService.Client.ReplicateStore:Fire(player, state)
 
 	-- Set Detection to empty
-	MutState.playersDetections[player.UserId] = {}
+	MutState.playersDetections[userId] = {}
 
 	-- Events
 	PlayerService.PlayerAdded:Fire(userId)
@@ -120,7 +119,7 @@ function PlayerService.RemovePlayer(player)
 	PlayerService.Client.PlayerRemoved:FireAll(userId)
 end
 
-function PlayerService.Client.ToggleMusic(player, isEnabled)
+function PlayerService.Client:ToggleMusic(player, isEnabled)
 	Store:dispatch(StoreActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
 end
 
@@ -128,7 +127,7 @@ end
 
 -- #region DB
 
--- Save Score & Meta Upgrades to Db
+--- Save a Player Score & Meta Upgrades to Db
 function PlayerService.SaveToDb(userId)
 	local state = Store:getState()
 	local playerData = state.players[userId]
@@ -165,7 +164,6 @@ function PlayerService.IncrementDbBananas(userId, value)
 	end)
 end
 
--- Get
 function PlayerService.GetBananasDb(player)
 	local userId = player.UserId
 	local bananaCount = 0
@@ -184,8 +182,10 @@ function PlayerService.GetBananasDb(player)
 	PlayerService.Client.PatchPlayer:Fire(player, patch)
 end
 
-function PlayerService.GetMetaUpgrades(userId)
-	-- Get Levels from DB or 0
+--- Get Meta Upgrades Levels from DB or 0
+function PlayerService.GetMetaUpgrades(player)
+	local userId = player.UserId
+
 	local levels = {}
 	local costs = {}
 	local metaUpgrades = {}
@@ -215,10 +215,10 @@ function PlayerService.GetMetaUpgrades(userId)
 	local patch = { metaUpgradesLevel = levels, metaUpgradesCost = costs, metaUpgrades = metaUpgrades }
 	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 
-	RpgService.CalculateAllStats(userId)
+	RpgService.CalculateAllStats(player)
 end
 
--- Debug func -> Delete Player's DB
+--- Debug func -> Delete Player's DB
 local function ResetPlayer(player)
 	local state = Store:getState()
 	local userId = player.UserId
@@ -239,21 +239,41 @@ end
 
 -- #endregion
 
--- GAME
+-- #region GAME
+-- TODO GameService + Per Place Services loading
 
 function PlayerService.GameOver()
 	print("Game Over -> Saving Bananas & Going back to Hub")
 	local players = Players:GetPlayers()
 
-	-- TODO : Get Bananas Delta
-	for _, player in pairs(players) do
-		local bananasDelta = 0
-		PlayerService.IncrementDbBananas(player.UserId, bananasDelta)
-	end
+	PlayerService.SaveAllBananasDelta()
 
 	pcall(function()
 		return TeleportService:TeleportAsync(CONSTANTS.HUB_PLACE_ID, players)
 	end)
+end
+
+--- Calculate Bananas Delta for a player and Increment the DB Value by it
+function PlayerService.SaveBananasDelta(player)
+	-- TODO
+	local bananasDelta = 0
+	PlayerService.IncrementDbBananas(player.UserId, bananasDelta)
+end
+
+function PlayerService.SaveAllBananasDelta()
+	for _, player in pairs(Players:GetPlayers()) do
+		PlayerService.SaveBananasDelta(player)
+	end
+end
+
+--- CheckGameOver on player Death
+function PlayerService.SetupGameOver(player)
+	local function onCharacterAdded(character)
+		local humanoid = character:WaitForChild("Humanoid")
+		humanoid.Died:Connect(PlayerService.CheckGameOver)
+	end
+
+	player.CharacterAdded:Connect(onCharacterAdded)
 end
 
 function PlayerService.CheckGameOver()
@@ -262,8 +282,16 @@ function PlayerService.CheckGameOver()
 
 	local deadPlayersCount = 0
 
-	for i = 1, #players, 1 do
-		if players[i].isDead then
+	-- Count using custom isDead
+	-- for i = 1, #players, 1 do
+	-- 	if players[i].isDead then
+	-- 		deadPlayersCount += 1
+	-- 	end
+	-- end
+
+	-- Count using Roblox Humanoid
+	for _, player in pairs(Players:GetPlayers()) do
+		if player.character.Humanoid.Health <= 0 then
 			deadPlayersCount += 1
 		end
 	end
@@ -283,11 +311,11 @@ function PlayerService.KillPlayer(player)
 	PlayerService.PlayerDied:Fire()
 	-- Events.PlayerDied:FireClient(player) -- TODO : Client Event
 
-	-- PlayerService.CheckGameOver()
-
-	-- TODO : Custom Death = Dismember, Disable controls
 	player.character.Humanoid.Health = 0
+	PlayerService.CheckGameOver()
 end
+
+-- #endregion
 
 -- #region CURRENCIES
 

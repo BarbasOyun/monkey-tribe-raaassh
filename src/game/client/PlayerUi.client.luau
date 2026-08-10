@@ -41,7 +41,8 @@ local AugmentPanel = require(ReplicatedStorage.Shared.Elements.AugmentPanel)
 local LevelUpLabel = require(ReplicatedStorage.Shared.Elements.LevelUpLabel)
 local Bars = require(ReplicatedStorage.Shared.Elements.ResourceBars)
 local XpBar = Bars.XpBar
-local lifeBar = Bars.lifeBar
+local LifeBar = Bars.LifeBar
+local updateLifeBar = Bars.updateLifeBar
 local GetBananasUi = require(ReplicatedStorage.Shared.Elements.BananasText)
 local BananaIcon, BananasText = GetBananasUi(2)
 
@@ -192,7 +193,7 @@ local progressBarProps = {
 	barColor = Color3.fromRGB(223, 151, 17),
 	barTransparency = 0.2,
 	-- Text
-	textPos = UDim2.fromScale(0, 1),
+	textPos = UDim2.fromScale(0, 1.2),
 	resourceName = "Stage Progress",
 }
 
@@ -247,7 +248,7 @@ local function mainGui()
 		GameTimer = textLabel(gameTimerProps),
 		-- Bot
 		XpBar = Roact.createElement(XpBar),
-		LifeBar = lifeBar,
+		LifeBar = Roact.createElement(LifeBar),
 		-- Panels
 		LevelUpLabel = Roact.createElement(LevelUpLabel),
 		AugmentPanel = Roact.createElement(AugmentPanel),
@@ -268,6 +269,8 @@ Roact.mount(app, PlayerGui)
 
 -- #region AFTER UI CREATION
 -- Manual / Roact less UI -> Dynamic UI
+
+updateLifeBar()
 
 local mainGuiRef = playerGui.RoactTree.MainGui
 

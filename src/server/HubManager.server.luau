@@ -6,15 +6,15 @@ local TeleportService = game:GetService("TeleportService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
-local Knit = require(ReplicatedStorage.Packages.Knit)
-Knit.OnStart():await()
-
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 local Enemies = enemyDef.Enemies
 
 -- Get Services
+local Knit = require(ReplicatedStorage.Packages.Knit)
+Knit.OnStart():await()
+
 local PlayerService = Knit.GetService("PlayerService")
 local LevelService = Knit.GetService("LevelService")
 
@@ -179,39 +179,56 @@ MarketplaceService.ProcessReceipt = processReceipt
 
 -- #endregion
 
--- #region PLAYERS
+-- #region START
 
-local function safeInsert(t, element)
-	if not table.find(t, element) then
-		table.insert(t, element)
-	end
+--- In World Shared Ui
+--[[
+local function setupInWorldUi()
+spawnWeaponButton.MouseButton1Click:Connect(function()
+	local randomId = math.random(6, 8) -- TODO : Split per type item definitions
+	ItemService:SpawnItem(randomId, weaponSpawnPos.CFrame.Position)
+end)
 end
+]]
 
 local function setupPlayerService()
+	Players.PlayerAdded:Connect(function(player)
+		PlayerService.AddPlayer(player)
+		PlayerService.GetMetaUpgrades(player)
+		AugmentsService.GenerateAugments(player)
+
+		PlayerService.GetBananasDb(player)
+
+		-- Manual Tests
+		-- local userId = player.UserId
+		-- AugmentsService.AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
+		-- PlayerService.AddBananas(100)
+		-- RpgService.AddXpToAllPlayers(225)
+		-- RpgService.RegisterLife(player)
+		-- RpgService.DamagePlayer(player, 50)
+	end)
+
+	Players.PlayerRemoving:Connect(function(player)
+		-- SaveToDb Only if Player is Changed
+		local i = table.find(isPlayerChanged, player)
+
+		if i then
+			PlayerService.SaveToDb(player.UserId)
+			table.remove(isPlayerChanged, i)
+		end
+
+		PlayerService.RemovePlayer(player)
+	end)
+
 	PlayerService.BananasChanged:Connect(function(player, value)
-		safeInsert(isPlayerChanged, player)
+		Gears.UniqueInsert(isPlayerChanged, player)
 	end)
 end
 
 local function setupRpgService()
 	RpgService.MetaUpgradesChanged:Connect(function(player, upgradeType, newUpgrade)
-		safeInsert(isPlayerChanged, player)
+		Gears.UniqueInsert(isPlayerChanged, player)
 	end)
-end
-
--- #endregion
-
--- #region START
-
-local function setupInWorldUi()
-	-- In World Shared Ui
-	--[[
--- Weapon Spawner
-spawnWeaponButton.MouseButton1Click:Connect(function()
-	local randomId = math.random(6, 8) -- TODO : Split per type item definitions
-	ItemService:SpawnItem(randomId, weaponSpawnPos.CFrame.Position)
-end)
-]]
 end
 
 local function setupLevel()
@@ -252,33 +269,6 @@ local function setupEnemies()
 	-- Start Stage
 	-- LevelService.StartStage()
 end
-
-Players.PlayerAdded:Connect(function(player)
-	PlayerService.AddPlayer(player)
-
-	PlayerService.GetBananasDb(player)
-
-	-- Manual Tests
-	-- local userId = player.UserId
-	-- AugmentsService.AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
-	-- PlayerService.AddBananas(100)
-	AugmentsService.GenerateAugments(player) -- FIXME : Augment service connected to player service
-	RpgService.AddXpToAllPlayers(225)
-	RpgService.RegisterLife(player)
-	RpgService.DamagePlayer(player, 50)
-end)
-
-Players.PlayerRemoving:Connect(function(player)
-	-- SaveToDb Only if Player is Changed
-	local i = table.find(isPlayerChanged, player)
-
-	if i then
-		PlayerService.SaveToDb(player.UserId)
-		table.remove(isPlayerChanged, i)
-	end
-
-	PlayerService.RemovePlayer(player)
-end)
 
 -- Setup Services
 setupPlayerService()

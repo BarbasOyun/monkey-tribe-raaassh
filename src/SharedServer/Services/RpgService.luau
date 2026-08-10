@@ -3,14 +3,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
-local Knit = require(ReplicatedStorage.Packages.Knit)
-local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
-
--- Get Rodux Store
-local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
-local Store = RoduxStore.Store
-local Selectors = RoduxStore.Selectors
-local StoreActions = RoduxStore.Actions
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
@@ -27,11 +19,19 @@ local DEFAULT_STATS = statsDefinition.DEFAULT_STATS
 local META_UPRGADES = statsDefinition.META_UPRGADES
 local AUGMENTS = statsDefinition.AUGMENTS
 
+-- Get Rodux Store
+local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
+local Store = RoduxStore.Store
+local Selectors = RoduxStore.Selectors
+local StoreActions = RoduxStore.Actions
+
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local StatState = MutState.StatState
 
--- Get Services
+-- Get Knit
+local Knit = require(ReplicatedStorage.Packages.Knit)
+local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 local PlayerService
 
 -- StatsSystem :
@@ -59,9 +59,11 @@ local RpgService = Knit.CreateService({
 	MetaUpgradesChanged = Signal.new(),
 	XpGained = Signal.new(),
 	Client = {
+		PatchStats = Knit.CreateSignal(),
 		MetaUpgradesChanged = Knit.CreateSignal(),
 		LevelUp = Knit.CreateSignal(),
 		LifeUpdate = Knit.CreateSignal(),
+		-- MaxLifeUpdate = Knit.CreateSignal(),
 		PlayerDamaged = Knit.CreateSignal(),
 	},
 })
@@ -76,7 +78,7 @@ function RpgService.RegisterLife(player)
 	local playerData = state.players[userId]
 	StatState.playersLife[userId] = playerData.stats.maxLife
 
-	RpgService.CalculateStat(state, userId, MOD_STATS_STORE.lifeRegen)
+	RpgService.CalculateStat(state, player, MOD_STATS_STORE.lifeRegen)
 end
 
 function RpgService.DamagePlayer(player, damage)
@@ -171,7 +173,7 @@ end
 
 -- #region CALCULATIONS
 
--- Sum modStats from each Power Systems
+--- Generate a Patch of Sum modStats from each Power Systems
 local function calcModStat(metaUpgrades, augments, modStat)
 	local metaUpgradeStat = metaUpgrades[modStat]
 	local augmentStat = augments[modStat]
@@ -181,7 +183,7 @@ local function calcModStat(metaUpgrades, augments, modStat)
 	return totalModStat
 end
 
--- base * increase
+--- Generate a Patch of base * increase
 local function calcMultStat(metaUpgrades, augments, modStat, calcStat, baseValue)
 	local totalModStat = calcModStat(metaUpgrades, augments, modStat)
 	local totalStat = baseValue * Gears.IncreaseToMultiplier(totalModStat)
@@ -425,16 +427,22 @@ local function statContext(state, userId)
 end
 
 -- modStat = from STATS_STORE
-function RpgService.CalculateStat(state, userId, modStat)
+function RpgService.CalculateStat(state, player, modStat)
+	local userId = player.UserId
+
 	local statCtx = statContext(state, userId)
 
+	-- Dispatch Server + Client
 	local patch = statsCalculation[modStat](statCtx)
 	Store:dispatch(StoreActions.PatchStat(userId, patch))
+	RpgService.Client.PatchStats:Fire(player, patch)
 end
 
-function RpgService.CalculateAllStats(userId)
+function RpgService.CalculateAllStats(player)
+	local userId = player.UserId
 	local state = Store:getState()
 
+	-- Stich patches together
 	local patches = {}
 
 	for _, calculateStat in pairs(statsCalculation) do
@@ -444,8 +452,9 @@ function RpgService.CalculateAllStats(userId)
 		Gears.FuseTable(patches, patch)
 	end
 
+	-- Dispatch Server + Client
 	Store:dispatch(StoreActions.PatchStat(userId, patches))
-	-- Replicate to Client -> Display on Client side character stats sheet
+	RpgService.Client.PatchStats:Fire(player, patches)
 end
 
 -- #endregion
@@ -491,7 +500,7 @@ local function incrementMetaUpgrade(state, player, upgradeType)
 	-- Update Stat
 	local newState = Store:getState()
 	local statType = TO_STAT_OBJECT[upgradeType]
-	RpgService.CalculateStat(newState, userId, statType)
+	RpgService.CalculateStat(newState, player, statType)
 end
 
 function RpgService.Client.BuyMetaUpgrade(player, upgradeType)

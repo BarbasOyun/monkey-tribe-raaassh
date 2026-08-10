@@ -33,6 +33,7 @@ end
 -- Archetypes
 export type Archetype = {
 	name: string,
+	definitionId: number,
 	count: number,
 	startIndex: number,
 	endIndex: number,
@@ -95,6 +96,7 @@ end
 
 function EcsService.AddArchetype(archetype)
 	table.insert(EcsState.archetypes, archetype)
+	EcsState.archetypesLookups[archetype.definitionId] = #EcsState.archetypes
 end
 
 --- Create a pool of Entity of an Archetype
@@ -158,7 +160,8 @@ end
 
 -- Enable an Entity of an Archetype
 function EcsService.EnableArchetypeEntity(archetypeId)
-	local archetype = EcsState.archetypes[archetypeId]
+	local archetypeIndex = EcsState.archetypesLookups[archetypeId]
+	local archetype = EcsState.archetypes[archetypeIndex]
 
 	if archetype.activeCount >= archetype.count then
 		warn(archetype.name .. " Reached Entities Limit of : " .. archetype.count)
@@ -187,7 +190,7 @@ function EcsService.DisableEntity(entityId)
 	local lastEntityId = EcsState.entitiesId[lastEntityIndex]
 
 	-- Update
-	versions[entityId] += 1
+	EcsState.versions[entityId] += 1
 	archetype.activeCount -= 1
 
 	-- Update Components
@@ -202,7 +205,7 @@ function EcsService.DisableEntity(entityId)
 
 	-- warn("Disable Entity : Swap Entity ID = " .. entityId .. " With Last ID = " .. lastEntityId)
 
-	versions[lastEntityId] += 1
+	EcsState.versions[lastEntityId] += 1
 
 	-- Swap Entities
 	local entityIdIndex = EcsState.entitiesId[entityId]

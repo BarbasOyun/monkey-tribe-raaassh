@@ -24,7 +24,7 @@ local PlayerController = Knit.GetController("PlayerController")
 
 -- TODO : Client side Mutable State
 local player = Players.LocalPlayer
-local playerGui = Players.LocalPlayer.PlayerGui
+local playerGui = player.PlayerGui
 
 local controlsBoard = workspace.Wiki.ControlsBoard.Board
 local shopBoard = workspace.Main.ShopBoard.Board
@@ -43,7 +43,8 @@ local AugmentPanel = require(ReplicatedStorage.Shared.Elements.AugmentPanel)
 local LevelUpLabel = require(ReplicatedStorage.Shared.Elements.LevelUpLabel)
 local Bars = require(ReplicatedStorage.Shared.Elements.ResourceBars)
 local XpBar = Bars.XpBar
-local lifeBar = Bars.lifeBar
+local LifeBar = Bars.LifeBar
+local updateLifeBar = Bars.updateLifeBar
 local enteringGameLabel = require(ReplicatedStorage.Shared.Components.EnteringGame)
 local GetBananasUi = require(ReplicatedStorage.Shared.Elements.BananasText)
 local BananaIcon, BananasText = GetBananasUi(1)
@@ -85,7 +86,7 @@ local function mainGui()
 		BananasText = BananasText,
 		-- Bot
 		XpBar = Roact.createElement(XpBar),
-		LifeBar = lifeBar,
+		LifeBar = Roact.createElement(LifeBar),
 		EnteringGameLabel = Roact.createElement(enteringGameLabel),
 		-- Panels
 		LevelUpLabel = Roact.createElement(LevelUpLabel),
@@ -142,25 +143,6 @@ Roact.mount(app, playerGui)
 -- #region UI LIFETIME
 -- Manual / Roact less UI -> Dynamic UI
 
-local mainGuiRef = playerGui.RoactTree.MainGui
-
--- LifeBar Update
-local lBar = mainGuiRef.LifeBar[2]
-local lifeText = mainGuiRef.LifeBar[1]
-
-PlayerController.LifeUpdate:Connect(function(state, life)
-	local playerState = Selectors.PlayerState(state, player.UserId)
-
-	if not playerState then
-		return
-	end
-
-	local maxLife = playerState.stats.maxLife
-
-	local percentage = life / maxLife
-	lBar.Size = UDim2.fromScale(percentage, 1)
-
-	lifeText.Text = "Life : " .. math.ceil(life) .. " / " .. maxLife
-end)
+updateLifeBar()
 
 --#endregion

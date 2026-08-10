@@ -1,5 +1,4 @@
 local Players = game:GetService("Players")
-local SoundService = game:GetService("SoundService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,7 +16,6 @@ local StoreActions = RoduxStore.Actions
 
 -- Get Services
 local PlayerService
-local LevelService
 
 local RpgService
 local AugmentsService
@@ -50,8 +48,6 @@ local enteringGameSound = soundFolder.EnteringGame
 local levelUpSound = soundFolder.LevelUp
 local augmentPanelSound = soundFolder.AugmentMenu
 local playerDamagedSfx = soundFolder.PlayerDamaged
-
-local music = soundFolder.Music
 
 -- Controls
 -- TODO : StateMachine -> States define controls
@@ -115,6 +111,12 @@ end
 -- #region CONTROLS
 
 local function toggleMusic(isEnabled)
+	local music = soundFolder:FindFirstChild("Music")
+
+	if not music then
+		return
+	end
+
 	if isEnabled then
 		music:Play()
 	else
@@ -237,6 +239,12 @@ local function setupPlayerService()
 end
 
 local function setupRpgService()
+	-- StatsPatch
+	RpgService.PatchStats:Connect(function(patch)
+		Store:dispatch(StoreActions.PatchStat(player.UserId, patch))
+	end)
+
+	-- Damage
 	RpgService.PlayerDamaged:Connect(function()
 		playerDamagedSfx:Play()
 	end)
@@ -324,7 +332,6 @@ end
 
 function PlayerController:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
-	LevelService = Knit.GetService("LevelService")
 
 	RpgService = Knit.GetService("RpgService")
 	AugmentsService = Knit.GetService("AugmentsService")
@@ -339,14 +346,6 @@ function PlayerController:KnitStart()
 
 	setupControls()
 	setupAttack()
-
-	-- Start Music
-	local state = Store:getState()
-	local playerData = state.players[player.UserId]
-
-	if playerData and playerData.isMusicEnabled then
-		music:Play()
-	end
 
 	-- Start StateUpdate
 	RunService.Heartbeat:Connect(stateUpdate)

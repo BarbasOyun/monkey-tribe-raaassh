@@ -245,7 +245,7 @@ function ItemService.SetWeapon(player, weapon)
 	local patch = { weaponData = weapon }
 	Store:dispatch(StoreActions.PatchPlayer(UserId, patch))
 
-	RpgService.CalculateAllStats(UserId) -- TODO : Calculate only Weapon Stats
+	RpgService.CalculateAllStats(player) -- TODO : Calculate only Weapon Stats
 end
 
 local function addSounds(player, weapon)

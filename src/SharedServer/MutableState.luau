@@ -14,6 +14,7 @@ local EnemiesStats = EnemyDefinitions.EnemiesStats
 local LevelState = {
 	-- Map
 	currentMapId = 1,
+	stageRadius = 200,
 	totalParts = 0,
 	partsCount = 0,
 	-- Stage
@@ -103,6 +104,7 @@ local EcsState = {
 	MobBehaviorStorageState = MobBehaviorStorageState,
 	-- Archetypes
 	archetypes = {},
+	archetypesLookups = {},
 }
 
 -- #endregion

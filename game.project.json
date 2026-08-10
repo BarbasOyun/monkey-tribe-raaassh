@@ -14,11 +14,8 @@
             "Server": {
                 "$path": "src/game/server"
             },
-            "Services": {
-                "$path": "src/server/Services"
-            },
             "SharedServer": {
-                "$path": "src/server/SharedServer"
+                "$path": "src/SharedServer"
             }
         },
         "StarterPlayer": {
