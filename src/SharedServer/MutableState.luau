@@ -73,6 +73,7 @@ UnitStorageState.definitionId = {}
 UnitStorageState.life = {}
 UnitStorageState.lifeChanged = {}
 UnitStorageState.deathEvent = {}
+-- UnitStorageState.onDispawn = {}
 UnitStorageState.attackCd = {}
 
 -- LifeBar

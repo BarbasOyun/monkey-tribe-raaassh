@@ -144,6 +144,26 @@ function Gears.FindHumanoidFromPart(part)
 	return nil
 end
 
+--- Take a table Of Parts
+---@return table uniqueHumanoids
+function Gears.FindUniqueHumanoids(parts, charactersBanned)
+	local humanoids = {}
+
+	for _, hit in pairs(parts) do
+		local humanoid = Gears.FindHumanoidFromPart(hit)
+
+		local isInBanList = charactersBanned and table.find(charactersBanned, humanoid.Parent)
+
+		if not humanoid or table.find(humanoids, humanoid) or isInBanList then
+			continue
+		end
+
+		table.insert(humanoids, humanoid)
+	end
+
+	return humanoids
+end
+
 --- Anchor Every Part in a Model
 function Gears.AnchorModel(character, isAnchored)
 	for _, child in pairs(character:GetChildren()) do
@@ -400,17 +420,6 @@ function Gears.IncreaseToMultiplier(increaseValue)
 	return 1 + increaseValue / 100
 end
 
-function Gears.CirclePoints(radius, division) -- TODO : Add Progress
-	local points = {}
-	local pointDistance = (math.pi * 2) / division
-
-	for i = 0, (division - 1), 1 do
-		table.insert(points, Gears.CirclePos(radius, pointDistance * i))
-	end
-
-	return points
-end
-
 function Gears.FloatRandom(minNbr, maxNbr)
 	local randomDecimal = math.random(1, 10) / 10
 	return math.random(minNbr, maxNbr - 1) + randomDecimal
@@ -422,10 +431,6 @@ function Gears.RandomRange(defaultValue, range)
 	local value = math.random(minValue, maxValue)
 
 	return value
-end
-
-function Gears.PointsDistance(pointA, pointB)
-	return (pointA - pointB).Magnitude
 end
 
 function Gears.NormalizeOrZero(vector2)
@@ -452,23 +457,48 @@ function Gears.Sigmoid(x, slop, length)
 	return useLength / (useLength + math.exp(useSlop * x))
 end
 
+-- #endregion
+
+-- #region GEOMETRY
+
+function Gears.PointsDistance(pointA, pointB)
+	return (pointA - pointB).Magnitude
+end
+
 function Gears.ParabolaPos(startPos, endPos, height, progress)
+	-- DEBUG
+	-- TODO : Gears.DrawSphere(startPos, 1, Color3.fromRGB(48, 62, 12))
+	-- Gears.DrawSphere(finalTargetPos, 1, Color3.fromRGB(82, 221, 112))
+
 	local lerpPos = startPos + (endPos - startPos) * progress
-	local y = startPos.Y + (height * 4 * progress * (1 - progress))
+	-- local y = startPos.Y + (height * 4 * progress * (1 - progress)) -- End up at startPos Y
+	local y = endPos.Y + (height * 4 * progress * (1 - progress))
 	return Vector3.new(lerpPos.X, y, lerpPos.Z)
 end
 
--- Use Over time :
--- progress = (progress + 0.01) % (math.pi * 2)
+--- Use Over time :
+--- progress = (progress + 0.01) % (math.pi * 2)
 function Gears.CirclePos(radius, progress)
 	local x = math.cos(progress) * radius
 	local y = math.sin(progress) * radius
 	return Vector2.new(x, y) -- Add to a position
 end
 
--- Use Over time :
--- latitude = (progress + 0.01) % (math.pi * 2)
--- longitude = (progress + 0.01) % (math.pi * 2)
+--- Get X Points on a Circle
+function Gears.CirclePoints(radius, division) -- TODO : Add Progress
+	local points = {}
+	local pointDistance = (math.pi * 2) / division
+
+	for i = 0, (division - 1), 1 do
+		table.insert(points, Gears.CirclePos(radius, pointDistance * i))
+	end
+
+	return points
+end
+
+--- Use Over time :
+--- latitude = (progress + 0.01) % (math.pi * 2)
+--- longitude = (progress + 0.01) % (math.pi * 2)
 function Gears.SpherePos(latitude, longitude, radius)
 	local x = math.sin(latitude) * math.cos(longitude) * radius
 	local y = math.sin(latitude) * math.sin(longitude) * radius

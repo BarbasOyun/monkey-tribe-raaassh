@@ -169,7 +169,7 @@ local function setupAttack()
 	RunService.Heartbeat:Connect(function()
 		if isLClickDown then
 			-- print(player.Name .. " Ask Server to Attack")
-			CombatService:AttackValidation()
+			CombatService:StartAttack()
 		end
 	end)
 

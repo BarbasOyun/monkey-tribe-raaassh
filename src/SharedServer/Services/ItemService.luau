@@ -5,8 +5,6 @@ local CollectionService = game:GetService("CollectionService")
 local RunService = game:GetService("RunService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
-local Knit = require(ReplicatedStorage.Packages.Knit)
-local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
@@ -24,7 +22,10 @@ local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
 local StoreActions = RoduxStore.Actions
 
--- Get Services
+-- Get Knit
+local Knit = require(ReplicatedStorage.Packages.Knit)
+local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+
 local PlayerService
 local RpgService
 
@@ -33,14 +34,13 @@ local ItemService = Knit.CreateService({
 	EquipWeapon = Signal.new(),
 	UnequipWeapon = Signal.new(),
 	Client = {
-		-- 3D / Models
 		GetOrb = Knit.CreateSignal(),
 		EquipWeapon = Knit.CreateSignal(),
 		UnequipWeapon = Knit.CreateSignal(),
 	},
 })
 
--- ITEM SERVICE DEFINITIONS
+-- #region ITEMS LOGIC
 
 -- TODO : useItem(player)
 local usablesLogicDefinition = {
@@ -74,6 +74,8 @@ local usablesLogicDefinition = {
 		ItemService.RemoveGroundItem(itemModel)
 	end,
 }
+
+-- #endregion
 
 -- #region CREATE ITEMS
 
@@ -111,8 +113,8 @@ end
 
 -- #region SPAWN ITEMS MODELS
 
--- Spawn model at Position
-local function spawnItemDef(itemDefinitionId, position)
+--- Spawn model at Position
+function ItemService.SpawnItemDef(itemDefinitionId, position)
 	local itemDefinition = itemDefinitions[itemDefinitionId]
 
 	-- Spawn Model
@@ -131,22 +133,25 @@ local function spawnItemDef(itemDefinitionId, position)
 	return newModel
 end
 
-local function lootMovement(partToMove, startPos)
+--- Make a part move
+function ItemService.LootMovement(partToMove, startPos)
 	partToMove.CFrame = CFrame.new(startPos)
 
-	local targetPos = startPos + Vector3.new(math.random(-2, 2), 0, math.random(-2, 2))
-	local finalTargetPos = targetPos
+	-- Find Target Pos
+	local dist = 4
+	local targetPos = startPos + Vector3.new(math.random(-dist, dist), 5, math.random(-dist, dist))
 	local result = workspace:Raycast(targetPos, Vector3.new(0, -10, 0))
 
 	if not result then
 		return
 	end
 
-	local posOffset = Vector3.new(0, 0.5, 0)
-	finalTargetPos = result.Position + posOffset
+	local posOffset = Vector3.new(0, 2, 0)
+	local finalTargetPos = result.Position + posOffset
 
+	-- Perform Movement in X Steps
 	local steps = 60
-	local height = math.random(2, 5)
+	local height = math.random(3, 6)
 
 	for i = 1, steps do
 		local progress = i / steps
@@ -155,29 +160,18 @@ local function lootMovement(partToMove, startPos)
 	end
 end
 
--- Allow other services to spawn item with itemDefinitionId
-function ItemService.SpawnItem(itemDefinitionId, position)
-	-- local itemDefinition = itemDefinitions[itemDefinitionId]
-	local newModel = spawnItemDef(itemDefinitionId, position)
-
-	return newModel --, itemDefinition
-end
-
--- SpawnItem + lootMovement
+--- SpawnItem + lootMovement
 function ItemService.SpawnLoot(itemDefinitionId, position)
-	local partToMove = spawnItemDef(itemDefinitionId, position)
+	local partToMove = ItemService.SpawnItemDef(itemDefinitionId, position)
 
-	task.wait(lootMovement(partToMove, position))
+	task.wait(ItemService.LootMovement(partToMove, position))
 	partToMove.Parent = workspace.AutoPickup -- Enable Pickup
 end
 
 function ItemService.SpawnManyItem(itemDefinitionId, position, itemCount)
-	for i = 0, itemCount, 1 do
+	for i = 1, itemCount, 1 do
 		task.spawn(function()
-			local partToMove = spawnItemDef(itemDefinitionId, position)
-
-			task.wait(lootMovement(partToMove, position))
-			partToMove.Parent = workspace.AutoPickup -- Enable Pickup
+			ItemService.SpawnLoot(itemDefinitionId, position)
 		end)
 		task.wait() -- delay between item
 	end

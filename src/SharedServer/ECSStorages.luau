@@ -205,7 +205,6 @@ function GameObjectStorage.DisableEntity(entityId)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 
 	Gears.AnchorModel(gameObject, true)
-	task.wait()
 
 	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
 	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
@@ -411,6 +410,8 @@ end
 -- #endregion
 
 -- TODO : SKILLS ID = 6
+
+-- TODO : AutoPickup
 
 local EcsStorages = {
 	GameObjectStorage,

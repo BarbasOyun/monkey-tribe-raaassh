@@ -35,12 +35,14 @@ local AugmentsService = Knit.CreateService({
 	},
 })
 
+-- #region UTILS
+
 --- Generate a patch of the specified augment
-local function augmentPatch(state, userId, modStat, value)
-	local playerData = state.players[userId]
+function AugmentsService.AugmentPatch(state, userId, modStat, value)
+	local playerState = state.players[userId]
 
 	-- Get stat
-	local stat = playerData.augments[modStat]
+	local stat = playerState.augments[modStat]
 	local newStat = stat + value
 
 	local patch = { [modStat] = newStat }
@@ -51,9 +53,11 @@ end
 function AugmentsService.AddAugmentStat(userId, modStat, value)
 	local state = Store:getState()
 
-	local patch = augmentPatch(state, userId, modStat, value)
+	local patch = AugmentsService.AugmentPatch(state, userId, modStat, value)
 	Store:dispatch(StoreActions.PatchAugment(userId, patch))
 end
+
+-- #endregion
 
 -- #region AUGMENTS GENERATION
 
@@ -286,7 +290,7 @@ function AugmentsService.Client:PickAugment(player, index)
 	waitingLevel -= 1
 
 	--Add Augment Stats
-	local augmentPatch = augmentPatch(state, userId, augment.modStat, augment.value)
+	local augmentPatch = AugmentsService.AugmentPatch(state, userId, augment.modStat, augment.value)
 	Store:dispatch(StoreActions.PatchAugment(userId, augmentPatch))
 	-- Replicate to Client -> Display Augment stats client side
 

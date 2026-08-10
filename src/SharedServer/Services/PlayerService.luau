@@ -1,13 +1,11 @@
-local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
-local Knit = require(ReplicatedStorage.Packages.Knit)
-local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
@@ -21,12 +19,15 @@ local StoreActions = RoduxStore.Actions
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 
-local RpgService
-local ItemService
-local EnemyService
-
 -- Get DataStore
 local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
+
+-- Get Knit
+local Knit = require(ReplicatedStorage.Packages.Knit)
+local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+
+local RpgService
+local ItemService
 
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
@@ -390,38 +391,27 @@ local function enemiesDetection(state)
 		end
 
 		local character = player.Character or player.CharacterAdded:Wait()
-		local playerPos = character.UpperTorso.CFrame.Position -- FIXME : R6 Model
+		local torso = character.UpperTorso or character.Torso
+		local playerPos = torso.CFrame.Position
 
 		-- DEBUG
 		-- Gears.DisplayHitBox(position, 10, 0.1)
 
-		-- Get the Squared Distance Player -> Enemy
+		-- Calc Distance Player -> Enemy
 		local hits = workspace:GetPartBoundsInRadius(playerPos, CONSTANTS.DETECTION_RADIUS, CONSTANTS.DETECTION_PARAM)
-		local detectedEnemies = {} -- Unique Humanoids
 
 		-- Detect Enemy Humanoids
-		for _, hit in pairs(hits) do
-			-- print("Hit Part: " .. hit.Name)
-			local humanoid = Gears.FindHumanoidFromPart(hit)
+		local detectedEnemies = Gears.FindUniqueHumanoids(hits)
 
-			if not humanoid or table.find(detectedEnemies, humanoid) then
-				continue
-			end
-
-			-- Enemy Hit
-			table.insert(detectedEnemies, humanoid)
-		end
-
-		-- Calculate Distance Player to Humanoids
+		-- Calculate Distance Player to Enemy
 		for _, humanoid in pairs(detectedEnemies) do
-			local enemy = humanoid.Parent
+			local enemy = humanoid.Parent :: Model
 			local enemyPos = enemy.Torso.CFrame.Position
 
 			local playerToEnemyDirection = enemyPos - playerPos
 
-			-- local playerToEnemyDistanceSquared = Gears.SquaredMagnitude(playerToEnemyDirection)
-			local playerToEnemyDistanceSquared = vector.magnitude(playerToEnemyDirection)
-			MutState.playersDetections[userId][enemy] = playerToEnemyDistanceSquared
+			local playerToEnemyDistance = vector.magnitude(playerToEnemyDirection) :: number
+			MutState.playersDetections[userId][enemy] = playerToEnemyDistance
 
 			-- TODO : Calculate Normals
 		end
@@ -508,7 +498,6 @@ end
 function PlayerService:KnitStart()
 	RpgService = Knit.GetService("RpgService")
 	ItemService = Knit.GetService("ItemService")
-	EnemyService = Knit.GetService("EnemyService")
 
 	RunService.Heartbeat:Connect(function(dt: number)
 		stateUpdate(dt)

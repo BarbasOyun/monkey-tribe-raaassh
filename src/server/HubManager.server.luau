@@ -8,8 +8,15 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+
 local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 local Enemies = enemyDef.Enemies
+
+local StatsDefinitions = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+local ModStatsStore = StatsDefinitions.MOD_STATS_STORE
+
+local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
+local itemStore = itemDef.itemStore
 
 -- Get Services
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -23,7 +30,7 @@ local AugmentsService = Knit.GetService("AugmentsService")
 
 local EcsService = Knit.GetService("EcsService")
 local EnemyService = Knit.GetService("EnemyService")
--- local ItemService = Knit.GetService("ItemService")
+local ItemService = Knit.GetService("ItemService")
 
 -- Platforms tp
 local GAME_PLACE_ID = 109804031798809
@@ -200,12 +207,14 @@ local function setupPlayerService()
 		PlayerService.GetBananasDb(player)
 
 		-- Manual Tests
-		-- local userId = player.UserId
-		-- AugmentsService.AddAugment(userId, PlayerService.ModStatsStore.increasedAttackSpeed, 100)
+		local userId = player.UserId
 		-- PlayerService.AddBananas(100)
-		-- RpgService.AddXpToAllPlayers(225)
-		-- RpgService.RegisterLife(player)
-		-- RpgService.DamagePlayer(player, 50)
+
+		-- RPGService Test
+		AugmentsService.AddAugmentStat(userId, ModStatsStore.increasedAttackSpeed, 100)
+		RpgService.AddXpToAllPlayers(225)
+		RpgService.RegisterLife(player)
+		RpgService.DamagePlayer(player, 50)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
@@ -244,7 +253,7 @@ end
 local function setupEnemies()
 	-- Load Enemies
 	EnemyService.AddArchetype(Enemies.Dummy)
-	-- EnemyService.AddArchetype(Enemies.Robot)
+	EnemyService.AddArchetype(Enemies.Robot)
 	EcsService.CreatePools()
 
 	-- Spawn Default Dummies
@@ -255,11 +264,11 @@ local function setupEnemies()
 	EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, pos2)
 
 	-- Spawn Test Robots
-	-- local pos3 = Vector3.new(-3.15, 4.5, 50)
-	-- local pos4 = Vector3.new(5.85, 4.5, 50)
+	local pos3 = Vector3.new(-3.15, 4.5, 50)
+	local pos4 = Vector3.new(5.85, 4.5, 50)
 
-	-- EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos3)
-	-- EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos4)
+	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos3)
+	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos4)
 
 	-- Start Spawning Mobs
 	-- EnemyService.StartStreamSpawn()
@@ -278,5 +287,8 @@ setupRpgService()
 -- Hub Setup
 setupPlatforms()
 setupEnemies()
+
+-- local pos3 = Vector3.new(-3.15, 4.5, 50)
+-- ItemService.SpawnManyItem(itemStore.SmallXPOrb, pos3, 1)
 
 -- #endregion

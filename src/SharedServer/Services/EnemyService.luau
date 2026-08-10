@@ -99,7 +99,18 @@ local dummyOnDeath = function(character, player)
 	EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, respawnPos) -- Respawn
 end
 
-local robotOnDeath = defaultOnDeath
+-- local robotOnDeath = defaultOnDeath
+
+local robotOnDeath = function(character, player)
+	defaultOnDeath(character, player)
+
+	-- Get Back respawnPos
+	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
+	local id = character:GetAttribute("EntityId")
+	local respawnPos = CustomStorage.GetCustomProperties(id).respawnPos
+
+	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, respawnPos) -- Respawn
+end
 
 local enemiesOnDeath = {
 	dummyOnDeath,
@@ -151,6 +162,7 @@ local respawnSetup = function(entityId, definitionId)
 	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
 	local customProperties = {
 		respawnPos = Vector3.zero,
+		-- respawnPrefab
 	}
 
 	CustomStorage.AddComponentToEntity(EcsState, entityId, customProperties)
@@ -183,6 +195,7 @@ local robotArchetypeSetup = {
 	unitSetup,
 	lifeBarSetup,
 	mobBehaviorSetup,
+	respawnSetup,
 }
 
 local enemiesArchetypeSetup = {
