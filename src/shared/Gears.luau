@@ -48,7 +48,8 @@ function Gears.UniqueInsert(t, element)
 	end
 end
 
-function Gears.MoveLastElement(t, index)
+--- Set LastElement at Index -> table[index] = lastElement
+function Gears.ReplaceWithLastElement(t, index)
 	local lastElement = table.remove(t, #t)
 	t[index] = lastElement
 

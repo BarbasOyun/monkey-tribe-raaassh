@@ -3,11 +3,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
-local Enemies = {
-	Dummy = 1,
-	Robot = 2,
-}
-
 -- Cap Definition
 local MAX_MOVEMENT_SPEED = 16
 
@@ -16,7 +11,11 @@ local DAMAGE_INCREMENT = 3
 local LIFE_INCREMENT = 5
 local MOVEMENT_SPEED_INCREMENT = 1
 
--- Endgame Setup = csv file
+local Enemies = {
+	Dummy = 1,
+	Robot = 2,
+}
+
 local EnemiesStats = {
 	{
 		Name = "Dummy",
@@ -37,36 +36,38 @@ local EnemiesPrefabs = {
 	CONSTANTS.PREFABS_FOLDER.Enemies:FindFirstChild("Robot"),
 }
 
+-- TODO : rename EnemyPool
 local Archetypes = {
 	{
 		name = "Dummy",
 		definitionId = 1,
 		count = 100,
+		startIndex = 0,
+		endIndex = 0,
+		activeCount = 0,
 		setup = {},
+		-- bitmask =,
 		components = {
 			CONSTANTS.EcsStorages.gameObject,
 			CONSTANTS.EcsStorages.unit,
 			CONSTANTS.EcsStorages.lifeBar,
 			CONSTANTS.EcsStorages.custom,
 		},
-		startIndex = 0,
-		endIndex = 0,
-		activeCount = 0,
 	},
 	{
 		name = "Robot",
 		definitionId = 2,
 		count = 100,
+		startIndex = 0,
+		endIndex = 0,
+		activeCount = 0,
 		setup = {},
 		components = {
 			CONSTANTS.EcsStorages.gameObject,
 			CONSTANTS.EcsStorages.unit,
 			CONSTANTS.EcsStorages.lifeBar,
-			-- CONSTANTS.EcsStorages.mobBehavior,
+			CONSTANTS.EcsStorages.mobBehavior,
 		},
-		startIndex = 0,
-		endIndex = 0,
-		activeCount = 0,
 	},
 }
 
@@ -75,6 +76,7 @@ local EnemyDefinitions = {
 	EnemiesStats = EnemiesStats,
 	EnemiesPrefabs = EnemiesPrefabs,
 	Archetypes = Archetypes,
+	-- Constants
 	MAX_MOVEMENT_SPEED = MAX_MOVEMENT_SPEED,
 	DAMAGE_INCREMENT = DAMAGE_INCREMENT,
 	LIFE_INCREMENT = LIFE_INCREMENT,

@@ -13,33 +13,37 @@ local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local EcsState = MutState.EcsState
 
+-- TODO : Make
+
 -- #region STORAGE META TABLE
 
 local Storage = {}
 
-function Storage.AddComponentToEntity(ecsState, storageState, entityId)
+function Storage.AddComponentToEntity(storageState, entityId)
+	-- Update Storage : Entities + Sparse
 	table.insert(storageState.entities, entityId)
 
 	local componentId = #storageState.entities
 	storageState.sparse[entityId] = componentId
 
 	-- Update Entity Bitmask
-	ecsState.entitiesBitmask[entityId] =
-		Gears.AddMask(ecsState.entitiesBitmask[entityId], Gears.GetMask(storageState.id))
+	local mask = Gears.AddMask(EcsState.entitiesBitmask[entityId], Gears.GetMask(storageState.id))
+	EcsState.entitiesBitmask[entityId] = mask
 
 	return componentId
 end
 
+--- Get ComponentId of an Entity using Sparse -> Doesn't work for Archetype
 function Storage.GetComponentId(storageState, entityId)
 	-- warn(storageState.name .. " Get Component ID = " .. entityId)
 	local componentId = storageState.sparse[entityId]
 
-	if componentId == 0 then
-		warn("EntityId = " .. entityId .. " Doesn't have Component " .. storageState.name)
-	end
-
 	if not componentId then
 		warn("EntityId = " .. entityId .. " Is out of Sparse Range of : " .. storageState.name)
+	end
+
+	if componentId == 0 then
+		warn("EntityId = " .. entityId .. " Doesn't have Component " .. storageState.name)
 	end
 
 	return componentId
@@ -49,21 +53,18 @@ function Storage.UpdateComponent(storageState, entityId)
 	-- implement in child tables
 end
 
---- @param ecsState any
 --- @param storageState any
 --- @param entityId any
-function Storage.RemoveComponent(ecsState, storageState, entityId)
-	local componentId = storageState.sparse[entityId]
+function Storage.RemoveComponent(storageState, entityId)
+	local componentId = Storage.GetComponentId(storageState, entityId)
 
-	-- Update Entities
+	-- Update ECS : Entities + Sparse
 	table.remove(storageState.entities, componentId)
-
-	-- Update Sparse
 	storageState.sparse[entityId] = 0
 
 	-- Update Entity Bitmask
-	ecsState.entitiesBitmask[entityId] =
-		Gears.RemoveMask(ecsState.entitiesBitmask[entityId], Gears.GetMask(storageState.id))
+	local mask = Gears.RemoveMask(EcsState.entitiesBitmask[entityId], Gears.GetMask(storageState.id))
+	EcsState.entitiesBitmask[entityId] = mask
 
 	return componentId
 end
@@ -115,17 +116,17 @@ end
 
 local GameObjectStorage = Storage.new()
 
+--- Selector
 function GameObjectStorage.GetState()
 	return EcsState.GameObjectStorageState
 end
 
-function GameObjectStorage.AddComponentToEntity(ecsState, entityId, gameobject)
-	local storageState = GameObjectStorage.GetState() -- Selector
-
-	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
+function GameObjectStorage.AddComponentToEntity(entityId, gameobject)
+	local storageState = GameObjectStorage.GetState()
+	local componentId = Storage.AddComponentToEntity(storageState, entityId)
 
 	gameobject:SetAttribute("EntityId", entityId)
-	gameobject:SetAttribute("Version", ecsState.versions[entityId])
+	gameobject:SetAttribute("Version", EcsState.versions[entityId])
 
 	table.insert(storageState.gameObjects, gameobject)
 
@@ -136,27 +137,10 @@ function GameObjectStorage.RemoveComponent(storageState, entityId)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 	gameObject:Destroy()
 
-	Storage.RemoveComponent(EcsState, storageState, entityId)
+	Storage.RemoveComponent(storageState, entityId)
 end
 
--- Remove Entity : Full Entities Update
---[[
-function gameObjectStorage:removeEntity(entityId)
-	local componentId = system.removeEntity(self, entityId)
-
-	warn("Delete Gameobject Component : EntityId = " .. entityId .. " componentId = " .. componentId)
-
-	self.gameObjects[componentId]:Destroy()
-	table.remove(self.gameObjects, componentId)
-
-	for i = entityId, #self.entities, 1 do
-		self.gameObjects[i]:SetAttribute("EntityId", self.entities[i])
-		-- self.gameObjects[i]:SetAttribute("Version", versions[entityId])
-	end
-end
-]]
-
--- Remove Entity : Swap Last
+--- Remove Entity : Swap Last
 function GameObjectStorage.RemoveEntity(storageState, entityId)
 	local componentId, lastCompId, hasComp = Storage.RemoveEntity(storageState, entityId)
 	local gameObjects = storageState.gameObjects
@@ -185,7 +169,7 @@ function GameObjectStorage.ClearComponents(storageState)
 	local gameObjects = storageState.gameObjects
 
 	-- Destroy All Entities Gameobjects
-	for i = 1, #gameObjects, 1 do
+	for i = 1, #gameObjects do
 		gameObjects[i]:Destroy()
 	end
 
@@ -200,8 +184,10 @@ function GameObjectStorage.GetGameObject(entityId)
 	return gameObject
 end
 
+-- TODO : OnEnabled
+
 --- Disable Gameobject
-function GameObjectStorage.DisableEntity(entityId)
+function GameObjectStorage.OnDisable(entityId)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 
 	Gears.AnchorModel(gameObject, true)
@@ -220,10 +206,10 @@ function UnitStorage.GetState()
 	return EcsState.UnitStorageState
 end
 
-function UnitStorage.AddComponentToEntity(ecsState, entityId, definitionId, life)
-	local storageState = ecsState.UnitStorageState
+function UnitStorage.AddComponentToEntity(entityId, definitionId, life)
+	local storageState = UnitStorage.GetState()
 
-	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
+	local componentId = Storage.AddComponentToEntity(storageState, entityId)
 
 	table.insert(storageState.definitionId, definitionId)
 	table.insert(storageState.life, life)
@@ -253,9 +239,9 @@ function UnitStorage.RemoveEntity(storageState, entityId)
 	end
 
 	-- Swap Values + Delete Last
-	Gears.MoveLastElement(storageState.life, componentId)
-	Gears.MoveLastElement(storageState.lifeBar, componentId)
-	Gears.MoveLastElement(storageState.deathEvent, componentId)
+	Gears.ReplaceWithLastElement(storageState.life, componentId)
+	Gears.ReplaceWithLastElement(storageState.lifeBar, componentId)
+	Gears.ReplaceWithLastElement(storageState.deathEvent, componentId)
 end
 
 function UnitStorage.ClearComponents(storageState)
@@ -277,7 +263,7 @@ function LifeBarStorage.GetState()
 	return EcsState.LifeBarStorageState
 end
 
-function LifeBarStorage.AddComponentToEntity(ecsState, entityId, EcsService)
+function LifeBarStorage.AddComponentToEntity(entityId, EcsService)
 	local hasGameObject = EcsService.HasComponent(entityId, CONSTANTS.EcsStorages.gameObject)
 	local hasUnit = EcsService.HasComponent(entityId, CONSTANTS.EcsStorages.unit)
 
@@ -288,7 +274,7 @@ function LifeBarStorage.AddComponentToEntity(ecsState, entityId, EcsService)
 
 	-- Register LifeBar
 	local storageState = LifeBarStorage.GetState()
-	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
+	local componentId = Storage.AddComponentToEntity(storageState, entityId)
 
 	-- Create LifeBar
 	local lifeBar = CONSTANTS.PREFABS_FOLDER.LifeBar:clone()
@@ -322,7 +308,7 @@ function LifeBarStorage.RemoveEntity(storageState, entityId)
 	end
 
 	-- Swap Values + Delete Last
-	Gears.MoveLastElement(storageState.lifeBar, componentId)
+	Gears.ReplaceWithLastElement(storageState.lifeBar, componentId)
 end
 
 function LifeBarStorage.ClearComponents(storageState)
@@ -342,10 +328,10 @@ function CustomStorage.GetState()
 	return EcsState.CustomStorageState
 end
 
-function CustomStorage.AddComponentToEntity(ecsState, entityId, customProperties)
+function CustomStorage.AddComponentToEntity(entityId, customProperties)
 	local storageState = CustomStorage.GetState()
 
-	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
+	local componentId = Storage.AddComponentToEntity(storageState, entityId)
 
 	-- Register Properties
 	table.insert(storageState.customProperties, customProperties)
@@ -362,12 +348,13 @@ function CustomStorage.RemoveEntity(storageState, entityId)
 	end
 
 	-- Swap Values + Delete Last
-	Gears.MoveLastElement(storageState.customProperties, componentId)
+	Gears.ReplaceWithLastElement(storageState.customProperties, componentId)
 end
 
 function CustomStorage.GetCustomProperties(entityId)
-	local state = CustomStorage.GetState()
-	return state.customProperties[entityId]
+	local CustomStorageState = CustomStorage.GetState()
+	local componentId = Storage.GetComponentId(CustomStorageState, entityId)
+	return CustomStorageState.customProperties[componentId]
 end
 
 -- #endregion
@@ -380,13 +367,13 @@ function MobBehaviorStorage.GetState()
 	return EcsState.MobBehaviorStorageState
 end
 
-function MobBehaviorStorage.AddComponentToEntity(ecsState, entityId)
-	local storageState = MobBehaviorStorage.GetState()
+function MobBehaviorStorage.AddComponentToEntity(entityId)
+	local MobBehaviorStorageState = MobBehaviorStorage.GetState()
 
-	local componentId = Storage.AddComponentToEntity(ecsState, storageState, entityId)
+	local componentId = Storage.AddComponentToEntity(MobBehaviorStorageState, entityId)
 
 	-- Register Properties
-	table.insert(storageState.target, nil)
+	table.insert(MobBehaviorStorageState.target, nil)
 
 	return componentId
 end
@@ -400,7 +387,7 @@ function MobBehaviorStorage.RemoveEntity(storageState, entityId)
 	end
 
 	-- Swap Values + Delete Last
-	Gears.MoveLastElement(storageState.target, componentId)
+	Gears.ReplaceWithLastElement(storageState.target, componentId)
 end
 
 function MobBehaviorStorage.DisableEntity(entityId)
@@ -409,9 +396,11 @@ end
 
 -- #endregion
 
--- TODO : SKILLS ID = 6
+-- TODO : Component SKILLS ID = 6
 
--- TODO : AutoPickup
+-- TODO : Component AutoPickup
+
+-- TODO : Archetypes = table key = bitmask, value = table of EntityId
 
 local EcsStorages = {
 	GameObjectStorage,
