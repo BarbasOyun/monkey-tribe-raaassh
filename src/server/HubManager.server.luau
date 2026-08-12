@@ -251,24 +251,23 @@ local function setupLevel()
 end
 
 local function setupEnemies()
-	-- Load Enemies
-	EnemyService.AddArchetype(Enemies.Dummy)
-	EnemyService.AddArchetype(Enemies.Robot)
-	EcsService.CreatePools()
+	-- Spawn Dummies
+	EnemyService.CreatePool(Enemies.Dummy)
 
-	-- Spawn Default Dummies
 	local pos1 = Vector3.new(-3.15, 4.5, 70)
 	local pos2 = Vector3.new(5.85, 4.5, 70)
 
-	EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, pos1)
-	EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, pos2)
+	EnemyService.EnableNextInPool(Enemies.Dummy, pos1)
+	EnemyService.EnableNextInPool(Enemies.Dummy, pos2)
 
 	-- Spawn Test Robots
-	local pos3 = Vector3.new(-3.15, 4.5, 50)
-	local pos4 = Vector3.new(5.85, 4.5, 50)
+	-- EnemyService.CreatePool(Enemies.Robot)
 
-	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos3)
-	EnemyService.SpawnArchetypeEnemy(Enemies.Robot, pos4)
+	-- local pos3 = Vector3.new(-3.15, 4.5, 50)
+	-- local pos4 = Vector3.new(5.85, 4.5, 50)
+
+	-- EnemyService.EnableNextInPool(Enemies.Robot, pos3)
+	-- EnemyService.EnableNextInPool(Enemies.Robot, pos4)
 
 	-- Start Spawning Mobs
 	-- EnemyService.StartStreamSpawn()

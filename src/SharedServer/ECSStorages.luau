@@ -13,8 +13,6 @@ local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local EcsState = MutState.EcsState
 
--- TODO : Make
-
 -- #region STORAGE META TABLE
 
 local Storage = {}
@@ -126,7 +124,7 @@ function GameObjectStorage.AddComponentToEntity(entityId, gameobject)
 	local componentId = Storage.AddComponentToEntity(storageState, entityId)
 
 	gameobject:SetAttribute("EntityId", entityId)
-	gameobject:SetAttribute("Version", EcsState.versions[entityId])
+	-- gameobject:SetAttribute("Version", EcsState.versions[entityId])
 
 	table.insert(storageState.gameObjects, gameobject)
 
@@ -161,7 +159,7 @@ function GameObjectStorage.RemoveEntity(storageState, entityId)
 
 	-- Update GameObject EntityId
 	lastGameObject:SetAttribute("EntityId", entityId)
-	lastGameObject:SetAttribute("Version", EcsState.versions[entityId])
+	-- lastGameObject:SetAttribute("Version", EcsState.versions[entityId])
 end
 
 function GameObjectStorage.ClearComponents(storageState)
@@ -186,7 +184,7 @@ end
 
 -- TODO : OnEnabled
 
---- Disable Gameobject
+--- System Disable Gameobject
 function GameObjectStorage.OnDisable(entityId)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 

@@ -36,38 +36,33 @@ local EnemiesPrefabs = {
 	CONSTANTS.PREFABS_FOLDER.Enemies:FindFirstChild("Robot"),
 }
 
--- TODO : rename EnemyPool
-local Archetypes = {
+-- POOLS
+
+export type Pool = {
+	name: string,
+	definitionId: number,
+	size: number,
+	startIndex: number,
+	endIndex: number,
+	activeCount: number,
+}
+
+local EnemiesPool = {
 	{
 		name = "Dummy",
 		definitionId = 1,
-		count = 100,
+		size = 100,
 		startIndex = 0,
 		endIndex = 0,
 		activeCount = 0,
-		setup = {},
-		-- bitmask =,
-		components = {
-			CONSTANTS.EcsStorages.gameObject,
-			CONSTANTS.EcsStorages.unit,
-			CONSTANTS.EcsStorages.lifeBar,
-			CONSTANTS.EcsStorages.custom,
-		},
 	},
 	{
 		name = "Robot",
 		definitionId = 2,
-		count = 100,
+		size = 100,
 		startIndex = 0,
 		endIndex = 0,
 		activeCount = 0,
-		setup = {},
-		components = {
-			CONSTANTS.EcsStorages.gameObject,
-			CONSTANTS.EcsStorages.unit,
-			CONSTANTS.EcsStorages.lifeBar,
-			CONSTANTS.EcsStorages.mobBehavior,
-		},
 	},
 }
 
@@ -75,7 +70,7 @@ local EnemyDefinitions = {
 	Enemies = Enemies,
 	EnemiesStats = EnemiesStats,
 	EnemiesPrefabs = EnemiesPrefabs,
-	Archetypes = Archetypes,
+	EnemiesPool = EnemiesPool,
 	-- Constants
 	MAX_MOVEMENT_SPEED = MAX_MOVEMENT_SPEED,
 	DAMAGE_INCREMENT = DAMAGE_INCREMENT,

@@ -20,16 +20,6 @@ local EcsService = Knit.CreateService({
 	-- Client = {},
 })
 
-export type Pool = {
-	name: string,
-	definitionId: number,
-	entities: {}, -- Store active entitiesID
-	count: number,
-	startIndex: number,
-	endIndex: number,
-	activeCount: number,
-}
-
 -- #region ENTITIES
 
 --- Create a new ECS Entity
@@ -40,7 +30,7 @@ function EcsService.CreateEntity()
 
 	table.insert(EcsState.entitiesId, entityId)
 	table.insert(EcsState.entitiesBitmask, 0)
-	table.insert(EcsState.versions, 0)
+	-- table.insert(EcsState.versions, 0)
 
 	-- Update sparse of every Storage
 	for i = 1, #EcsState.storages, 1 do
@@ -68,7 +58,7 @@ function EcsService.RemoveEntity(entityId)
 	-- Remove Entity
 	Gears.ReplaceWithLastElement(EcsState.entitiesId, entityId)
 	Gears.ReplaceWithLastElement(EcsState.entitiesBitmask, entityId)
-	Gears.ReplaceWithLastElement(EcsState.versions, entityId)
+	-- Gears.ReplaceWithLastElement(EcsState.versions, entityId)
 end
 
 function EcsService.ClearEntities()
@@ -120,140 +110,6 @@ end
 
 -- TODO : EcsService.UpdateEntityArchetype(entityId)
 -- -> GetEntityMask -> Place in the right Archetype
-
---- @return Archetype archetype of an Entity
-function EcsService.GetArchetype(entityId)
-	local EcsState = MutState.EcsState
-	local archetypes = EcsState.archetypes
-	local count = 0
-
-	for i = 1, #archetypes, 1 do
-		local threshold = count + archetypes[i].endIndex
-
-		if entityId <= threshold then
-			return archetypes[i]
-		end
-
-		count += archetypes[i].endIndex
-	end
-
-	return nil
-end
-
--- TODO : Move Pool to EnemyService
---- Register a Pool to use Later
-function EcsService.AddArchetype(archetype)
-	table.insert(EcsState.archetypes, archetype)
-	EcsState.archetypesLookups[archetype.definitionId] = #EcsState.archetypes
-end
-
---- Spawn Pool of Entity
-function EcsService.CreatePool(archetype, startIndex)
-	-- Get Start & End Index
-	local endIndex = startIndex + archetype.count - 1
-
-	warn(
-		"Create Pool : "
-			.. archetype.name
-			.. ", Entities = "
-			.. archetype.count
-			.. ", StartIndex = "
-			.. startIndex
-			.. ", EndIndex = "
-			.. endIndex
-	)
-
-	archetype.startIndex = startIndex
-	archetype.endIndex = endIndex
-
-	-- Create Entities
-	for i = startIndex, endIndex, 1 do
-		local entityId = EcsService.CreateEntity()
-
-		-- Call Archetype's custom OnSpawn functions
-		for j = 1, #archetype.setup do
-			local setupFunc = archetype.setup[j]
-			setupFunc(entityId, archetype.definitionId)
-		end
-	end
-end
-
---- Create every Pools
-function EcsService.CreatePools()
-	local EcsState = MutState.EcsState
-	local archetypes = EcsState.archetypes
-	local currentIndex = 1 -- Archetype Entities Should Always be The Firsts
-
-	for i = 1, #archetypes do
-		local archetype = archetypes[i]
-
-		EcsService.CreatePool(archetype, currentIndex)
-		currentIndex += archetype.count
-	end
-end
-
---- Enable next Entity of an Archetype
-function EcsService.EnableArchetypeEntity(archetypeId)
-	-- Validation
-	local archetypeIndex = EcsState.archetypesLookups[archetypeId]
-	local archetype = EcsState.archetypes[archetypeIndex]
-
-	local hadReachedMaxEntities = archetype.activeCount >= archetype.count
-
-	if hadReachedMaxEntities then
-		warn(archetype.name .. " Reached Entities Limit of : " .. archetype.count)
-		return
-	end
-
-	archetype.activeCount += 1
-
-	local index = archetype.startIndex + archetype.activeCount
-	local entityId = EcsState.entitiesId[index]
-
-	local entityVersion = EcsState.versions[entityId]
-	entityVersion += 1
-
-	-- warn("Enable Entity in Archetype = " .. archetype.name .. ", Entity ID = " .. entityId)
-	return entityId, entityVersion
-end
-
---- Disable Entity Replace with Last Entity within an Archetype
-function EcsService.DisableEntity(entityId)
-	if not EcsService.HasComponent(entityId, 1) then
-		warn(entityId .. " Doesn't have Gameobject Component")
-		return
-	end
-
-	local EcsState = MutState.EcsState
-
-	local archetype = EcsService.GetArchetype(entityId)
-	local lastEntityIndex = archetype.startIndex + archetype.activeCount
-	local lastEntityId = EcsState.entitiesId[lastEntityIndex]
-
-	-- Update ECS
-	EcsState.versions[entityId] += 1
-	archetype.activeCount -= 1
-
-	-- Update Components
-	-- TODO : Per Archetype's Component
-
-	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-	GameObjectStorage.OnDisable(entityId)
-
-	-- If entityId not last Entity : Swap Last
-	if entityId == lastEntityId then
-		return
-	end
-
-	-- warn("Disable Entity : Swap Entity ID = " .. entityId .. " With Last ID = " .. lastEntityId)
-
-	EcsState.versions[lastEntityId] += 1
-
-	-- Swap Entities
-	-- local entityIdIndex = EcsState.entitiesId[entityId]
-	-- EcsState.entitiesId[entityIdIndex] = lastEntityId
-	-- EcsState.entitiesId[lastEntityIndex] = entityId
-end
 
 -- #endregion
 

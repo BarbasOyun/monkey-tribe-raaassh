@@ -4,6 +4,7 @@
 -- This Data might be sent to the Rodux Store in the Throttled Update -> Use Commands Buffer
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
@@ -43,6 +44,10 @@ local EnemyServiceState = {
 	-- SwarmSpawn
 	swarmWaves = 0,
 	swarmSpawnTimer = 0,
+	-- Pool,
+	pools = {},
+	entitiesPool = {},
+	poolsLookups = {},
 }
 
 -- #region ECS STATE
@@ -95,7 +100,7 @@ MobBehaviorStorageState.target = {}
 local EcsState = {
 	entitiesId = {},
 	entitiesBitmask = {},
-	versions = {},
+	-- versions = {},
 	-- Storages
 	storages = {},
 	GameObjectStorageState = GameObjectStorageState,
@@ -104,8 +109,7 @@ local EcsState = {
 	CustomStorageState = CustomStorageState,
 	MobBehaviorStorageState = MobBehaviorStorageState,
 	-- Archetypes
-	archetypes = {},
-	archetypesLookups = {},
+	-- archetypes = {},
 }
 
 -- #endregion
