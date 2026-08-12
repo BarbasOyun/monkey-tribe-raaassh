@@ -270,22 +270,23 @@ function AugmentsService.Client:RerollAugment(player)
 	PlayerService:SubtractCurrency(player, PlayerService.CURRENCIES.sticks, 10)
 end
 
+--- Player Choose Augment -> Get Stats
 function AugmentsService.Client:PickAugment(player, index)
 	local userId = player.UserId
 	local state = Store:getState()
-	local playerData = state.players[userId]
+	local playerState = Selectors.PlayerState(state, userId)
 
 	-- Validation
-	local augment = playerData.currentAugments[index]
+	local augment = playerState.currentAugments[index]
 	assert(augment, player.Name .. " Augment not ready")
 
-	local waitingLevel = playerData.waitingLevel
+	local waitingLevel = playerState.waitingLevel
 	assert(waitingLevel > 0, player.Name .. " No waiting Level")
 
 	print(player.Name .. " Choosed : " .. index)
 
 	-- Level
-	local level = playerData.level
+	local level = playerState.level
 	level += 1
 	waitingLevel -= 1
 

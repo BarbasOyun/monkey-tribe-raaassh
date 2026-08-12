@@ -3,9 +3,6 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Knit = require(ReplicatedStorage.Packages.Knit)
-Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
-
 -- Get Constants
 local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
@@ -14,14 +11,11 @@ local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
 local StoreActions = RoduxStore.Actions
 
--- Get Services
-local PlayerService
+-- Knit
+local Knit = require(ReplicatedStorage.Packages.Knit)
+Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local RpgService
-local AugmentsService
-
-local CombatService
-local ItemService
+local PlayerService, RpgService, AugmentsService, CombatService, ItemService
 
 -- TODO : Client Side Mutable State
 local player = Players.LocalPlayer
@@ -209,8 +203,11 @@ local function setupPlayerService()
 	end)
 
 	-- Players Added & Removed
-	PlayerService.PlayerAdded:Connect(function(userId, username)
-		-- only add players after joining
+	PlayerService.PlayerAdded:Connect(function(player)
+		local userId = player.UserId
+		local username = player.Name
+
+		-- Avoid adding self
 		if userId == player.UserId then
 			return
 		end
@@ -219,7 +216,8 @@ local function setupPlayerService()
 		Store:dispatch(StoreActions.AddPlayer(userId, username))
 	end)
 
-	PlayerService.PlayerRemoved:Connect(function(userId)
+	PlayerService.PlayerRemoved:Connect(function(player)
+		local userId = player.UserId
 		Store:dispatch(StoreActions.RemovePlayer(userId))
 	end)
 

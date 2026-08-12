@@ -14,13 +14,11 @@ local Roact = require(ReplicatedStorage.Shared.Roact)
 -- Get Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
-local Selectors = RoduxStore.Selectors
+-- local Selectors = RoduxStore.Selectors
 
 -- Get Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await() -- Wait for KnitControllersStart
-
-local PlayerController = Knit.GetController("PlayerController")
 
 -- TODO : Client side Mutable State
 local player = Players.LocalPlayer
@@ -136,13 +134,18 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 	}),
 })
 
-Roact.mount(app, playerGui)
+local function generateUi()
+	Roact.mount(app, playerGui)
+
+	-- After Ui Creation
+	updateLifeBar()
+end
+
+generateUi()
+
+-- Re-Generate UI on Character Spawn
+player.CharacterAdded:Connect(function(character)
+	generateUi()
+end)
 
 -- #endregion
-
--- #region UI LIFETIME
--- Manual / Roact less UI -> Dynamic UI
-
-updateLifeBar()
-
---#endregion

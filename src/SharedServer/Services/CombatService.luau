@@ -179,7 +179,8 @@ function CombatService.StartAttack(player, playerStats, weaponState)
 	-- TODO : Measure animations using frames instead of time
 	-- Get Attack State
 	local currentTime = tick()
-	local attackDelta = currentTime - CombatState.lastAttacks[userId] -- Time between last attack and now
+	local lastAttack = CombatState.lastAttacks[userId]
+	local attackDelta = currentTime - lastAttack -- Time between last attack and now
 	local isAttackReady = attackDelta > playerStats.animationTime
 
 	local function startAttack()
@@ -200,8 +201,9 @@ function CombatService.StartAttack(player, playerStats, weaponState)
 	-- Input Buffer
 	if not isAttackReady then
 		local missingTime = playerStats.animationTime - attackDelta -- Time to wait before attacking
+		local isBuffering = CombatState.attackBuffer[userId] ~= nil
 
-		if missingTime <= 0.1 and CombatState.attackBuffer[userId] == nil then
+		if missingTime <= 0.1 and not isBuffering then
 			-- print("Attack Buffer: " .. player.Name)
 			CombatState.attackBuffer[userId] = true -- Lock Input Buffer
 			task.delay(missingTime, function()
@@ -327,12 +329,16 @@ local function combatServiceUpdate(state)
 end
 
 local function setupPlayerService()
-	PlayerService.PlayerAdded:Connect(function(userId)
+	PlayerService.PlayerAdded:Connect(function(player)
+		local userId = player.UserId
+
 		CombatState.lastAttacks[userId] = 0
 		CombatState.comboIndexes[userId] = 0
 	end)
 
-	PlayerService.PlayerRemoved:Connect(function(userId)
+	PlayerService.PlayerRemoved:Connect(function(player)
+		local userId = player.UserId
+
 		-- Cleanup
 		CombatState.lastAttacks[userId] = nil
 		CombatState.comboIndexes[userId] = nil

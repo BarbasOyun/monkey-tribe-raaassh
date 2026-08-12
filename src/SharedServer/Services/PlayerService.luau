@@ -106,8 +106,8 @@ function PlayerService.AddPlayer(player)
 	MutState.playersDetections[userId] = {}
 
 	-- Events
-	PlayerService.PlayerAdded:Fire(userId)
-	PlayerService.Client.PlayerAdded:FireAll(userId, username)
+	PlayerService.PlayerAdded:Fire(player)
+	PlayerService.Client.PlayerAdded:FireAll(player)
 end
 
 function PlayerService.RemovePlayer(player)
@@ -116,8 +116,8 @@ function PlayerService.RemovePlayer(player)
 	Store:dispatch(StoreActions.RemovePlayer(userId))
 
 	-- Events
-	PlayerService.PlayerRemoved:Fire(userId)
-	PlayerService.Client.PlayerRemoved:FireAll(userId)
+	PlayerService.PlayerRemoved:Fire(player)
+	PlayerService.Client.PlayerRemoved:FireAll(player)
 end
 
 function PlayerService.Client:ToggleMusic(player, isEnabled)
@@ -378,47 +378,45 @@ end
 
 -- #region UPDATES
 
---- For each Player Detect and Store Distance with each enemies in range
-local function enemiesDetection(state)
-	for _, player in pairs(Players:GetPlayers()) do
-		local userId = player.UserId
-		local playerState = state.players[userId]
+--- Detect Enemies around player -> Calculate Distance + Normals
+local function enemiesDetection(state, player)
+	local userId = player.UserId
+	local playerState = state.players[userId]
 
-		MutState.playersDetections[userId] = {}
+	MutState.playersDetections[userId] = {}
 
-		if not playerState then
-			continue
-		end
+	if not playerState then
+		return
+	end
 
-		local character = player.Character or player.CharacterAdded:Wait()
-		local torso = character.UpperTorso or character.Torso
-		local playerPos = torso.CFrame.Position
+	local character = player.Character or player.CharacterAdded:Wait()
+	local torso = character.UpperTorso or character.Torso
+	local playerPos = torso.CFrame.Position
 
-		-- DEBUG
-		-- Gears.DisplayHitBox(position, 10, 0.1)
+	-- DEBUG
+	-- Gears.DisplayHitBox(position, 10, 0.1)
 
-		-- Calc Distance Player -> Enemy
-		local hits = workspace:GetPartBoundsInRadius(playerPos, CONSTANTS.DETECTION_RADIUS, CONSTANTS.DETECTION_PARAM)
+	-- Calc Distance Player -> Enemy
+	local hits = workspace:GetPartBoundsInRadius(playerPos, CONSTANTS.DETECTION_RADIUS, CONSTANTS.DETECTION_PARAM)
 
-		-- Detect Enemy Humanoids
-		local detectedEnemies = Gears.FindUniqueHumanoids(hits)
+	-- Detect Enemy Humanoids
+	local detectedEnemies = Gears.FindUniqueHumanoids(hits)
 
-		-- Calculate Distance Player to Enemy
-		for _, humanoid in pairs(detectedEnemies) do
-			local enemy = humanoid.Parent :: Model
-			local enemyPos = enemy.Torso.CFrame.Position
+	-- Calculate Distance Player to Enemy
+	for _, humanoid in pairs(detectedEnemies) do
+		local enemy = humanoid.Parent :: Model
+		local enemyPos = enemy.Torso.CFrame.Position
 
-			local playerToEnemyDirection = enemyPos - playerPos
+		local playerToEnemyDirection = enemyPos - playerPos
 
-			local playerToEnemyDistance = vector.magnitude(playerToEnemyDirection) :: number
-			MutState.playersDetections[userId][enemy] = playerToEnemyDistance
+		local playerToEnemyDistance = vector.magnitude(playerToEnemyDirection) :: number
+		MutState.playersDetections[userId][enemy] = playerToEnemyDistance
 
-			-- TODO : Calculate Normals
-		end
+		-- TODO : Calculate Normals
 	end
 end
 
---- Auto Pickup XP Per Player
+--- Lerp Item Pos to Player
 local function autoPickup(player, itemModel)
 	if not itemModel.Parent or itemModel.Parent ~= workspace.AutoPickup then
 		return
@@ -445,28 +443,26 @@ local function autoPickup(player, itemModel)
 	ItemService.PickupItem(player, itemModel)
 end
 
---- Detect Objects in Auto Pickup Folder
-local function autoPickupRange(state)
-	for _, player in ipairs(Players:GetPlayers()) do
-		local userId = player.UserId
-		local playerState = state.players[userId]
+--- Player Autopickup Ground Items
+local function autoPickupRange(state, player)
+	local userId = player.UserId
+	local playerState = state.players[userId]
 
-		if not playerState then
-			continue
-		end
+	if not playerState then
+		return
+	end
 
-		local character = player.Character or player.CharacterAdded:Wait()
-		local playerPos = character.HumanoidRootPart.CFrame.Position
-		local pickupRange = playerState.stats.pickupRange
+	local character = player.Character or player.CharacterAdded:Wait()
+	local playerPos = character.HumanoidRootPart.CFrame.Position
+	local pickupRange = playerState.stats.pickupRange
 
-		-- DEBUG
-		-- Gears.DisplayHitBox(position, pickupRange, 0.1)
+	-- DEBUG
+	-- Gears.DisplayHitBox(position, pickupRange, 0.1)
 
-		local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, CONSTANTS.AUTO_PICKUP_PARAM)
+	local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, CONSTANTS.AUTO_PICKUP_PARAM)
 
-		for _, itemModel in ipairs(autoPickupItems) do
-			autoPickup(player, itemModel)
-		end
+	for _, itemModel in ipairs(autoPickupItems) do
+		autoPickup(player, itemModel)
 	end
 end
 
@@ -481,8 +477,10 @@ local function stateUpdate(dt: number)
 	if MutState.frameCount > CONSTANTS.THROTTLED_UPDATE_FRAMES then
 		PlayerService.ThrottledUpdate:Fire(state, dt)
 
-		autoPickupRange(state)
-		enemiesDetection(state)
+		for _, player in pairs(Players:GetPlayers()) do
+			autoPickupRange(state, player)
+			enemiesDetection(state, player)
+		end
 
 		MutState.frameCount = 0
 	end

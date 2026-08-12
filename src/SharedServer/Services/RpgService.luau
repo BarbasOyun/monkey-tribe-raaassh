@@ -584,6 +584,39 @@ end
 -- #endregion
 
 -- Start Service
+
+local function setupPlayerService()
+	PlayerService.ThrottledUpdate:Connect(function(state)
+		-- LifeRegen Update -> UI
+		for _, player in pairs(Players:GetPlayers()) do
+			local playerLife = StatState.playersLife[player.UserId]
+
+			if playerLife then
+				RpgService.Client.LifeUpdate:Fire(player, playerLife)
+			end
+		end
+	end)
+
+	PlayerService.PlayerAdded:Connect(function(player)
+		local userId = player.UserId
+
+		-- Reset Player on Respawn
+		player.CharacterAdded:Connect(function(character)
+			-- Get Max Life
+			local state = Store:getState()
+			local playerState = Selectors.PlayerState(state, userId)
+			local maxLife = playerState.stats.maxLife
+
+			StatState.playersLife[userId] = maxLife
+		end)
+	end)
+
+	PlayerService.PlayerRemoved:Connect(function(player)
+		local userId = player.UserId
+		RpgService.StopLifeRegen(userId)
+	end)
+end
+
 function RpgService:KnitInit()
 	print("RpgService Initialized")
 end
@@ -591,20 +624,7 @@ end
 function RpgService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 
-	-- LifeRegen Update -> UI
-	PlayerService.ThrottledUpdate:Connect(function(state)
-		for _, player in pairs(Players:GetPlayers()) do
-			local playerLife = StatState.playersLife[player.UserId]
-
-			if playerLife then
-				self.Client.LifeUpdate:Fire(player, playerLife)
-			end
-		end
-	end)
-
-	PlayerService.PlayerRemoved:Connect(function(userId)
-		RpgService.StopLifeRegen(userId)
-	end)
+	setupPlayerService()
 end
 
 return RpgService

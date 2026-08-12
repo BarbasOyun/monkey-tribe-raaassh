@@ -269,7 +269,6 @@ local function setupEnemies()
 	-- EnemyService.EnableNextInPool(Enemies.Robot, pos3)
 	-- EnemyService.EnableNextInPool(Enemies.Robot, pos4)
 
-	-- Start Spawning Mobs
 	-- EnemyService.StartStreamSpawn()
 	-- EnemyService.StartSwarmSpawn()
 	-- EnemyService.StartMobBehavior()
