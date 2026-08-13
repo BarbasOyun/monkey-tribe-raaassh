@@ -7,6 +7,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Get Authoring Data
 -- local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
+-- Folders
+local PREFABS_FOLDER = ReplicatedStorage.Shared.Prefabs
+local WEAPON_HIT_FOLDER = workspace.WeaponHit
+local DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities
+
 -- #region Player
 
 -- TODO : Rename (enum)
@@ -66,6 +71,8 @@ WEAPON_HIT_PARAM.FilterType = Enum.RaycastFilterType.Include
 WEAPON_HIT_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
 WEAPON_HIT_PARAM.MaxParts = 100
 
+-- EnemyService
+local DISABLED_POSITION = Vector3.new(0, 20, 0)
 local EnemyConst = {
 	ENEMY_LVL_UP_BREAKPOINT = 30,
 
@@ -80,6 +87,7 @@ local EnemyConst = {
 	STREAM_SPAWN_NBR_RANGE = 1,
 	STREAM_SPAWN_LVL_BREAKPOINT = 3,
 	STREAM_SPAWN_BREAKPOINT_INCREMENT = 1,
+	STREAM_SPAWN_INCREMENT = 2,
 
 	-- Swarm Spawn
 	SWARM_WAVES = 4,
@@ -87,8 +95,7 @@ local EnemyConst = {
 	SWARM_NBR_RANGE = 2,
 }
 
--- ECS & Object Pooling
-local DISABLED_POSITION = Vector3.new(0, -5000, 0)
+-- ECS
 local EcsStorages = {
 	gameObject = 1,
 	unit = 2,
@@ -135,9 +142,9 @@ local CONSTANTS = {
 	HUB_PLACE_ID = 95975992291805,
 	THROTTLED_UPDATE_FRAMES = 5,
 	-- Folders
-	PREFABS_FOLDER = ReplicatedStorage.Shared.Prefabs,
-	WEAPON_HIT_FOLDER = workspace.WeaponHit,
-	DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities,
+	PREFABS_FOLDER = PREFABS_FOLDER,
+	WEAPON_HIT_FOLDER = WEAPON_HIT_FOLDER,
+	DISABLED_ENTITIES_FOLDER = DISABLED_ENTITIES_FOLDER,
 	-- Overlap Param
 	AUTO_PICKUP_PARAM = AUTO_PICKUP_PARAM,
 	DETECTION_PARAM = DETECTION_PARAM,

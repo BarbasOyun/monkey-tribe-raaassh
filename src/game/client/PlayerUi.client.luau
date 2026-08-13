@@ -1,9 +1,11 @@
--- Player Ui in Game
+-- Player Ui in Game / Client PlayerManager
 -- TODO : Use UiAspectRatioConstraint
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local PlayerGui = Players.LocalPlayer.PlayerGui
+
+local Gears = require(ReplicatedStorage.Shared.Gears)
 
 local RoactRodux = require(ReplicatedStorage.Shared.RoactRodux)
 local Roact = require(ReplicatedStorage.Shared.Roact)
@@ -21,7 +23,7 @@ local Store = RoduxStore.Store
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await()
 
--- local PlayerController = Knit.GetController("PlayerController")
+local PlayerController = Knit.GetController("PlayerController")
 local LevelService = Knit.GetService("LevelService")
 
 -- TODO : Client MutState
@@ -73,6 +75,13 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 		text = "Lvl " .. globalEnemyLvl,
 	}
 end)(textLabel)
+
+-- GameTimer
+local gameTimerProps = {
+	position = UDim2.fromScale(0.1, 0.0),
+	size = UDim2.fromScale(0.05, 0.05),
+	text = "00:00",
+}
 
 -- #endregion
 
@@ -223,30 +232,25 @@ eventsIcons = RoactRodux.connect(function(state)
 	}
 end)(frameGridLayout)
 
--- GameTimer
-local gameTimerProps = {
-	position = UDim2.fromScale(0.25, 0.075),
-	size = UDim2.fromScale(0.05, 0.05),
-	text = "0",
-}
-
 -- #endregion
 
 -- #region APP
 
 local function mainGui()
 	return Roact.createElement("ScreenGui", {}, {
-		-- Top
-		BananaIcon = BananaIcon,
-		BananasText = BananasText,
-		-- TODO : Sticks, Rocks
+		-- Top Left
 		RobotImage = image(robotImageProps),
 		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
+		GameTimer = textLabel(gameTimerProps),
+		-- Top Mid
 		CurrentStageText = Roact.createElement(currentStageText),
 		ProgressBar = resourceBar(progressBarProps),
 		EventsIcons = Roact.createElement(eventsIcons),
-		GameTimer = textLabel(gameTimerProps),
-		-- Bot
+		-- Top Right
+		BananaIcon = BananaIcon,
+		BananasText = BananasText,
+		-- TODO : Sticks, Rocks
+		-- Bot Mid
 		XpBar = Roact.createElement(XpBar),
 		LifeBar = Roact.createElement(LifeBar),
 		-- Panels
@@ -263,29 +267,35 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 	}),
 })
 
-Roact.mount(app, PlayerGui)
+local function generateUi()
+	Roact.mount(app, PlayerGui)
+
+	-- After UI Creation
+	updateLifeBar()
+
+	local mainGuiRef = playerGui.RoactTree.MainGui
+
+	-- ProgressBar
+	local progressBarRef = mainGuiRef.ProgressBar[2]
+
+	LevelService.ProgressUpdate:Connect(function(progress)
+		progressBarRef.Size = UDim2.fromScale(progress, 1)
+	end)
+
+	-- GameTimer Update
+	local timerText = mainGuiRef.GameTimer
+
+	LevelService.GameTimerUpdate:Connect(function(gameTimer)
+		timerText.Text = Gears.ToMS(gameTimer)
+	end)
+end
+
+generateUi()
+
+-- Generate UI on Character Spawn
+player.CharacterAdded:Connect(function(character)
+	PlayerController.GetSounds()
+	generateUi()
+end)
 
 -- #endregion
-
--- #region AFTER UI CREATION
--- Manual / Roact less UI -> Dynamic UI
-
-updateLifeBar()
-
-local mainGuiRef = playerGui.RoactTree.MainGui
-
--- ProgressBar
-local progressBarRef = mainGuiRef.ProgressBar[2]
-
-LevelService.ProgressUpdate:Connect(function(progress)
-	progressBarRef.Size = UDim2.fromScale(progress, 1)
-end)
-
--- GameTimer Update
-local timerText = mainGuiRef.GameTimer
-
-LevelService.GameTimerUpdate:Connect(function(gameTimer)
-	timerText.Text = gameTimer
-end)
-
---#endregion

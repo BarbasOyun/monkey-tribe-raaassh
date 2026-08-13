@@ -20,6 +20,8 @@ local Store = RoduxStore.Store
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await() -- Wait for KnitControllersStart
 
+local PlayerController = Knit.GetController("PlayerController")
+
 -- TODO : Client side Mutable State
 local player = Players.LocalPlayer
 local playerGui = player.PlayerGui
@@ -143,8 +145,9 @@ end
 
 generateUi()
 
--- Re-Generate UI on Character Spawn
+-- Generate UI on Character Spawn
 player.CharacterAdded:Connect(function(character)
+	PlayerController.GetSounds()
 	generateUi()
 end)
 

@@ -20,9 +20,8 @@ local LevelService = Knit.GetService("LevelService")
 local RpgService = Knit.GetService("RpgService")
 local AugmentsService = Knit.GetService("AugmentsService")
 
-local EcsService = Knit.GetService("EcsService")
 local EnemyService = Knit.GetService("EnemyService")
--- local ItemService = Knit.GetService("ItemService")
+local ItemService = Knit.GetService("ItemService")
 
 -- TODO : PlayerService:AddPlayer
 -- On Player Death
@@ -34,13 +33,15 @@ local EnemyService = Knit.GetService("EnemyService")
 
 local function setupPlayers()
 	Players.PlayerAdded:Connect(function(player)
-		PlayerService.SetupGameOver(player)
-
 		PlayerService.AddPlayer(player)
+
 		PlayerService.GetMetaUpgrades(player)
 		AugmentsService.GenerateAugments(player)
 
+		ItemService.EquipDefaultWeapon(player)
+
 		RpgService.RegisterLife(player)
+		PlayerService.SetupGameOver(player)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
@@ -59,20 +60,21 @@ local function setupLevel()
 	local maxLimit = LevelService.ToFlatVector(maxLimitPart.CFrame.Position)
 
 	LevelService.SetLimits(minLimit, maxLimit)
+
+	-- Start Stage
+	LevelService.StartStage()
 end
 
 local function setupEnemies()
 	-- Load Enemies
-	EnemyService.AddArchetype(Enemies.Robot)
-	EcsService.CreatePools()
+	EnemyService.CreatePool(Enemies.Robot)
 
 	-- Start Spawning Mobs
 	EnemyService.StartStreamSpawn()
-	-- EnemyService.StartMobBehavior()
-	-- LevelService.StartGameTimer()
+	EnemyService.StartMobBehavior()
 
-	-- Start Stage
-	LevelService.StartStage()
+	-- Start Raaash Timer
+	LevelService.StartGameTimer()
 end
 
 -- #region START

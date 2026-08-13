@@ -134,7 +134,7 @@ local DEFAULT_STATS: Stats = {
 	pickupRange = 10,
 }
 
-local DEFAULT_MOD_STATS: ModStats = {
+local MOD_STATS: ModStats = {
 	-- Offense
 	increasedAttackDamage = 0,
 	increasedAttackSpeed = 0,
@@ -171,10 +171,10 @@ local DEFAULT_PLAYER: Player = {
 	xpRequired = 100,
 	-- Stats
 	stats = Gears.DeepCopy(DEFAULT_STATS),
-	metaUpgradesLevel = Gears.DeepCopy(DEFAULT_MOD_STATS),
-	metaUpgradesCost = Gears.DeepCopy(DEFAULT_MOD_STATS),
-	metaUpgrades = Gears.DeepCopy(DEFAULT_MOD_STATS),
-	augments = Gears.DeepCopy(DEFAULT_MOD_STATS),
+	metaUpgradesLevel = Gears.DeepCopy(MOD_STATS),
+	metaUpgradesCost = Gears.DeepCopy(MOD_STATS),
+	metaUpgrades = Gears.DeepCopy(MOD_STATS),
+	augments = Gears.DeepCopy(MOD_STATS),
 	currentAugments = {}, -- 3+ choice cards
 	weaponData = {},
 }
@@ -192,7 +192,7 @@ local STATS_STORE = {
 	critMultiplier = "critMultiplier",
 	aoe = "aoe",
 	-- Defense
-	maxLife = "life",
+	maxLife = "maxLife",
 	lifeRegen = "lifeRegen",
 	damageReduction = "damageReduction",
 	-- Utility
@@ -214,7 +214,7 @@ local TO_STAT_OBJECT = {
 	increasedAoe = "aoe",
 	aoe = "aoe",
 	-- Defense
-	maxLife = "life",
+	maxLife = "maxLife",
 	lifeRegen = "lifeRegen",
 	damageReduction = "damageReduction",
 	-- Utility
@@ -265,25 +265,13 @@ local MOD_STATS_INDEX = {
 	"increasedPickupRange",
 }
 
--- Stats that need to be multiplied
--- > Can use STAT_STORE instead
---[[
-local MULT_STATS_STORE = {
-	attackDamage = "attackDamage",
-	attackSpeed = "attackSpeed",
-	animationTime = "animationTime",
-	aoe = "aoe",
-	pickupRange = "pickupRange",
-}
-]]
-
 -- #endregion
 
 local STATS_DISPLAY = {
 	increasedAttackDamage = "% Attack Damage",
+	increasedAttackSpeed = "% Attack Speed",
 	critChance = "% Crit Chance",
 	critMultiplier = "% Crit Multiplier",
-	increasedAttackSpeed = "% Attack Speed",
 	increasedAoe = "% Aoe",
 	maxLife = "Max Life",
 	lifeRegen = "Life Regen",

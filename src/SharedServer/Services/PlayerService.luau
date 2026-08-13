@@ -1,9 +1,9 @@
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local DataStoreService = game:GetService("DataStoreService")
 local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
+local DataStoreService = game:GetService("DataStoreService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
@@ -95,9 +95,6 @@ function PlayerService.AddPlayer(player)
 	-- Create Player
 	Store:dispatch(StoreActions.AddPlayer(userId, username))
 
-	-- Stats
-	-- PlayerService.GetMetaUpgrades(userId)
-
 	-- Send the full store to the new player
 	local state = Store:getState()
 	PlayerService.Client.ReplicateStore:Fire(player, state)
@@ -108,6 +105,20 @@ function PlayerService.AddPlayer(player)
 	-- Events
 	PlayerService.PlayerAdded:Fire(player)
 	PlayerService.Client.PlayerAdded:FireAll(player)
+
+	player.CharacterAdded:Connect(function(character)
+		PlayerService.OnCharacterAdded(player, character)
+	end)
+end
+
+function PlayerService.OnCharacterAdded(player, character)
+	local userId = player.UserId
+
+	PlayerService.AddSounds(player)
+
+	-- Un-kill on character on spawn
+	local patch = { isDead = false }
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 end
 
 function PlayerService.RemovePlayer(player)
@@ -120,8 +131,18 @@ function PlayerService.RemovePlayer(player)
 	PlayerService.Client.PlayerRemoved:FireAll(player)
 end
 
+--- Add the Default sounds to a player
+function PlayerService.AddSounds(player)
+	local playerGui = player:WaitForChild("PlayerGui")
+	local soundFolder = playerGui.ClientSounds -- or Instance("Folder")
+
+	local mainSounds = MutState.mainSounds:clone()
+	mainSounds.Parent = soundFolder
+end
+
 function PlayerService.Client:ToggleMusic(player, isEnabled)
-	Store:dispatch(StoreActions.PatchPlayer(player.UserId, { isMusicEnabled = isEnabled }))
+	local patch = { isMusicEnabled = isEnabled }
+	Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
 end
 
 -- #endregion
@@ -436,7 +457,13 @@ local function autoPickup(player, itemModel)
 	for _ = 1, steps do
 		progress += speed
 		speed += acceleration
-		itemModel.CFrame = startPos:Lerp(player.character:GetPivot(), progress)
+		local character = player.character
+
+		if not character then
+			return
+		end
+
+		itemModel.CFrame = startPos:Lerp(character:GetPivot(), progress)
 		RunService.Heartbeat:Wait()
 	end
 

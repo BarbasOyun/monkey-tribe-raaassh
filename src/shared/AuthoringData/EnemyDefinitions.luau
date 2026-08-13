@@ -7,9 +7,9 @@ local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local MAX_MOVEMENT_SPEED = 16
 
 -- Scaling Definition
-local DAMAGE_INCREMENT = 3
-local LIFE_INCREMENT = 5
-local MOVEMENT_SPEED_INCREMENT = 1
+local DAMAGE_MULTIPLIER = 1.2
+local LIFE_MULTIPLIER = 1.2
+local MOVEMENT_SPEED_INCREMENT = 0.2
 
 local Enemies = {
 	Dummy = 1,
@@ -33,7 +33,7 @@ local EnemiesStats = {
 
 local EnemiesPrefabs = {
 	CONSTANTS.PREFABS_FOLDER.Enemies:FindFirstChild("Dummy"),
-	CONSTANTS.PREFABS_FOLDER.Enemies:FindFirstChild("Robot"),
+	CONSTANTS.PREFABS_FOLDER.Enemies:FindFirstChild("Mobot"),
 }
 
 -- POOLS
@@ -73,8 +73,8 @@ local EnemyDefinitions = {
 	EnemiesPool = EnemiesPool,
 	-- Constants
 	MAX_MOVEMENT_SPEED = MAX_MOVEMENT_SPEED,
-	DAMAGE_INCREMENT = DAMAGE_INCREMENT,
-	LIFE_INCREMENT = LIFE_INCREMENT,
+	DAMAGE_MULTIPLIER = DAMAGE_MULTIPLIER,
+	LIFE_MULTIPLIER = LIFE_MULTIPLIER,
 	MOVEMENT_SPEED_INCREMENT = MOVEMENT_SPEED_INCREMENT,
 }
 

@@ -3,18 +3,24 @@
 -- For High Frequency Data eg ECS Components
 -- This Data might be sent to the Rodux Store in the Throttled Update -> Use Commands Buffer
 
+local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+
 local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 local Enemies = EnemyDefinitions.Enemies
 local EnemiesStats = EnemyDefinitions.EnemiesStats
 
+local mainSounds = CONSTANTS.PREFABS_FOLDER.Sounds.MainSounds
+
 local LevelState = {
 	-- Map
 	currentMapId = 1,
+	addMusicHandle = nil,
 	stageRadius = 200,
 	totalParts = 0,
 	partsCount = 0,
@@ -27,7 +33,7 @@ local LevelState = {
 	currentEventIndex = 1,
 }
 
-local StatState = {
+local RpgState = {
 	totalXp = 0, -- Add to joining players
 	positionStart = {},
 	playersLife = {},
@@ -124,14 +130,14 @@ local CombatState = {
 }
 
 local MutState = {
-	-- globalTimer = 0,
+	mainSounds = mainSounds,
 	gameTimer = 0,
 	gameTimerCount = 0,
 	frameCount = 0,
 	playersDetections = {}, -- TODO : Flatten -> use playersDetectionCount
 	LevelState = LevelState,
 	CombatState = CombatState,
-	StatState = StatState,
+	RpgState = RpgState,
 	EnemyServiceState = EnemyServiceState,
 	EcsState = EcsState,
 	-- Current Place State (Hub or Level)

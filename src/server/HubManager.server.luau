@@ -206,6 +206,10 @@ local function setupPlayerService()
 
 		PlayerService.GetBananasDb(player)
 
+		-- Start Hub Music
+		local music = player.PlayerGui.ClientSounds:FindFirstChild("Music")
+		music:Play()
+
 		-- Manual Tests
 		local userId = player.UserId
 		-- PlayerService.AddBananas(100)

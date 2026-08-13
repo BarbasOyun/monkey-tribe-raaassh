@@ -13,7 +13,6 @@ local PlayerController = Knit.GetController("PlayerController")
 -- Get Constants
 local AUGMENTS = PlayerController.AUGMENTS
 local STATS_DISPLAY = PlayerController.STATS_DISPLAY
-local augmentPickSound = PlayerController.SoundFolder.AugmentPick
 
 -- Get Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -38,7 +37,7 @@ local function augmentCard(props)
 	local index = props.index
 
 	local onClick = function()
-		augmentPickSound:Play()
+		PlayerController.SoundFolder.MainSounds.AugmentPick:Play()
 		AugmentsService:PickAugment(index)
 	end
 
@@ -129,6 +128,7 @@ local function augmentPanel(props)
 			text = "Choose an Augment",
 			size = UDim2.fromScale(0.75, 0.25),
 			position = UDim2.fromScale(0.125, 0.0),
+			zIndex = 5,
 		}),
 		CardsPanel = cardsPanel(cardsPanelProps),
 	})

@@ -221,22 +221,11 @@ function Gears.GetJoints(character)
 	return rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip
 end
 
----@param character Model
-function Gears.Dismember(character)
-	local torso, head, leftArm, leftLeg, rightArm, rightLeg = Gears.GetBodyParts(character)
-
-	leftArm.CanCollide = true
-	leftLeg.CanCollide = true
-	rightArm.CanCollide = true
-	rightLeg.CanCollide = true
-
-	Gears.DisableJoints(character)
-end
-
+--- TODO : Enable param
 function Gears.DisableJoints(character)
 	-- Disable Joints
 	for Index, Child in pairs(character:GetChildren()) do
-		if Child:IsA("Motor6D") then
+		if Child:IsA("Motor6D") and Child.Name ~= "Neck" then
 			Child.Enabled = false
 		end
 
@@ -247,7 +236,42 @@ function Gears.DisableJoints(character)
 	end
 end
 
---- Reset a Character so that it can be enabled again (Object Pooling)
+function Gears.EnableJointInstantly(joint: Motor6D)
+	joint.Enabled = true
+
+	local parentPart = joint.Part0
+	local childPart = joint.Part1
+
+	-- 2. Force an immediate position and orientation match
+	if not parentPart or childPart then
+		return
+	end
+
+	-- Reset Child Pos
+	local targetCFrame = parentPart.CFrame * joint.C0 * joint.C1:Inverse()
+	childPart.CFrame = targetCFrame
+
+	-- Reset Physics
+	childPart.AssemblyLinearVelocity = Vector3.zero
+	childPart.AssemblyAngularVelocity = Vector3.zero
+end
+
+---@param character Model
+function Gears.Dismember(character)
+	Gears.DisableJoints(character)
+
+	local torso, head, leftArm, leftLeg, rightArm, rightLeg = Gears.GetBodyParts(character)
+
+	character.HumanoidRootPart.CanCollide = true
+	torso.CanCollide = true
+	head.CanCollide = true
+	leftArm.CanCollide = true
+	leftLeg.CanCollide = true
+	rightArm.CanCollide = true
+	rightLeg.CanCollide = true
+end
+
+--- Reset a Dismenbered Character
 ---@param character Model
 function Gears.ResetCharacter(character)
 	-- Get Body Parts
@@ -257,23 +281,38 @@ function Gears.ResetCharacter(character)
 	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = Gears.GetJoints(character)
 
 	-- Enable Joints
-	rootJoint.Enabled = true
-	neck.Enabled = true
-	leftShoulder.Enabled = true
-	leftHip.Enabled = true
-	rightShoulder.Enabled = true
-	rightHip.Enabled = true
+	-- rootJoint.Enabled = true
+	-- neck.Enabled = true
+	-- leftShoulder.Enabled = true
+	-- leftHip.Enabled = true
+	-- rightShoulder.Enabled = true
+	-- rightHip.Enabled = true
 
-	-- Disable Collisions
-	leftArm.CanCollide = false
-	-- leftLeg.CanCollide = false
-	rightArm.CanCollide = false
-	-- rightLeg.CanCollide = false
+	Gears.EnableJointInstantly(rootJoint)
+	Gears.EnableJointInstantly(neck)
+	Gears.EnableJointInstantly(leftShoulder)
+	Gears.EnableJointInstantly(leftHip)
+	Gears.EnableJointInstantly(rightShoulder)
+	Gears.EnableJointInstantly(rightHip)
+
+	-- Enable Collisions
+	character.HumanoidRootPart.CanCollide = true
+	torso.CanCollide = true
+	head.CanCollide = true
+	leftArm.CanCollide = true
+	leftLeg.CanCollide = true
+	rightArm.CanCollide = true
+	rightLeg.CanCollide = true
 end
 
 -- #endregion
 
 -- #region UI
+
+--- Converte Seconds to minutes:seconds format
+function Gears.ToMS(seconds)
+	return string.format("%02i:%02i", seconds / 60, seconds % 60)
+end
 
 function Gears.UpdateBar(bar, percent)
 	local usePercent = math.max(0, percent)

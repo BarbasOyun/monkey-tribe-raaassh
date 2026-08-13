@@ -18,7 +18,7 @@ local StoreActions = RoduxStore.Actions
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
-local StatState = MutState.StatState
+local RpgState = MutState.RpgState
 
 -- Get Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -215,8 +215,8 @@ local function finishAugmentPick(player)
 	local playerState = Selectors.PlayerState(state, userId)
 
 	-- Reset Player State
-	player.Character:MoveTo(StatState.positionStart[userId])
-	StatState.positionStart[userId] = nil
+	player.Character:MoveTo(RpgState.positionStart[userId])
+	RpgState.positionStart[userId] = nil
 
 	RpgService.StartLifeRegen(userId, playerState.stats.lifeRegen)
 
@@ -240,7 +240,7 @@ function AugmentsService.Client:StartAugmentPick(player)
 
 	-- Picking Augment State
 	-- print(player.Name .. " Is Picking Augment...")
-	StatState.positionStart[userId] = player.Character.HumanoidRootPart.CFrame.Position -- Movements are disabled client side
+	RpgState.positionStart[userId] = player.Character.HumanoidRootPart.CFrame.Position -- Movements are disabled client side
 
 	RpgService.StopLifeRegen(userId)
 
@@ -285,20 +285,23 @@ function AugmentsService.Client:PickAugment(player, index)
 
 	print(player.Name .. " Choosed : " .. index)
 
-	-- Level
+	-- Update State : Level
 	local level = playerState.level
 	level += 1
 	waitingLevel -= 1
 
-	--Add Augment Stats
+	local patch = { level = level, waitingLevel = waitingLevel, currentAugments = nil }
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+	PlayerService.Client.PatchPlayer:Fire(player, patch)
+
+	-- Update State : Augment
 	local augmentPatch = AugmentsService.AugmentPatch(state, userId, augment.modStat, augment.value)
 	Store:dispatch(StoreActions.PatchAugment(userId, augmentPatch))
 	-- Replicate to Client -> Display Augment stats client side
 
-	-- Update Player Level
-	local patch = { level = level, waitingLevel = waitingLevel, currentAugments = nil }
-	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
-	PlayerService.Client.PatchPlayer:Fire(player, patch)
+	-- Make Stat Effective
+	local stat = statsDefinition.TO_STAT_OBJECT[augment.modStat]
+	RpgService.CalculateStat(state, player, stat)
 
 	-- Generate augments for next Level
 	AugmentsService.GenerateAugments(player)

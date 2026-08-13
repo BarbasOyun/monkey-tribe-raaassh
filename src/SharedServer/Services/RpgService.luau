@@ -1,6 +1,6 @@
-local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
@@ -27,7 +27,7 @@ local StoreActions = RoduxStore.Actions
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
-local StatState = MutState.StatState
+local RpgState = MutState.RpgState
 
 -- Get Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -35,22 +35,18 @@ local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0
 local PlayerService
 
 -- StatsSystem :
--- INPUT = Take ModStats of each Power Systems (Mutated by other Systems)
--- Calculate & Create TotalStats & Make them effective
--- OUTPUT = TotalStats -> Display
+-- Power Systems = ModStats -> Mutated by other Systems
+-- TotalStats = Calc Power Systems
 
 -- ModStats :
--- (Stats Mutated by other Systems)
 -- 1] FlatStat eg maxLife, crit
 -- 2] IncreaseStat
 
 -- TotalStats :
--- (Effective Stats) -> Calculated from powerSystems eg metaUpgrades, augments
--- Stored in the playerStats -> weaponData never mutate
 -- 1] SumStat eg maxLife, crit
 -- 2] MultStat eg attackDamage
 
--- MultStat
+-- MultStat :
 -- baseX * increasedX = x
 -- some baseX come from weaponData eg baseAttackSpeed
 
@@ -63,7 +59,6 @@ local RpgService = Knit.CreateService({
 		MetaUpgradesChanged = Knit.CreateSignal(),
 		LevelUp = Knit.CreateSignal(),
 		LifeUpdate = Knit.CreateSignal(),
-		-- MaxLifeUpdate = Knit.CreateSignal(),
 		PlayerDamaged = Knit.CreateSignal(),
 	},
 })
@@ -76,7 +71,7 @@ function RpgService.RegisterLife(player)
 	local state = Store:getState()
 
 	local playerData = state.players[userId]
-	StatState.playersLife[userId] = playerData.stats.maxLife
+	RpgState.playersLife[userId] = playerData.stats.maxLife
 
 	RpgService.CalculateStat(state, player, MOD_STATS_STORE.lifeRegen)
 end
@@ -87,8 +82,8 @@ function RpgService.DamagePlayer(player, damage)
 	local userId = player.UserId
 
 	-- Take Damage
-	local life = StatState.playersLife[userId] - damage
-	StatState.playersLife[userId] = math.max(life, 0)
+	local life = RpgState.playersLife[userId] - damage
+	RpgState.playersLife[userId] = math.max(life, 0)
 
 	RpgService.Client.PlayerDamaged:Fire(player)
 
@@ -137,7 +132,7 @@ function RpgService.AddXpToAllPlayers(xp)
 
 	local state = Store:getState()
 
-	StatState.totalXp += xp
+	RpgState.totalXp += xp
 
 	for _, player in pairs(Players:GetPlayers()) do
 		RpgService.AddXpToPlayer(state, player, xp)
@@ -173,7 +168,7 @@ end
 
 -- #region CALCULATIONS
 
---- Generate a Patch of Sum modStats from each Power Systems
+--- Sum modStats from each Power Systems -> Generate Patch
 local function calcModStat(metaUpgrades, augments, modStat)
 	local metaUpgradeStat = metaUpgrades[modStat]
 	local augmentStat = augments[modStat]
@@ -183,7 +178,7 @@ local function calcModStat(metaUpgrades, augments, modStat)
 	return totalModStat
 end
 
---- Generate a Patch of base * increase
+--- base * increase -> Generate Patch
 local function calcMultStat(metaUpgrades, augments, modStat, calcStat, baseValue)
 	local totalModStat = calcModStat(metaUpgrades, augments, modStat)
 	local totalStat = baseValue * Gears.IncreaseToMultiplier(totalModStat)
@@ -193,7 +188,7 @@ local function calcMultStat(metaUpgrades, augments, modStat, calcStat, baseValue
 	return patch
 end
 
--- Every functions to calculate player stats
+--- Final Stats Calcs using Power Systems
 local statsCalculation = {
 	-- Offense
 	attackDamage = function(statCtx)
@@ -288,8 +283,9 @@ local statsCalculation = {
 		weaponModel:ScaleTo(weaponState.weaponSize * aoeMultiplier)
 
 		-- Attack VFX
-		local baseSize = 0.5
-		local size = baseSize * totalIncreasedAoe
+		local baseSize = 1
+		local sizeIncrease = totalIncreasedAoe * 0.2
+		local size = baseSize + baseSize * sizeIncrease
 		local keypoints = {
 			NumberSequenceKeypoint.new(0, size),
 			NumberSequenceKeypoint.new(1, size),
@@ -300,7 +296,7 @@ local statsCalculation = {
 	end,
 
 	-- Defense
-	life = function(statCtx)
+	maxLife = function(statCtx)
 		local modStat = MOD_STATS_STORE.maxLife
 
 		local userId = statCtx.userId
@@ -310,7 +306,7 @@ local statsCalculation = {
 		local maxLife = calcModStat(metaUpgrades, augments, modStat)
 
 		-- MaxLife also Give life
-		local playerLife = StatState.playersLife[userId]
+		local playerLife = RpgState.playersLife[userId]
 
 		if playerLife then
 			playerLife += maxLife
@@ -412,28 +408,15 @@ local statsCalculation = {
 	end,
 }
 
-local function statContext(state, userId)
-	local playerState = state.players[userId]
-	local augments, metaUpgrades = Selectors.PlayerPowerSystems(playerState)
-
-	local statCtx = {
-		userId = userId,
-		augments = augments,
-		metaUpgrades = metaUpgrades,
-		weaponData = playerState.weaponData,
-	}
-
-	return statCtx
-end
-
--- modStat = from STATS_STORE
-function RpgService.CalculateStat(state, player, modStat)
+--- Calculate a Final Stat using Power Systems -> Make Stat Effective,
+--- modStat = from STATS_STORE
+function RpgService.CalculateStat(state, player, stat)
 	local userId = player.UserId
 
-	local statCtx = statContext(state, userId)
+	local statsCtx = Selectors.StatsCtx(state, userId)
 
 	-- Dispatch Server + Client
-	local patch = statsCalculation[modStat](statCtx)
+	local patch = statsCalculation[stat](statsCtx)
 	Store:dispatch(StoreActions.PatchStat(userId, patch))
 	RpgService.Client.PatchStats:Fire(player, patch)
 end
@@ -446,9 +429,9 @@ function RpgService.CalculateAllStats(player)
 	local patches = {}
 
 	for _, calculateStat in pairs(statsCalculation) do
-		local statCtx = statContext(state, userId)
+		local statsCtx = Selectors.StatsCtx(state, userId)
 
-		local patch = calculateStat(statCtx)
+		local patch = calculateStat(statsCtx)
 		Gears.FuseTable(patches, patch)
 	end
 
@@ -553,11 +536,15 @@ end
 -- #region UPDATE
 
 function RpgService.StartLifeRegen(userId, lifeRegen)
-	local playersLife = StatState.playersLife
-	local lifeRegenUpdates = StatState.lifeRegenUpdates
+	if RpgState.lifeRegenUpdates[userId] then
+		return
+	end
 
-	if lifeRegen > 0 and StatState.playersLife[userId] then
-		lifeRegenUpdates[userId] = PlayerService.StateUpdate:Connect(function(state)
+	local playersLife = RpgState.playersLife
+	-- local lifeRegenUpdates = RpgState.lifeRegenUpdates
+
+	if lifeRegen > 0 and RpgState.playersLife[userId] then
+		local lifeRegenUpdate = PlayerService.StateUpdate:Connect(function(state, dt)
 			local playerState = Selectors.PlayerState(state, userId)
 
 			if not playerState then
@@ -565,19 +552,22 @@ function RpgService.StartLifeRegen(userId, lifeRegen)
 			end
 
 			local maxLife = playerState.stats.maxLife
-			local lifeUpdate = playersLife[userId] + lifeRegen / 60 -- 60 FPS
+			local lifeDelta = lifeRegen * dt -- lifeRegen / 60 -- 60 FPS
+			local lifeUpdate = playersLife[userId] + lifeDelta
 
 			playersLife[userId] = math.min(lifeUpdate, maxLife)
 		end)
+
+		RpgState.lifeRegenUpdates[userId] = lifeRegenUpdate
 	end
 end
 
 function RpgService.StopLifeRegen(userId)
-	local lifeRegenUpdates = StatState.lifeRegenUpdates
+	-- local lifeRegenUpdates = RpgState.lifeRegenUpdates
 
-	if lifeRegenUpdates[userId] then
-		lifeRegenUpdates[userId]:Disconnect()
-		lifeRegenUpdates[userId] = nil
+	if RpgState.lifeRegenUpdates[userId] then
+		RpgState.lifeRegenUpdates[userId]:Disconnect()
+		RpgState.lifeRegenUpdates[userId] = nil
 	end
 end
 
@@ -589,7 +579,7 @@ local function setupPlayerService()
 	PlayerService.ThrottledUpdate:Connect(function(state)
 		-- LifeRegen Update -> UI
 		for _, player in pairs(Players:GetPlayers()) do
-			local playerLife = StatState.playersLife[player.UserId]
+			local playerLife = RpgState.playersLife[player.UserId]
 
 			if playerLife then
 				RpgService.Client.LifeUpdate:Fire(player, playerLife)
@@ -607,7 +597,7 @@ local function setupPlayerService()
 			local playerState = Selectors.PlayerState(state, userId)
 			local maxLife = playerState.stats.maxLife
 
-			StatState.playersLife[userId] = maxLife
+			RpgState.playersLife[userId] = maxLife
 		end)
 	end)
 

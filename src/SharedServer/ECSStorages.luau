@@ -2,6 +2,7 @@
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 local Gears = require(ReplicatedStorage.Shared.Gears)
@@ -188,6 +189,7 @@ end
 function GameObjectStorage.OnDisable(entityId)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 
+	Gears.ResetCharacter(gameObject)
 	Gears.AnchorModel(gameObject, true)
 
 	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))

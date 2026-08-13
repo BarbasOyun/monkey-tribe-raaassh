@@ -36,12 +36,13 @@ local visualLife = 0
 local serverLife = 0
 
 -- Sounds
-local soundFolder = playerGui.ClientSounds -- TODO : Shared CONSTANTS
-local getOrbSound = soundFolder.GetOrb
-local enteringGameSound = soundFolder.EnteringGame
-local levelUpSound = soundFolder.LevelUp
-local augmentPanelSound = soundFolder.AugmentMenu
-local playerDamagedSfx = soundFolder.PlayerDamaged
+local soundFolder -- TODO : Shared CONSTANTS
+local mainSounds
+
+local getOrbSound
+local levelUpSound
+local augmentPanelSound
+local playerDamagedSfx
 
 -- Controls
 -- TODO : StateMachine -> States define controls
@@ -60,6 +61,16 @@ local PlayerController = Knit.CreateController({
 	META_UPRGADES = statsDefinition.META_UPRGADES,
 	AUGMENTS = statsDefinition.AUGMENTS,
 })
+
+function PlayerController.GetSounds()
+	soundFolder = playerGui.ClientSounds
+	mainSounds = soundFolder:WaitForChild("MainSounds")
+
+	getOrbSound = mainSounds.GetOrb
+	levelUpSound = mainSounds.LevelUp
+	augmentPanelSound = mainSounds.AugmentMenu
+	playerDamagedSfx = mainSounds.PlayerDamaged
+end
 
 -- #region ANIMATIONS
 
@@ -108,6 +119,7 @@ local function toggleMusic(isEnabled)
 	local music = soundFolder:FindFirstChild("Music")
 
 	if not music then
+		warn("Music not found")
 		return
 	end
 
@@ -142,7 +154,8 @@ local function setupControls()
 
 		if input.KeyCode == Enum.KeyCode.T then
 			local state = Store:getState()
-			local isEnabled = not state.players[player.UserId].isMusicEnabled
+			local playerState = state.players[player.UserId]
+			local isEnabled = not playerState.isMusicEnabled
 			toggleMusic(isEnabled)
 		end
 	end)
@@ -232,7 +245,8 @@ local function setupPlayerService()
 	end)
 
 	PlayerService.EnteringGame:Connect(function()
-		enteringGameSound:Play()
+		-- enteringGameSound:Play()
+		levelUpSound:Play()
 	end)
 end
 
@@ -347,6 +361,8 @@ function PlayerController:KnitStart()
 
 	-- Start StateUpdate
 	RunService.Heartbeat:Connect(stateUpdate)
+
+	PlayerController.GetSounds()
 end
 
 return PlayerController

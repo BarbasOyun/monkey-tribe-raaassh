@@ -41,6 +41,22 @@ local Selectors = {
 
 		return augments, metaUpgrades
 	end,
+
+	--- Get Stats Context of a Player
+	StatsCtx = function(state, userId)
+		local playerState = state.players[userId]
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
+
+		local statCtx = {
+			userId = userId,
+			augments = augments,
+			metaUpgrades = metaUpgrades,
+			weaponData = playerState.weaponData,
+		}
+
+		return statCtx
+	end,
 }
 
 -- #endregion
@@ -152,7 +168,7 @@ local playerReducer = Rodux.createReducer({}, {
 		for key, value in pairs(patch) do
 			local property = playerState[key]
 
-			if not property then
+			if property == nil then
 				warn("Key : " .. key .. " Doesn't exist in Player")
 			end
 
@@ -172,7 +188,7 @@ local playerReducer = Rodux.createReducer({}, {
 		for key, value in pairs(patch) do
 			local property = players[userId].stats[key]
 
-			if not property then
+			if property == nil then
 				warn("Key : " .. key .. " Doesn't exist in Stats")
 				continue
 			end

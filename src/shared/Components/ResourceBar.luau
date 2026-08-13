@@ -41,7 +41,7 @@ return function(props)
 		size = UDim2.fromScale(1.0, 1.0),
 		text = resourceName .. " " .. value .. " / " .. maxValue,
 		textColor3 = textColor,
-		zIndex = 10,
+		zIndex = 3,
 	})
 
 	-- Background

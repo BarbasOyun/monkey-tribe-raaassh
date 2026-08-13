@@ -89,12 +89,12 @@ function CombatService.HitsDetection(position, radius, param, charactersBanned)
 	return humanoidsHit
 end
 
-function CombatService.GetAttackPosition(player, weaponData)
+function CombatService.GetAttackPosition(player, weaponState)
 	local userId = player.UserId
 	local character = player.Character or player.CharacterAdded:Wait()
 	local playerPos = character.HumanoidRootPart.CFrame.Position
 
-	local attackPosition = weaponData.attackPoint.WorldCFrame.Position
+	local attackPosition = weaponState.attackPoint.WorldCFrame.Position
 
 	-- Aim toward Closet Enemy
 	local closestEnemy = CombatState.playersClosestEnemy[userId]
@@ -103,23 +103,26 @@ function CombatService.GetAttackPosition(player, weaponData)
 		local targetPart = closestEnemy.Head
 		local playerToEnemyNormal = vector.normalize(targetPart.CFrame.Position - playerPos)
 
-		local hitDistance = vector.magnitude(weaponData.attackPoint.WorldCFrame.Position - playerPos)
+		local hitDistance = vector.magnitude(weaponState.attackPoint.WorldCFrame.Position - playerPos)
 		attackPosition = playerPos + playerToEnemyNormal * hitDistance
 	end
 
 	-- Adjust VFX pos
-	local localPosition = weaponData.attackVFX.Parent.Parent.CFrame:PointToObjectSpace(attackPosition)
-	weaponData.attackVFX.Parent.CFrame = CFrame.new(localPosition)
+	if weaponState.attackVFX.Parent then
+		local handle = weaponState.attackVFX.Parent.Parent
+		local localPosition = handle.CFrame:PointToObjectSpace(attackPosition)
+		weaponState.attackVFX.Parent.CFrame = CFrame.new(localPosition)
+	end
 
 	return attackPosition
 end
 
 -- Context = After Validation
-function CombatService.AttackHit(player, playerStats, weaponData)
+function CombatService.AttackHit(player, playerStats, weaponState)
 	-- warn("Attack Hit AOE = " .. playerStats.aoe)
 
 	local character = player.Character or player.CharacterAdded:Wait()
-	local attackPosition = CombatService.GetAttackPosition(player, weaponData)
+	local attackPosition = CombatService.GetAttackPosition(player, weaponState)
 
 	-- Hits Detection
 	local hits = CombatService.HitsDetection(attackPosition, playerStats.aoe, CONSTANTS.WEAPON_HIT_PARAM, { character })
@@ -127,7 +130,7 @@ function CombatService.AttackHit(player, playerStats, weaponData)
 	local isCrit = rollCrit(playerStats)
 
 	if #hits <= 0 then
-		attackFeedback(weaponData, isCrit)
+		attackFeedback(weaponState, isCrit)
 		return
 	end
 
@@ -138,7 +141,7 @@ function CombatService.AttackHit(player, playerStats, weaponData)
 		EnemyService.DamageEnemy(player, humanoid.Parent:GetAttribute("EntityId"), humanoid, damage)
 	end
 
-	attackFeedback(weaponData, isCrit)
+	attackFeedback(weaponState, isCrit)
 end
 
 function CombatService.IncrementCombo(player, weaponData)
@@ -166,15 +169,17 @@ end
 -- 4) Attack Result = Server
 
 --- 2) Start a Player Attack (Server Validation)
-function CombatService.StartAttack(player, playerStats, weaponState)
+function CombatService.StartAttack(state, player, playerStats, weaponState)
+	-- Validation
+	local userId = player.UserId
+	local playerState = Selectors.PlayerState(state, userId)
+	local isPlayerReady = playerState and playerState.state == CONSTANTS.PLAYER_STATES.playing
+
 	local hasWeapon = next(weaponState) ~= nil
 
-	if not playerStats or not hasWeapon then
-		-- warn("No playerStats or weaponState")
+	if not hasWeapon or not isPlayerReady then
 		return
 	end
-
-	local userId = player.UserId
 
 	-- TODO : Measure animations using frames instead of time
 	-- Get Attack State
@@ -252,71 +257,68 @@ function CombatService.Client:AttackCallback(player)
 	CombatService.IncrementCombo(player, weaponData)
 end
 
+--- Client (Player Input) Initial Call
 function CombatService.Client:StartAttack(player)
 	local state = Store:getState()
 	local playerData = state.players[player.UserId]
 	local playerStats, weaponData = Selectors.PlayerStats(playerData)
 
-	CombatService.StartAttack(player, playerStats, weaponData)
+	CombatService.StartAttack(state, player, playerStats, weaponData)
 end
 
 -- #endregion
 
 -- #region AUTO TARGET
 
---- Find Closest Enemy for every Players
-function CombatService.FindClosestEnemies()
-	for _, player in pairs(Players:GetPlayers()) do
-		local userId = player.UserId
-		local playerDetection = MutState.playersDetections[userId]
+--- Make a Player Attack Automatically Closest Enemy
+function CombatService.AutoTarget(state, player)
+	local userId = player.UserId
+	local playerState = Selectors.PlayerState(state, userId)
 
-		if not playerDetection then
-			-- warn(player.Name .. " No player Detection")
-			return
-		end
+	if not playerState then
+		return
+	end
 
-		-- Find Closest Enemy
-		local closestDistance = math.huge
-		local closestEnemy = nil -- Model
+	local closestEnemy = CombatState.playersClosestEnemy[userId]
 
-		for enemy, distance in pairs(playerDetection) do
-			if distance < closestDistance then
-				closestDistance = distance
-				closestEnemy = enemy
-			end
-		end
+	if not closestEnemy then
+		return
+	end
 
-		CombatState.playersClosestEnemy[userId] = closestEnemy
+	-- Check closestEnemy Distance
+	local targetDistance = MutState.playersDetections[userId][closestEnemy]
+
+	local playerStats, weaponState = Selectors.PlayerStats(playerState)
+	local isInRange = targetDistance <= playerStats.aoe * 2
+
+	-- Start Attack
+	if weaponState and isInRange then
+		CombatService.StartAttack(state, player, playerStats, weaponState)
 	end
 end
 
---- Make Players Attack Automatically Closest Enemy
-function CombatService.AutoTarget(state)
-	for _, player in pairs(Players:GetPlayers()) do
-		local userId = player.UserId
-		local closestEnemy = CombatState.playersClosestEnemy[userId]
+--- Find Closest Enemy to a Player
+function CombatService.FindClosestEnemies(player)
+	local userId = player.UserId
+	local playerDetection = MutState.playersDetections[userId]
 
-		if not closestEnemy then
-			return
-		end
+	if not playerDetection then
+		-- warn(player.Name .. " No player Detection")
+		return
+	end
 
-		local playerState = Selectors.PlayerState(state, userId)
+	-- Find Closest Enemy
+	local closestDistance = math.huge
+	local closestEnemy = nil -- Model
 
-		if not playerState then
-			continue
-		end
-
-		-- Check closestEnemy Distance
-		local targetDistance = MutState.playersDetections[userId][closestEnemy]
-
-		local playerStats, weaponState = Selectors.PlayerStats(playerState)
-		local isInRange = targetDistance <= playerStats.aoe * 2
-
-		-- Start Attack
-		if weaponState and isInRange then
-			CombatService.StartAttack(player, playerStats, weaponState)
+	for enemy, distance in pairs(playerDetection) do
+		if distance < closestDistance then
+			closestDistance = distance
+			closestEnemy = enemy
 		end
 	end
+
+	CombatState.playersClosestEnemy[userId] = closestEnemy
 end
 
 -- #endregion
@@ -324,8 +326,10 @@ end
 -- #region COMBAT SERVICE
 
 local function combatServiceUpdate(state)
-	CombatService.FindClosestEnemies()
-	CombatService.AutoTarget(state)
+	for _, player in pairs(Players:GetPlayers()) do
+		CombatService.FindClosestEnemies(player)
+		CombatService.AutoTarget(state, player)
+	end
 end
 
 local function setupPlayerService()

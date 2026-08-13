@@ -54,6 +54,7 @@ local gameObjectSetup = function(entityId, definitionId)
 	-- Spawn Disabled Enemy
 	local enemy = EnemiesPrefabs[definitionId]:Clone()
 	enemy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
+	enemy.Name = enemy.Name .. entityId
 
 	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
 	GameObjectStorage.AddComponentToEntity(entityId, enemy)
@@ -118,9 +119,7 @@ local gameObjectOnEnabled = function(entityId, character, position)
 	character:PivotTo(CFrame.new(position))
 	character.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
-	-- character.Name = "character" .. entityId
 	-- character:SetAttribute("Version", entityVersion)
-	Gears.ResetCharacter(character)
 	Gears.AnchorModel(character, false)
 end
 
@@ -163,11 +162,11 @@ end
 
 local dummyOnDeath = function(character, player)
 	defaultOnDeath(character, player)
+	local entityId = character:GetAttribute("EntityId")
 
 	-- Get Back respawnPos
 	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
-	local id = character:GetAttribute("EntityId")
-	local respawnPos = CustomStorage.GetCustomProperties(id).respawnPos
+	local respawnPos = CustomStorage.GetCustomProperties(entityId).respawnPos
 
 	-- Respawn
 	EnemyService.EnableNextInPool(Enemies.Dummy, respawnPos)
@@ -430,7 +429,9 @@ function EnemyService.GetNearestPlayer(state, enemy)
 	for _, player in pairs(Players:GetPlayers()) do
 		-- Avoid non ready player
 		local playerState = Selectors.PlayerState(state, player.UserId)
-		if not playerState or playerState.state ~= CONSTANTS.PLAYER_STATES.playing then
+		local isPlayerReady = playerState and playerState.state == CONSTANTS.PLAYER_STATES.playing
+
+		if not isPlayerReady then
 			continue
 		end
 
@@ -516,8 +517,6 @@ end
 
 --- Increment Enemies Stats
 function EnemyService.LevelUpEnemies()
-	-- warn("Up Global Enemy Lvl")
-
 	local state = Store:getState()
 	local globalEnemyLvl = state.gameState.globalEnemyLvl + 1
 
@@ -525,15 +524,17 @@ function EnemyService.LevelUpEnemies()
 	local currentRobotStats = EnemyServiceState.currentRobotStats
 
 	-- Offense
-	currentRobotStats.Damage += EnemyDefinitions.DAMAGE_INCREMENT
+	currentRobotStats.Damage *= EnemyDefinitions.DAMAGE_MULTIPLIER
 
 	-- Defense
-	currentRobotStats.MaxLife += EnemyDefinitions.LIFE_INCREMENT
+	currentRobotStats.MaxLife *= EnemyDefinitions.LIFE_MULTIPLIER
 
 	-- Utils
-	local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
+	local movementSpeed = currentRobotStats.MovementSpeed
 	local newMs = movementSpeed + EnemyDefinitions.MOVEMENT_SPEED_INCREMENT
-	movementSpeed = math.clamp(newMs, 0, EnemyDefinitions.MAX_MOVEMENT_SPEED)
+	currentRobotStats.MovementSpeed = math.clamp(newMs, 0, EnemyDefinitions.MAX_MOVEMENT_SPEED)
+
+	-- warn("Enemy Lvl+ : Damage = " .. currentRobotStats.Damage .. " MaxLife = " .. currentRobotStats.MaxLife)
 
 	-- MAYBE : Mutate Existing Entities
 
@@ -541,7 +542,7 @@ function EnemyService.LevelUpEnemies()
 	local isBreakPointReached = globalEnemyLvl % EnemyConst.STREAM_SPAWN_LVL_BREAKPOINT == 0
 
 	if isBreakPointReached then
-		EnemyServiceState.streamSpawnNbr += 1
+		EnemyServiceState.streamSpawnNbr += EnemyConst.STREAM_SPAWN_INCREMENT
 	end
 
 	-- Update State
@@ -578,15 +579,21 @@ end
 
 -- #region UPDATE
 
---- MobBehavior System
-function EnemyService.MobBehavior(state, entityId, mob, robotStats)
+--- MobBehavior System : Seek & Attack Players
+function EnemyService.MobBehavior(state, entityId, character, robotStats)
 	-- Get Nearest Player
-	local targetPlayer, distance = EnemyService.GetNearestPlayer(state, mob)
-	local humanoid = mob.Humanoid
+	local targetPlayer, distance = EnemyService.GetNearestPlayer(state, character)
+	local humanoid = character.Humanoid
 
 	-- Stop if no target found
 	if not targetPlayer then
-		humanoid:MoveTo(mob.HumanoidRootPart.Position)
+		local t = character:FindFirstChild("HumanoidRootPart")
+
+		if not t then
+			warn("Entity " .. entityId .. " " .. character.Name .. " No HumanoidRootPart")
+		end
+
+		humanoid:MoveTo(character.HumanoidRootPart.Position)
 		return
 	end
 
@@ -594,7 +601,7 @@ function EnemyService.MobBehavior(state, entityId, mob, robotStats)
 	local isWithinRange = distance <= robotStats.Range
 
 	if isWithinRange then
-		EnemyService.EnemyAttack(entityId, mob, targetPlayer)
+		EnemyService.EnemyAttack(entityId, character, targetPlayer)
 		return
 	end
 
@@ -604,7 +611,7 @@ end
 --- Start MobBehavior in Throttled update
 function EnemyService.StartMobBehavior()
 	PlayerService.StateUpdate:Connect(function(state, dt)
-		-- Movements
+		-- Mob Movements
 		EcsState.MobBehaviorStorageState.timer += dt
 
 		local isDeltaReached = EcsState.MobBehaviorStorageState.timer >= EcsState.MobBehaviorStorageState.timerDelta
@@ -613,18 +620,23 @@ function EnemyService.StartMobBehavior()
 			-- Reset Timer
 			EcsState.MobBehaviorStorageState.timer = 0
 
-			-- For each Component : MobBehavior System
 			local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
 			local robotStats = EnemiesStats[Enemies.Robot]
 
 			-- TODO : Archetype loops
 			for _, entityId in pairs(EcsState.MobBehaviorStorageState.entities) do
-				local enemy = GameObjectStorage.GetGameObject(entityId)
-				EnemyService.MobBehavior(state, entityId, enemy, robotStats)
+				local enemyCharacter = GameObjectStorage.GetGameObject(entityId)
+				local isDisabled = enemyCharacter.Parent == CONSTANTS.DISABLED_ENTITIES_FOLDER
+
+				if isDisabled then
+					continue
+				end
+
+				EnemyService.MobBehavior(state, entityId, enemyCharacter, robotStats)
 			end
 		end
 
-		-- Attack CD
+		-- Mob Attack CD
 		-- TODO : Attack Speed = Attack / sec
 		for i = 1, #EcsState.UnitStorageState.attackCd, 1 do
 			local isReady = EcsState.UnitStorageState.attackCd[i] >= EnemiesStats[Enemies.Robot].AttackSpeed
@@ -636,30 +648,25 @@ function EnemyService.StartMobBehavior()
 	end)
 end
 
---- Spawn Mob Enemies
-function EnemyService.StreamSpawn()
-	-- Spawn Mobs around each player
-	local state = Store:getState()
+--- Spawn Mob Enemies around player
+function EnemyService.StreamSpawn(state, player)
+	-- Check if Player is Valid
+	local playerState = Selectors.PlayerState(state, player.UserId)
+	-- MAYBE : isPickingAugment
 
-	for _, player in ipairs(Players:GetPlayers()) do
-		-- Check if Player is Valid
-		local playerState = Selectors.PlayerState(state, player.UserId)
-		-- MAYBE : isPickingAugment
+	local isValid = playerState and not playerState.isDead and player.Character
 
-		local isValid = playerState and not playerState.isDead and player.Character
+	if not isValid then
+		return
+	end
 
-		if not isValid then
-			continue
-		end
+	local playerPos = player.Character:GetPivot().Position
+	local enemyNbr = Gears.RandomRange(EnemyServiceState.streamSpawnNbr, EnemyConst.STREAM_SPAWN_NBR_RANGE)
 
-		local playerPos = player.Character:GetPivot().Position
-		local enemyNbr = Gears.RandomRange(EnemyServiceState.streamSpawnNbr, EnemyConst.STREAM_SPAWN_NBR_RANGE)
-
-		-- Spawn X Mobs
-		for _ = 1, enemyNbr, 1 do
-			local spawnPos = EnemyService.GetSpawnPosition(playerPos)
-			EnemyService.EnableNextInPool(Enemies.Robot, spawnPos)
-		end
+	-- Spawn X Mobs
+	for _ = 1, enemyNbr, 1 do
+		local spawnPos = EnemyService.GetSpawnPosition(playerPos)
+		EnemyService.EnableNextInPool(Enemies.Robot, spawnPos)
 	end
 end
 
@@ -675,8 +682,6 @@ end
 function EnemyService.StartStreamSpawn()
 	task.wait(EnemyConst.STREAM_SPAWN_INITIAL_CD)
 	EnemyService.RollStreamSpawnDelta()
-	EnemyService.StartMobBehavior()
-	LevelService.StartGameTimer()
 
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		EnemyServiceState.streamSpawnTimer += dt
@@ -689,7 +694,9 @@ function EnemyService.StartStreamSpawn()
 			EnemyServiceState.streamSpawnTimer = 0
 			EnemyService.RollStreamSpawnDelta()
 
-			EnemyService.StreamSpawn()
+			for _, player in ipairs(Players:GetPlayers()) do
+				EnemyService.StreamSpawn(state, player)
+			end
 		end
 	end)
 end

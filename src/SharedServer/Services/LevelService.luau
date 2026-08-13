@@ -124,45 +124,64 @@ end
 
 --- Start a New Stage
 function LevelService.StartStage()
-	-- EnemyService.StartStreamSpawn()
-
 	-- Generate Map
 	LevelState.stageProgress = 0
 	LevelState.currentMapId = math.random(1, #MapsBuildings)
 	local buildingsAmount = LevelState.buildingAmount
-	LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
+	-- LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
 
 	warn("Start Stage MapID = " .. LevelState.currentMapId)
 
+	-- Additional Setup
 	LevelService.SetMusic(LevelState.currentMapId)
-
 	LevelService.GenerateWeapons()
-
 	LevelService.GenerateEvents()
 end
 
+-- Set the Music for a Player
+function LevelService.SetPlayerMusic(state, mapId, player)
+	local ClientSounds = player.PlayerGui:WaitForChild("ClientSounds")
+	local music = ClientSounds:FindFirstChild("Music")
+
+	-- Destroy old music
+	if music then
+		music:Destroy()
+	end
+
+	-- Add new music
+	local mapMusic = MapsMusics[mapId]:clone()
+	mapMusic.Parent = ClientSounds
+	mapMusic.Name = "Music"
+
+	-- Play Music
+	local playerState = state.players[player.UserId]
+
+	if playerState and playerState.isMusicEnabled then
+		mapMusic:Play()
+	end
+end
+
+--- Set the Music for every Players
 function LevelService.SetMusic(mapId)
-	local state = Store:getState()
+	local state1 = Store:getState()
 
 	for _, player in pairs(Players:GetPlayers()) do
-		local playerState = state.players[player.UserId]
-		local music = player.PlayerGui.ClientSounds:FindFirstChild("Music")
-
-		-- Destroy old music
-		if music then
-			music:Destroy()
-		end
-
-		-- Add new music
-		local mapMusic = MapsMusics[mapId]:clone()
-		mapMusic.Parent = player.PlayerGui.ClientSounds
-		mapMusic.Name = "Music"
-
-		-- Play Music
-		if playerState and playerState.isMusicEnabled then
-			mapMusic:Play()
-		end
+		LevelService.SetPlayerMusic(state1, mapId, player)
 	end
+
+	-- Add Music to Joining Players
+	if LevelState.addMusicHandle then
+		LevelState.addMusicHandle:Disconnect()
+	end
+
+	-- TODO : OnCharacterAdded
+
+	local addMusicHandle = PlayerService.PlayerAdded:Connect(function(player)
+		local state2 = Store:getState()
+		LevelService.SetPlayerMusic(state2, mapId, player)
+	end)
+
+	LevelState.addMusicHandle = addMusicHandle
 end
 
 function LevelService.ResetLevel()
@@ -335,22 +354,23 @@ function LevelService.GenerateNodes(buildings, innerRadius, outerRadius, amount)
 	for i = 1, amount do
 		-- Roll Building
 		local building = buildings[buildingIndex]
-		buildingIndex = Gears.LoopValue(buildingIndex + 1, #buildings, 1)
 		LevelState.totalParts += building.nbrOfParts
 
 		-- Build Circular Nodes
 		local buildingNode = { position = positions[i], radius = building.radius }
 		buildingNodes[i] = buildingNode
+
+		buildingIndex = Gears.LoopValue(buildingIndex + 1, #buildings, 1)
 	end
 
 	return buildingNodes
 end
 
---- Get random points within 2 Circles
+--- Get random points within 2 Circles -> Inner Circle is at the Center of Outer Circle
 function LevelService.GetPosWithinCircles(innerRadius, outerRadius, amount)
 	local positions = {}
 
-	for i = 1, amount, 1 do
+	for i = 1, amount do
 		local radius = Gears.FloatRandom(innerRadius, outerRadius)
 		local progress = Gears.FloatRandom(0, CONSTANTS.MAX_RADIANT)
 
@@ -358,6 +378,42 @@ function LevelService.GetPosWithinCircles(innerRadius, outerRadius, amount)
 	end
 
 	return positions
+end
+
+--- Get random points within a Circle
+function LevelService.GetPosWithinCircle(outerRadius, amount, constraints)
+	local positions = {}
+
+	for i = 1, amount do
+		local radius = Gears.FloatRandom(0, outerRadius)
+		local progress = Gears.FloatRandom(0, CONSTANTS.MAX_RADIANT)
+
+		local pos = Gears.CirclePos(radius, progress)
+
+		for j = 1, #constraints do
+			pos = constraints[j](pos)
+		end
+
+		positions[i] = pos
+	end
+
+	return positions
+end
+
+--- Get a 2D Point out of a circle
+function LevelService.CircleContraint(point: Vector2, circlePos: Vector2, radius: number)
+	local circleToPoint = point - circlePos
+	local pointCircleDistance = vector.magnitude(circleToPoint)
+	local isInCircle = pointCircleDistance < radius
+
+	if not isInCircle then
+		return point
+	end
+
+	local circlePointNormal = vector.normalize(circleToPoint)
+	point = circlePointNormal * radius
+
+	return point
 end
 
 --- Detect the Collisions between (Circular) Nodes
