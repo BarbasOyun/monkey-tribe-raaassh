@@ -37,7 +37,8 @@ local function augmentCard(props)
 	local index = props.index
 
 	local onClick = function()
-		PlayerController.SoundFolder.MainSounds.AugmentPick:Play()
+		local augmentPickSound = player.PlayerGui.ClientSounds.MainSounds.AugmentPick
+		augmentPickSound:Play()
 		AugmentsService:PickAugment(index)
 	end
 

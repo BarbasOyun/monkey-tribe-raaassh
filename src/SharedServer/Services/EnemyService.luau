@@ -542,7 +542,7 @@ function EnemyService.LevelUpEnemies()
 	local isBreakPointReached = globalEnemyLvl % EnemyConst.STREAM_SPAWN_LVL_BREAKPOINT == 0
 
 	if isBreakPointReached then
-		EnemyServiceState.streamSpawnNbr += EnemyConst.STREAM_SPAWN_INCREMENT
+		EnemyService.IncrementStreamSpawn()
 	end
 
 	-- Update State
@@ -550,6 +550,17 @@ function EnemyService.LevelUpEnemies()
 	Store:dispatch(StoreActions.PatchGameState(patch))
 
 	PlayerService.Client.PatchGameState:FireAll(patch)
+end
+
+function EnemyService.IncrementStreamSpawn()
+	EnemyServiceState.streamSpawnNbr += EnemyConst.STREAM_SPAWN_INCREMENT
+	EnemyServiceState.streamSpawnNbrRange += 1
+
+	local newCd = EnemyServiceState.streamSpawnDeltaTime - 0.1
+	EnemyServiceState.streamSpawnDeltaTime = math.max(newCd, EnemyConst.STREAM_SPAWN_MIN_CD)
+
+	local newCdRange = EnemyServiceState.streamSpawnDeltaTimeRange - 0.1
+	EnemyServiceState.streamSpawnDeltaTimeRange = math.max(newCdRange, EnemyConst.STREAM_SPAWN_MIN_CD)
 end
 
 -- TODO : AttackValidation + AttackCtx
@@ -661,18 +672,19 @@ function EnemyService.StreamSpawn(state, player)
 	end
 
 	local playerPos = player.Character:GetPivot().Position
-	local enemyNbr = Gears.RandomRange(EnemyServiceState.streamSpawnNbr, EnemyConst.STREAM_SPAWN_NBR_RANGE)
+	local enemyNbr = Gears.RandomRange(EnemyServiceState.streamSpawnNbr, EnemyServiceState.streamSpawnNbrRange)
 
 	-- Spawn X Mobs
-	for _ = 1, enemyNbr, 1 do
+	for _ = 1, enemyNbr do
 		local spawnPos = EnemyService.GetSpawnPosition(playerPos)
 		EnemyService.EnableNextInPool(Enemies.Robot, spawnPos)
 	end
 end
 
+--- Set a Random CD on StreamSpawn
 function EnemyService.RollStreamSpawnDelta()
-	local minTime = EnemyConst.STREAM_SPAWN_DELTA_TIME
-	local maxTime = EnemyConst.STREAM_SPAWN_DELTA_TIME + EnemyConst.STREAM_SPAWN_DELTA_TIME_RANGE
+	local minTime = EnemyServiceState.streamSpawnDeltaTime
+	local maxTime = minTime + EnemyServiceState.streamSpawnDeltaTimeRange
 
 	local spawnDelta = math.random(minTime, maxTime)
 
@@ -680,7 +692,7 @@ function EnemyService.RollStreamSpawnDelta()
 end
 
 function EnemyService.StartStreamSpawn()
-	task.wait(EnemyConst.STREAM_SPAWN_INITIAL_CD)
+	task.wait(EnemyConst.STREAM_SPAWN_INITIAL_TIME)
 	EnemyService.RollStreamSpawnDelta()
 
 	PlayerService.StateUpdate:Connect(function(state, dt)

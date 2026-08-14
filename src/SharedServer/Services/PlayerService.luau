@@ -112,6 +112,7 @@ function PlayerService.AddPlayer(player)
 end
 
 function PlayerService.OnCharacterAdded(player, character)
+	-- warn(player.Name .. " Character Added")
 	local userId = player.UserId
 
 	PlayerService.AddSounds(player)

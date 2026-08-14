@@ -242,7 +242,6 @@ function Gears.EnableJointInstantly(joint: Motor6D)
 	local parentPart = joint.Part0
 	local childPart = joint.Part1
 
-	-- 2. Force an immediate position and orientation match
 	if not parentPart or childPart then
 		return
 	end

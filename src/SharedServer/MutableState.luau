@@ -21,6 +21,7 @@ local LevelState = {
 	-- Map
 	currentMapId = 1,
 	addMusicHandle = nil,
+	addMusicHandles = {},
 	stageRadius = 200,
 	totalParts = 0,
 	partsCount = 0,
@@ -45,8 +46,12 @@ local EnemyServiceState = {
 	currentRobotStats = Gears.DeepCopy(EnemiesStats[Enemies.Robot]),
 	-- Stream Spawn
 	streamSpawnNbr = 2,
+	streamSpawnNbrRange = 1,
+	streamSpawnDeltaTime = 7,
+	streamSpawnDeltaTimeRange = 2,
 	streamSpawnDelta = 0,
 	streamSpawnTimer = 0,
+
 	-- SwarmSpawn
 	swarmWaves = 0,
 	swarmSpawnTimer = 0,

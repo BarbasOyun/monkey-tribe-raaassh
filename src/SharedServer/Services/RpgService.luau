@@ -283,8 +283,8 @@ local statsCalculation = {
 		weaponModel:ScaleTo(weaponState.weaponSize * aoeMultiplier)
 
 		-- Attack VFX
-		local baseSize = 1
-		local sizeIncrease = totalIncreasedAoe * 0.2
+		local baseSize = 1.5
+		local sizeIncrease = totalIncreasedAoe * 0.05
 		local size = baseSize + baseSize * sizeIncrease
 		local keypoints = {
 			NumberSequenceKeypoint.new(0, size),

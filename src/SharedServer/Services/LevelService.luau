@@ -1,10 +1,8 @@
-local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
-local Knit = require(ReplicatedStorage.Packages.Knit)
--- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
@@ -22,7 +20,10 @@ local StoreActions = RoduxStore.Actions
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local LevelState = MutState.LevelState
 
--- Get Services
+-- Get Knit
+local Knit = require(ReplicatedStorage.Packages.Knit)
+-- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
+
 local PlayerService
 local EnemyService
 local ItemService
@@ -139,7 +140,8 @@ function LevelService.StartStage()
 end
 
 -- Set the Music for a Player
-function LevelService.SetPlayerMusic(state, mapId, player)
+function LevelService.SetPlayerMusic(state, player, mapId)
+	warn("Set Player Music : " .. player.Name .. " Map Id = " .. mapId)
 	local ClientSounds = player.PlayerGui:WaitForChild("ClientSounds")
 	local music = ClientSounds:FindFirstChild("Music")
 
@@ -161,24 +163,43 @@ function LevelService.SetPlayerMusic(state, mapId, player)
 	end
 end
 
---- Set the Music for every Players
-function LevelService.SetMusic(mapId)
-	local state1 = Store:getState()
+--- Set music OnCharacterAdded
+function LevelService.SetPlayerMusicChar(player, mapId)
+	local userId = player.UserId
 
-	for _, player in pairs(Players:GetPlayers()) do
-		LevelService.SetPlayerMusic(state1, mapId, player)
+	-- Add music OnCharacterAdded
+	local musicHandle = LevelState.addMusicHandles[userId]
+
+	if musicHandle then
+		musicHandle:Disconnect()
 	end
 
-	-- Add Music to Joining Players
+	local addMusicHandle = player.CharacterAdded:Connect(function(character)
+		-- warn("Set Music for : " .. character.Name)
+		local state = Store:getState()
+		LevelService.SetPlayerMusic(state, player, mapId)
+	end)
+
+	LevelState.addMusicHandles[userId] = addMusicHandle
+end
+
+--- Set the Music for every Players
+function LevelService.SetMusic(mapId)
+	-- Set Music for Current Players
+	local state = Store:getState()
+
+	for _, player in pairs(Players:GetPlayers()) do
+		LevelService.SetPlayerMusic(state, mapId, player)
+		LevelService.SetPlayerMusicChar(player, mapId)
+	end
+
+	-- Set Music for Joining Players
 	if LevelState.addMusicHandle then
 		LevelState.addMusicHandle:Disconnect()
 	end
 
-	-- TODO : OnCharacterAdded
-
 	local addMusicHandle = PlayerService.PlayerAdded:Connect(function(player)
-		local state2 = Store:getState()
-		LevelService.SetPlayerMusic(state2, mapId, player)
+		LevelService.SetPlayerMusicChar(player, mapId)
 	end)
 
 	LevelState.addMusicHandle = addMusicHandle
@@ -219,7 +240,7 @@ function LevelService.FinishStage()
 	-- Start Countdown
 	task.wait() -- Countdown
 
-	-- Increments
+	-- Map Increments
 	local newBuildingAmount = LevelState.buildingAmount + LevelDefinitions.BUILDINGS_INCREMENT
 	LevelState.buildingAmount = math.min(newBuildingAmount, LevelDefinitions.BUILDING_LIMIT)
 
@@ -252,6 +273,7 @@ function LevelService.GameTimer(dt)
 end
 
 function LevelService.StartGameTimer()
+	warn("Start Game Timer")
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		LevelService.GameTimer(dt)
 	end)
