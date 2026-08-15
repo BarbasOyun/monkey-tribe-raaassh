@@ -72,7 +72,8 @@ WEAPON_HIT_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
 WEAPON_HIT_PARAM.MaxParts = 100
 
 -- EnemyService
-local DISABLED_POSITION = Vector3.new(0, 20, 0)
+-- local DISABLED_POSITION = Vector3.new(0, 20, 0)
+local DISABLED_POSITION = Vector3.new(300, 0, 0)
 local EnemyConst = {
 	ENEMY_LVL_UP_BREAKPOINT = 30,
 

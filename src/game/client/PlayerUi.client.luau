@@ -42,6 +42,7 @@ local frameGridLayout = require(ReplicatedStorage.Shared.Components.FrameGridLay
 local AugmentPanel = require(ReplicatedStorage.Shared.Elements.AugmentPanel)
 local LevelUpLabel = require(ReplicatedStorage.Shared.Elements.LevelUpLabel)
 local Bars = require(ReplicatedStorage.Shared.Elements.ResourceBars)
+local LvlText = Bars.LvlText
 local XpBar = Bars.XpBar
 local LifeBar = Bars.LifeBar
 local updateLifeBar = Bars.updateLifeBar
@@ -54,7 +55,6 @@ local BananaIcon, BananasText = GetBananasUi(2)
 
 -- Global Enemy Lvl Display
 local robotImageProps = {
-	-- position = UDim2.fromScale(0.22, 0.1),
 	position = UDim2.fromScale(0, 0),
 	size = UDim2.fromScale(0.05, 0.1),
 	imageLink = "rbxassetid://130840043704422",
@@ -69,7 +69,6 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 	end
 
 	return {
-		-- position = UDim2.fromScale(0.25, 0.1),
 		position = UDim2.fromScale(0.025, 0),
 		size = UDim2.fromScale(0.1, 0.1),
 		text = "Lvl " .. globalEnemyLvl,
@@ -206,8 +205,8 @@ local progressBarProps = {
 	resourceName = "Stage Progress",
 }
 
-eventsIcons = RoactRodux.connect(function(state)
-	-- mapStateToProps
+--- mapStateToProps / Connection
+local eventsIcons = RoactRodux.connect(function(state)
 	local iconList = {}
 
 	if state.gameState.currentEvents then
@@ -251,6 +250,7 @@ local function mainGui()
 		BananasText = BananasText,
 		-- TODO : Sticks, Rocks
 		-- Bot Mid
+		LvlText = Roact.createElement(LvlText),
 		XpBar = Roact.createElement(XpBar),
 		LifeBar = Roact.createElement(LifeBar),
 		-- Panels

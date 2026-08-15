@@ -19,6 +19,23 @@ local PlayerController = Knit.GetController("PlayerController")
 
 -- Get Components
 local resourceBar = require(ReplicatedStorage.Shared.Components.ResourceBar)
+local textLabel = require(ReplicatedStorage.Shared.Components.TextLabel)
+
+local LvlText = RoactRodux.connect(function(state, props)
+	local currentLevel = 1
+
+	local playerState = Selectors.PlayerState(state, player.UserId)
+
+	if playerState then
+		currentLevel = playerState.level
+	end
+
+	return {
+		position = UDim2.fromScale(0.3, 0.8),
+		size = UDim2.fromScale(0.05, 0.05),
+		text = currentLevel,
+	}
+end)(textLabel)
 
 local XpBar = RoactRodux.connect(function(state, props)
 	local currentXp = 0
@@ -96,6 +113,7 @@ local function updateLifeBar()
 end
 
 local Bars = {
+	LvlText = LvlText,
 	XpBar = XpBar,
 	LifeBar = LifeBar,
 	updateLifeBar = updateLifeBar,

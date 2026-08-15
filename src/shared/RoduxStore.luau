@@ -8,7 +8,7 @@ local Rodux = require(ReplicatedStorage.Shared.Rodux)
 local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
 -- Immutable Default Game State
-local gameState = {
+local defaultGameState = {
 	globalEnemyLvl = 1,
 	minLimit = Vector2.new(-100, -100),
 	maxLimit = Vector2.new(100, 100),
@@ -235,14 +235,18 @@ local playerReducer = Rodux.createReducer({}, {
 
 local gameStateReducer = Rodux.createReducer({}, {
 	PatchGameState = function(state, action)
-		-- local gameState = table.clone(state) or gameState
+		local gameState = table.clone(state)
+
+		if Gears.IsEmpty(gameState) then
+			gameState = defaultGameState
+		end
 
 		local patch = action.patch
 
 		for key, value in pairs(patch) do
 			local property = gameState[key]
 
-			if not property then
+			if property == nil then
 				warn("Key : " .. key .. " Doesn't exist in GameState")
 				return
 			end

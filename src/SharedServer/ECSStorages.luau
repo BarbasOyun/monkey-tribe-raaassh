@@ -215,6 +215,8 @@ function UnitStorage.AddComponentToEntity(entityId, definitionId, life)
 	table.insert(storageState.life, life)
 	table.insert(storageState.lifeChanged, Signal.new())
 	table.insert(storageState.deathEvent, Signal.new())
+	table.insert(storageState.dispawnCd, 0)
+	table.insert(storageState.onDispawn, Signal.new())
 	table.insert(storageState.attackCd, 1)
 
 	return componentId

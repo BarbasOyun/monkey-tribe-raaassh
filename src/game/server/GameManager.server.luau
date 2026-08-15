@@ -81,6 +81,6 @@ end
 
 setupPlayers()
 setupLevel()
-setupEnemies()
+-- setupEnemies()
 
 -- #endregion

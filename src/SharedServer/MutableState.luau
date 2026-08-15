@@ -23,12 +23,13 @@ local LevelState = {
 	addMusicHandle = nil,
 	addMusicHandles = {},
 	stageRadius = 200,
-	totalParts = 0,
-	partsCount = 0,
 	-- Stage
 	stageProgress = 0,
 	isWaitingForNextStage = false,
 	buildingAmount = 3,
+	currentBuildings = {},
+	totalParts = 0,
+	partsCount = 0,
 	-- Events
 	maxEvents = 0,
 	currentEventIndex = 1,
@@ -89,7 +90,8 @@ UnitStorageState.definitionId = {}
 UnitStorageState.life = {}
 UnitStorageState.lifeChanged = {}
 UnitStorageState.deathEvent = {}
--- UnitStorageState.onDispawn = {}
+UnitStorageState.dispawnCd = {}
+UnitStorageState.onDispawn = {}
 UnitStorageState.attackCd = {}
 
 -- LifeBar

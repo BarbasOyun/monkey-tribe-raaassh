@@ -112,7 +112,9 @@ end
 
 -- #region STAGE
 
+--- Load Authoring data required for Stages
 function LevelService.LoadLevelDefinitions()
+	warn("Load Level Definitions")
 	LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
 
 	Maps = LevelDefinitions.Maps
@@ -125,84 +127,20 @@ end
 
 --- Start a New Stage
 function LevelService.StartStage()
-	-- Generate Map
 	LevelState.stageProgress = 0
-	LevelState.currentMapId = math.random(1, #MapsBuildings)
-	local buildingsAmount = LevelState.buildingAmount
-	-- LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
-
+	-- LevelState.currentMapId = math.random(1, #MapsBuildings)
+	LevelState.currentMapId = 2
 	warn("Start Stage MapID = " .. LevelState.currentMapId)
+
+	-- Generate Map
+	-- local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
+	local buildingsAmount = 6
+	LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
 
 	-- Additional Setup
 	LevelService.SetMusic(LevelState.currentMapId)
 	LevelService.GenerateWeapons()
 	LevelService.GenerateEvents()
-end
-
--- Set the Music for a Player
-function LevelService.SetPlayerMusic(state, player, mapId)
-	warn("Set Player Music : " .. player.Name .. " Map Id = " .. mapId)
-	local ClientSounds = player.PlayerGui:WaitForChild("ClientSounds")
-	local music = ClientSounds:FindFirstChild("Music")
-
-	-- Destroy old music
-	if music then
-		music:Destroy()
-	end
-
-	-- Add new music
-	local mapMusic = MapsMusics[mapId]:clone()
-	mapMusic.Parent = ClientSounds
-	mapMusic.Name = "Music"
-
-	-- Play Music
-	local playerState = state.players[player.UserId]
-
-	if playerState and playerState.isMusicEnabled then
-		mapMusic:Play()
-	end
-end
-
---- Set music OnCharacterAdded
-function LevelService.SetPlayerMusicChar(player, mapId)
-	local userId = player.UserId
-
-	-- Add music OnCharacterAdded
-	local musicHandle = LevelState.addMusicHandles[userId]
-
-	if musicHandle then
-		musicHandle:Disconnect()
-	end
-
-	local addMusicHandle = player.CharacterAdded:Connect(function(character)
-		-- warn("Set Music for : " .. character.Name)
-		local state = Store:getState()
-		LevelService.SetPlayerMusic(state, player, mapId)
-	end)
-
-	LevelState.addMusicHandles[userId] = addMusicHandle
-end
-
---- Set the Music for every Players
-function LevelService.SetMusic(mapId)
-	-- Set Music for Current Players
-	local state = Store:getState()
-
-	for _, player in pairs(Players:GetPlayers()) do
-		LevelService.SetPlayerMusic(state, mapId, player)
-		LevelService.SetPlayerMusicChar(player, mapId)
-	end
-
-	-- Set Music for Joining Players
-	if LevelState.addMusicHandle then
-		LevelState.addMusicHandle:Disconnect()
-	end
-
-	local addMusicHandle = PlayerService.PlayerAdded:Connect(function(player)
-		LevelService.SetPlayerMusicChar(player, mapId)
-	end)
-
-	LevelState.addMusicHandle = addMusicHandle
 end
 
 function LevelService.ResetLevel()
@@ -273,10 +211,80 @@ function LevelService.GameTimer(dt)
 end
 
 function LevelService.StartGameTimer()
-	warn("Start Game Timer")
+	-- warn("Start Game Timer")
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		LevelService.GameTimer(dt)
 	end)
+end
+
+-- #endregion
+
+-- #region MUSIC
+
+--- Set the Music for a Player
+function LevelService.SetPlayerMusic(state, player, mapId)
+	-- warn("Set Player Music : " .. player.Name .. " Map Id = " .. mapId)
+	local ClientSounds = player.PlayerGui:WaitForChild("ClientSounds")
+	local music = ClientSounds:FindFirstChild("Music")
+
+	-- Destroy old music
+	if music then
+		music:Destroy()
+	end
+
+	-- Add new music
+	local mapMusic = MapsMusics[mapId]:clone()
+	mapMusic.Parent = ClientSounds
+	mapMusic.Name = "Music"
+
+	-- Play Music
+	local playerState = state.players[player.UserId]
+
+	if playerState and playerState.isMusicEnabled then
+		mapMusic:Play()
+	end
+end
+
+--- Set music OnCharacterAdded
+function LevelService.SetPlayerMusicChar(player, mapId)
+	local userId = player.UserId
+
+	-- Add music OnCharacterAdded
+	local musicHandle = LevelState.addMusicHandles[userId]
+
+	if musicHandle then
+		musicHandle:Disconnect()
+	end
+
+	local addMusicHandle = player.CharacterAdded:Connect(function(character)
+		-- warn("Set Music for : " .. character.Name)
+		local state = Store:getState()
+		LevelService.SetPlayerMusic(state, player, mapId)
+	end)
+
+	LevelState.addMusicHandles[userId] = addMusicHandle
+end
+
+--- Set the Music for every Players
+function LevelService.SetMusic(mapId)
+	-- Set Music for Current Players
+	local state = Store:getState()
+
+	for _, player in pairs(Players:GetPlayers()) do
+		LevelService.SetPlayerMusic(state, mapId, player)
+		LevelService.SetPlayerMusicChar(player, mapId)
+	end
+
+	-- Set Music for Joining Players
+	if LevelState.addMusicHandle then
+		LevelState.addMusicHandle:Disconnect()
+	end
+
+	local addMusicHandle = PlayerService.PlayerAdded:Connect(function(player)
+		LevelService.SetPlayerMusicChar(player, mapId)
+	end)
+
+	LevelState.addMusicHandle = addMusicHandle
 end
 
 -- #endregion
@@ -333,7 +341,38 @@ end
 function LevelService.GenerateMap(mapId, stageRadiusSize, buildingsAmount)
 	local buildings = MapsBuildings[mapId]
 
-	-- DEBUG : Draw Stage Radius + Minimum Radius
+	LevelService.DebugDraw(stageRadiusSize)
+
+	-- 1] Create Nodes at random Positions
+	local buildingNodes = LevelService.GenerateNodes(buildings, stageRadiusSize, buildingsAmount)
+
+	-- 2] Collisions Detection + Solver
+
+	local COLLISIONS_DETECTIONS_ITERATIONS = 6
+
+	for i = 1, COLLISIONS_DETECTIONS_ITERATIONS do
+		local collisions = LevelService.CollisionsDetection(buildingNodes)
+		warn(buildingNodes)
+		LevelService.Solver(buildingNodes, collisions)
+		warn(buildingNodes)
+	end
+
+	-- 3] Spawn Buildings
+	-- Add Prefab in the Nodes
+	for i = 1, buildingsAmount do
+		local buildingIndex = math.max(1, i % #buildings)
+		local prefab = buildings[buildingIndex].prefab
+
+		buildingNodes[i].prefab = prefab
+	end
+
+	LevelService.SpawnBuildings(buildingNodes)
+
+	LevelState.totalParts *= 0.5 -- Require 50% of the stage to be completed
+end
+
+--- DEBUG : Draw Stage Radius + Minimum Radius
+function LevelService.DebugDraw(stageRadiusSize)
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		-- Outer Radius
 		local outerRadiusPoints = Gears.CirclePoints(stageRadiusSize, 20)
@@ -344,33 +383,21 @@ function LevelService.GenerateMap(mapId, stageRadiusSize, buildingsAmount)
 		local innerRadiusPoints = Gears.CirclePoints(LevelDefinitions.MINIMUM_RADIUS, 20)
 		Gears.DrawCircle(pos, innerRadiusPoints)
 	end)
-
-	-- 1] Create Nodes at random Positions
-	local buildingAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
-	local minRadius = LevelDefinitions.MINIMUM_RADIUS
-	local buildingNodes = LevelService.GenerateNodes(buildings, minRadius, stageRadiusSize, buildingAmount)
-
-	-- 2] Collisions Detection + Solver
-	-- local collisions = LevelService.CollisionsDetection(buildingNodes)
-	-- LevelService.Solver(buildingNodes, collisions)
-
-	-- 3] Spawn Buildings
-	-- Add Prefab in the Nodes
-	for i = 1, buildingAmount do
-		buildingNodes[i].prefab = buildings[i].prefab
-	end
-
-	LevelService.SpawnBuildings(buildingNodes)
-
-	LevelState.totalParts *= 0.5 -- Require 50% of the stage to be completed
 end
 
---- Generate Building Nodes at random positions within 2 Circles
-function LevelService.GenerateNodes(buildings, innerRadius, outerRadius, amount)
+--- Generate Building Nodes at random positions
+function LevelService.GenerateNodes(buildings, outerRadius, amount)
 	local buildingNodes = {}
 
 	local buildingIndex = math.random(1, #buildings)
-	local positions = LevelService.GetPosWithinCircles(innerRadius, outerRadius, amount)
+
+	-- Generate Nodes Positions
+	local constraints = {
+		function(point)
+			return LevelService.CircleConstraint(point, LevelDefinitions.SPAWN_POS, LevelDefinitions.MINIMUM_RADIUS)
+		end,
+	}
+	local positions = LevelService.GetPosWithinCircle(outerRadius, amount, constraints)
 
 	-- Generate Building Nodes
 	for i = 1, amount do
@@ -379,7 +406,7 @@ function LevelService.GenerateNodes(buildings, innerRadius, outerRadius, amount)
 		LevelState.totalParts += building.nbrOfParts
 
 		-- Build Circular Nodes
-		local buildingNode = { position = positions[i], radius = building.radius }
+		local buildingNode = { position = positions[i], radius = building.radius } :: Circle
 		buildingNodes[i] = buildingNode
 
 		buildingIndex = Gears.LoopValue(buildingIndex + 1, #buildings, 1)
@@ -410,44 +437,17 @@ function LevelService.GetPosWithinCircle(outerRadius, amount, constraints)
 		local radius = Gears.FloatRandom(0, outerRadius)
 		local progress = Gears.FloatRandom(0, CONSTANTS.MAX_RADIANT)
 
-		local pos = Gears.CirclePos(radius, progress)
+		local point = Gears.CirclePos(radius, progress)
 
+		-- Apply Constraints
 		for j = 1, #constraints do
-			pos = constraints[j](pos)
+			point = constraints[j](point)
 		end
 
-		positions[i] = pos
+		positions[i] = point
 	end
 
 	return positions
-end
-
---- Get a 2D Point out of a circle
-function LevelService.CircleContraint(point: Vector2, circlePos: Vector2, radius: number)
-	local circleToPoint = point - circlePos
-	local pointCircleDistance = vector.magnitude(circleToPoint)
-	local isInCircle = pointCircleDistance < radius
-
-	if not isInCircle then
-		return point
-	end
-
-	local circlePointNormal = vector.normalize(circleToPoint)
-	point = circlePointNormal * radius
-
-	return point
-end
-
---- Detect the Collisions between (Circular) Nodes
-function LevelService.CollisionsDetection(circularNodes)
-	local collisions = {}
-	-- TODO
-	return collisions
-end
-
---- Solve collisions between Nodes within 2 Circles
-function LevelService.Solver(innerRadius, outerRadius, circularNodes, collisions)
-	-- TODO
 end
 
 --- Spawn Buildings based on Node Locations
@@ -460,6 +460,9 @@ function LevelService.SpawnBuildings(buildingNodes)
 			local outerRadiusPoints = Gears.CirclePoints(node.radius, 20)
 			Gears.DrawCircle(pos, outerRadiusPoints)
 		end)
+
+		-- local building =
+		-- TODO
 	end
 end
 
@@ -471,6 +474,177 @@ end
 --- Scatter random weapons in the Map
 function LevelService.GenerateWeapons()
 	-- TODO
+end
+
+-- #endregion
+
+-- #region COLLISIONS
+
+type Circle = {
+	position: Vector2,
+	radius: number,
+}
+
+--- Hold Every Collisions in a Frame
+type CollisionsData = {
+	object1: {},
+	object2: {},
+	normals: {},
+	penetrationDepth: {},
+}
+
+--- Detect the Collisions between (Circular) Nodes
+function LevelService.CollisionsDetection(circularNodes)
+	local collisionsData = {
+		object1 = {},
+		object2 = {},
+		normals = {},
+		penetrationDepth = {},
+	} :: CollisionsData
+
+	for i = 1, #circularNodes do
+		local circularNode: Circle = circularNodes[i]
+
+		if circularNode.radius == 0 then
+			continue
+		end
+
+		-- Build Ignore List
+		local ignoreList = LevelService.IgnoreList(collisionsData, i)
+
+		LevelService.RadiusRadiusesCol(collisionsData, ignoreList, i, circularNodes)
+	end
+
+	warn(#collisionsData.object1 .. " Collisions Detected")
+	warn(collisionsData)
+	return collisionsData
+end
+
+--- Get a 2D Point OUT of a circle
+function LevelService.CircleConstraint(point: Vector2, circlePos: Vector2, radius: number)
+	-- Point / Circle Col Detection
+	local circleToPoint = point - circlePos
+	local distance = circleToPoint.Magnitude
+	local isInCircle = distance < radius
+
+	if not isInCircle then
+		return point
+	end
+
+	local circlePointNormal = Gears.NormalizeOrZero(circleToPoint)
+	point = circlePointNormal * radius
+
+	return point
+end
+
+--- Detect Collision between 2 Circles,
+--- Return normal, penetrationDepth or nil
+function LevelService.RadiusRadiusCol(pos1, radius1, pos2, radius2)
+	local distance_threshold = radius1 + radius2
+	local direction = pos2 - pos1
+	local distance = direction.Magnitude
+
+	local isColliding = distance <= distance_threshold
+
+	if isColliding then
+		local normal = Gears.NormalizeOrZero(direction)
+		local penetrationDepth = distance - radius1
+
+		return normal, penetrationDepth
+	end
+
+	return nil
+end
+
+--- Detect Collisions between a Circle and Others
+function LevelService.RadiusRadiusesCol(
+	collisionsData: CollisionsData,
+	ignoreList: {},
+	circleIndex: number,
+	circularNodes: { Circle }
+)
+	local circle = circularNodes[circleIndex]
+
+	for i = 1, #circularNodes do
+		local otherCircle = circularNodes[i]
+		local isValid = circle ~= otherCircle and otherCircle.radius > 0 and not table.find(ignoreList, i)
+
+		if not isValid then
+			continue
+		end
+
+		-- Check Collision
+		local normal, penetrationDepth =
+			LevelService.RadiusRadiusCol(circle.position, circle.radius, otherCircle.position, otherCircle.radius)
+
+		-- If not colliding -> Skip
+		if not normal or not penetrationDepth then
+			continue
+		end
+
+		-- Register Collision
+		table.insert(collisionsData.object1, circleIndex)
+		table.insert(collisionsData.object2, i)
+		table.insert(collisionsData.normals, normal)
+		table.insert(collisionsData.penetrationDepth, penetrationDepth)
+	end
+end
+
+--- Build an Ignore List for an Object based on collisionsData
+function LevelService.IgnoreList(collisionsData: CollisionsData, index: number)
+	local ignoreList = {}
+
+	for j = 1, #collisionsData.object2 do
+		local object2Index = collisionsData.object2[j]
+
+		if object2Index == index then
+			local object1Index = collisionsData.object1[j]
+			table.insert(ignoreList, object1Index)
+		end
+	end
+
+	return ignoreList
+end
+
+--- Solve collisions between Nodes within 2 Circles
+function LevelService.Solver(circularNodes, collisionsData: CollisionsData, constraints)
+	local SOLVER_ITERATIONS = 10
+
+	for i = 1, SOLVER_ITERATIONS do
+		for j = 1, #collisionsData.object1 do
+			local object1 = circularNodes[collisionsData.object1[j]]
+			local object2 = circularNodes[collisionsData.object2[j]]
+			local normal = collisionsData.normals[j]
+			local penetrationDepth = collisionsData.penetrationDepth[j]
+
+			LevelService.SolveCol(object1, object2, normal, penetrationDepth, constraints)
+		end
+	end
+end
+
+function LevelService.SolveCol(
+	object1: Circle,
+	object2: Circle,
+	normal: Vector2,
+	penetrationDepth: number,
+	constraints: {}
+)
+	local percent = 0.1 -- Resolve X% of the penetration per iteration
+	local slop = 0.01 -- Allow 1cm of penetration before fixing
+
+	local invMass1 = 1
+	local invMass2 = 1
+	local totalInvMass = invMass1 + invMass2
+
+	-- Get Push Vector (Direction & Magnitude)
+	local correctionMagnitude = math.max(0.0, penetrationDepth - slop) / totalInvMass * percent
+	local correctionVector = normal * correctionMagnitude
+
+	-- Separation
+	object1.position -= correctionVector -- * invMass1
+	object2.position += correctionVector -- * invMass2
+
+	-- Constraints
 end
 
 -- #endregion

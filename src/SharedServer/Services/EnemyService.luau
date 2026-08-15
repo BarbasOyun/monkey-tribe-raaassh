@@ -39,10 +39,18 @@ local EnemyService = Knit.CreateService({
 
 -- #region ENEMIES LOGIC
 
-local defaultOnDeath = function(character, player)
+local defaultOnDeath = function(entityId, character, player)
 	Gears.Dismember(character)
-	task.wait(1)
-	local entityId = character:GetAttribute("EntityId")
+
+	-- Update Dispawn Cooldown
+	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
+	local UnitStorageState = EcsState.UnitStorageState
+	local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
+
+	UnitStorageState.dispawnCd[unitId] = 1
+end
+
+local defaultOnDispawn = function(entityId)
 	EnemyService.DisableEntity(entityId)
 end
 
@@ -72,6 +80,11 @@ local unitSetup = function(entityId, definitionId)
 	local UnitStorageState = UnitStorage.GetState()
 	local onDeath = EnemyService.enemiesOnDeath[definitionId]
 	UnitStorageState.deathEvent[unitId]:Connect(onDeath)
+
+	-- Connect OnDisable Event
+	UnitStorageState.onDispawn[unitId]:Connect(function(entityId)
+		defaultOnDispawn(entityId)
+	end)
 end
 
 local lifeBarSetup = function(entityId, definitionId)
@@ -352,8 +365,9 @@ function EnemyService.EnableNextInPool(enemyId, position)
 	local entityId = EnemyServiceState.entitiesPool[index]
 
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-	local GameObjectStorageState = GameObjectStorage.GetState()
-	local character = GameObjectStorageState.gameObjects[entityId]
+	-- local GameObjectStorageState = GameObjectStorage.GetState()
+	-- local character = GameObjectStorageState.gameObjects[entityId]
+	local character = GameObjectStorage.GetGameObject(entityId)
 
 	-- warn("Enable Object in Pool = " .. pool.name .. ", Entity ID = " .. entityId)
 
@@ -511,9 +525,36 @@ function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	-- Trigger Death Event
 	if deathEvent then
 		-- warn("Death Event : EntityID  = " .. entityId .. " UnitID = " .. unitId)
-		deathEvent:Fire(humanoid.Parent, player) -- overKillDamage
+		deathEvent:Fire(entityId, humanoid.Parent, player) -- overKillDamage
 	end
 end
+
+-- TODO : AttackValidation + AttackCtx
+
+--- Unit + MobBehavior System
+function EnemyService.EnemyAttack(entityId, enemy, player)
+	local robotStats = EnemiesStats[Enemies.Robot]
+
+	enemy.Humanoid:MoveTo(enemy.HumanoidRootPart.Position) -- Stop
+
+	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
+	local UnitStorageState = UnitStorage.GetState()
+	local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
+
+	local isReady = UnitStorageState.attackCd[unitId] >= robotStats.AttackSpeed
+
+	if not isReady then
+		return
+	end
+
+	-- warn(entityId .. " Robot Attack")
+	UnitStorageState.attackCd[unitId] = 0
+	RpgService.DamagePlayer(player, robotStats.Damage)
+end
+
+-- #endregion
+
+-- #region SCALING
 
 --- Increment Enemies Stats
 function EnemyService.LevelUpEnemies()
@@ -561,29 +602,6 @@ function EnemyService.IncrementStreamSpawn()
 
 	local newCdRange = EnemyServiceState.streamSpawnDeltaTimeRange - 0.1
 	EnemyServiceState.streamSpawnDeltaTimeRange = math.max(newCdRange, EnemyConst.STREAM_SPAWN_MIN_CD)
-end
-
--- TODO : AttackValidation + AttackCtx
-
---- Unit + MobBehavior System
-function EnemyService.EnemyAttack(entityId, enemy, player)
-	local robotStats = EnemiesStats[Enemies.Robot]
-
-	enemy.Humanoid:MoveTo(enemy.HumanoidRootPart.Position) -- Stop
-
-	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
-	local UnitStorageState = UnitStorage.GetState()
-	local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
-
-	local isReady = UnitStorageState.attackCd[unitId] >= robotStats.AttackSpeed
-
-	if not isReady then
-		return
-	end
-
-	-- warn(entityId .. " Robot Attack")
-	UnitStorageState.attackCd[unitId] = 0
-	RpgService.DamagePlayer(player, robotStats.Damage)
 end
 
 -- #endregion
@@ -647,16 +665,40 @@ function EnemyService.StartMobBehavior()
 			end
 		end
 
-		-- Mob Attack CD
-		-- TODO : Attack Speed = Attack / sec
-		for i = 1, #EcsState.UnitStorageState.attackCd, 1 do
-			local isReady = EcsState.UnitStorageState.attackCd[i] >= EnemiesStats[Enemies.Robot].AttackSpeed
-
-			if not isReady then
-				EcsState.UnitStorageState.attackCd[i] += dt
-			end
-		end
+		EnemyService.UnitUpdate(dt)
 	end)
+end
+
+-- TODO : Component Param
+--- Unit Update System
+function EnemyService.UnitUpdate(dt)
+	local UnitStorageState = EcsState.UnitStorageState
+
+	for i = 1, #UnitStorageState.entities do
+		local entityId = UnitStorageState.entities[i]
+
+		-- Attack CD
+		-- TODO : Attack Speed = Attack / sec
+		local isReady = UnitStorageState.attackCd[i] >= EnemiesStats[Enemies.Robot].AttackSpeed
+
+		if not isReady then
+			UnitStorageState.attackCd[i] += dt
+		end
+
+		-- Dispawn CD
+		-- local dispawnCd = UnitStorageState.dispawnCd[i]
+
+		if UnitStorageState.dispawnCd[i] <= 0 then
+			continue
+		end
+
+		UnitStorageState.dispawnCd[i] -= dt
+
+		if UnitStorageState.dispawnCd[i] <= 0 then
+			-- warn("EntityId = " .. entityId .. " Dispawn Event")
+			UnitStorageState.onDispawn[i]:Fire(entityId)
+		end
+	end
 end
 
 --- Spawn Mob Enemies around player

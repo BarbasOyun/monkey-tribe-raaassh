@@ -271,8 +271,7 @@ local statsCalculation = {
 
 		local patch = { [modStat] = totalIncreasedAoe, [calcStat] = totalAoe }
 
-		local next = next(weaponState)
-		if next == nil then
+		if Gears.IsEmpty(weaponState) then
 			return patch
 		end
 
@@ -536,12 +535,17 @@ end
 -- #region UPDATE
 
 function RpgService.StartLifeRegen(userId, lifeRegen)
-	if RpgState.lifeRegenUpdates[userId] then
+	-- Validation
+	local state = Store:getState()
+	local playerState = Selectors.PlayerState(state, userId)
+
+	local isValid = playerState.state == CONSTANTS.PLAYER_STATES.playing and RpgState.lifeRegenUpdates[userId] == nil
+
+	if isValid then
 		return
 	end
 
 	local playersLife = RpgState.playersLife
-	-- local lifeRegenUpdates = RpgState.lifeRegenUpdates
 
 	if lifeRegen > 0 and RpgState.playersLife[userId] then
 		local lifeRegenUpdate = PlayerService.StateUpdate:Connect(function(state, dt)
@@ -563,8 +567,6 @@ function RpgService.StartLifeRegen(userId, lifeRegen)
 end
 
 function RpgService.StopLifeRegen(userId)
-	-- local lifeRegenUpdates = RpgState.lifeRegenUpdates
-
 	if RpgState.lifeRegenUpdates[userId] then
 		RpgState.lifeRegenUpdates[userId]:Disconnect()
 		RpgState.lifeRegenUpdates[userId] = nil

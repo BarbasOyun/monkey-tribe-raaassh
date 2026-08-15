@@ -42,6 +42,13 @@ end
 
 -- #region TABLES
 
+--- CHeck if a Table is empty
+function Gears.IsEmpty(t)
+	local next = next(t)
+
+	return next == nil
+end
+
 function Gears.UniqueInsert(t, element)
 	if not table.find(t, element) then
 		table.insert(t, element)
@@ -225,7 +232,9 @@ end
 function Gears.DisableJoints(character)
 	-- Disable Joints
 	for Index, Child in pairs(character:GetChildren()) do
-		if Child:IsA("Motor6D") and Child.Name ~= "Neck" then
+		local isInBanList = Child.Name == "Neck" -- TODO : BanList
+
+		if Child:IsA("Motor6D") and not isInBanList then
 			Child.Enabled = false
 		end
 
@@ -261,7 +270,7 @@ function Gears.Dismember(character)
 
 	local torso, head, leftArm, leftLeg, rightArm, rightLeg = Gears.GetBodyParts(character)
 
-	character.HumanoidRootPart.CanCollide = true
+	character.HumanoidRootPart.Anchored = true
 	torso.CanCollide = true
 	head.CanCollide = true
 	leftArm.CanCollide = true
@@ -275,27 +284,34 @@ end
 function Gears.ResetCharacter(character)
 	-- Get Body Parts
 	local torso, head, leftArm, leftLeg, rightArm, rightLeg = Gears.GetBodyParts(character)
+	local HumanoidRootPart = character.HumanoidRootPart
 
 	-- Get Joints
 	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = Gears.GetJoints(character)
 
 	-- Enable Joints
-	-- rootJoint.Enabled = true
-	-- neck.Enabled = true
-	-- leftShoulder.Enabled = true
-	-- leftHip.Enabled = true
-	-- rightShoulder.Enabled = true
-	-- rightHip.Enabled = true
+	rootJoint.Enabled = true
+	neck.Enabled = true
+	leftShoulder.Enabled = true
+	leftHip.Enabled = true
+	rightShoulder.Enabled = true
+	rightHip.Enabled = true
 
-	Gears.EnableJointInstantly(rootJoint)
-	Gears.EnableJointInstantly(neck)
-	Gears.EnableJointInstantly(leftShoulder)
-	Gears.EnableJointInstantly(leftHip)
-	Gears.EnableJointInstantly(rightShoulder)
-	Gears.EnableJointInstantly(rightHip)
+	-- Reset Pos
+	-- local localOffset = CFrame.new(0, 0, 0)
+	-- torso.CFrame = character:GetPivot() * localOffset
+	-- HumanoidRootPart.CFrame = character:GetPivot() * localOffset
+
+	-- Gears.EnableJointInstantly(rootJoint)
+	-- Gears.EnableJointInstantly(neck)
+	-- Gears.EnableJointInstantly(leftShoulder)
+	-- Gears.EnableJointInstantly(leftHip)
+	-- Gears.EnableJointInstantly(rightShoulder)
+	-- Gears.EnableJointInstantly(rightHip)
 
 	-- Enable Collisions
-	character.HumanoidRootPart.CanCollide = true
+	character.HumanoidRootPart.Anchored = false
+	-- HumanoidRootPart.CanCollide = true
 	torso.CanCollide = true
 	head.CanCollide = true
 	leftArm.CanCollide = true
@@ -472,14 +488,6 @@ function Gears.RandomRange(defaultValue, range)
 	return value
 end
 
-function Gears.NormalizeOrZero(vector2)
-	if vector2 == Vector2.zero then
-		return Vector2.zero
-	end
-
-	return vector2.Unit
-end
-
 function Gears.LoopValue(value, max, resetValue) -- TODO : Add min
 	local resetValue2 = resetValue or 0
 
@@ -500,10 +508,21 @@ end
 
 -- #region GEOMETRY
 
+--- Get the Magnitude of a Vector
 function Gears.PointsDistance(pointA, pointB)
 	return (pointA - pointB).Magnitude
 end
 
+--- Normalize a 2D Vector
+function Gears.NormalizeOrZero(vector2)
+	if vector2 == Vector2.zero then
+		return Vector2.zero
+	end
+
+	return vector2.Unit
+end
+
+--- Get a Point on a Parabolla
 function Gears.ParabolaPos(startPos, endPos, height, progress)
 	-- DEBUG
 	-- TODO : Gears.DrawSphere(startPos, 1, Color3.fromRGB(48, 62, 12))
