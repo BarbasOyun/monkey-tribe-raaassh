@@ -7,8 +7,11 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
+local LevelConst = CONSTANTS.LevelConst
+
 local LevelDefinitions
 local Events, EventsSounds, Maps, MapsMusics, MapsBuildings
+local BUILDING_FOLDER
 
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -24,9 +27,7 @@ local LevelState = MutState.LevelState
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local PlayerService
-local EnemyService
-local ItemService
+local PlayerService, EnemyService, ItemService, CombatService
 
 local LevelService = Knit.CreateService({
 	Name = "LevelService",
@@ -114,7 +115,8 @@ end
 
 --- Load Authoring data required for Stages
 function LevelService.LoadLevelDefinitions()
-	warn("Load Level Definitions")
+	-- warn("Load Level Definitions")
+	-- Get Consts
 	LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
 
 	Maps = LevelDefinitions.Maps
@@ -123,18 +125,41 @@ function LevelService.LoadLevelDefinitions()
 
 	Events = LevelDefinitions.Events
 	EventsSounds = LevelDefinitions.EventsSounds
+
+	-- Buildings Setup
+	BUILDING_FOLDER = workspace.Buildings
+
+	local buildingsDetectionParam = OverlapParams.new()
+	buildingsDetectionParam.FilterType = Enum.RaycastFilterType.Include
+	buildingsDetectionParam.FilterDescendantsInstances = { BUILDING_FOLDER }
+	buildingsDetectionParam.MaxParts = 10
+
+	LevelState.buildingsDetectionParam = buildingsDetectionParam
+
+	-- Add Buildings Folder to weapon Detection
+	MutState.CombatState.weaponHitParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER, BUILDING_FOLDER }
+
+	-- Start Buildings Detection + AutoTarget
+	PlayerService.StateUpdate:Connect(function(state, dt)
+		for _, player in pairs(Players:GetPlayers()) do
+			PlayerService.BuildingsDetection(state, player)
+			CombatService.FindClosestBuilding(player)
+			CombatService.AutoTargetBuildings(state, player)
+		end
+	end)
 end
 
 --- Start a New Stage
 function LevelService.StartStage()
 	LevelState.stageProgress = 0
-	-- LevelState.currentMapId = math.random(1, #MapsBuildings)
-	LevelState.currentMapId = 2
+	LevelState.currentMapId = math.random(1, #MapsBuildings)
 	warn("Start Stage MapID = " .. LevelState.currentMapId)
 
+	PlayerService.ResurrectAll()
+
 	-- Generate Map
-	-- local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
-	local buildingsAmount = 6
+	local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
+	-- local buildingsAmount = 6
 	LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
 
 	-- Additional Setup
@@ -215,6 +240,34 @@ function LevelService.StartGameTimer()
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		LevelService.GameTimer(dt)
 	end)
+end
+
+function LevelService.GenerateBuildingHealth(building: Part)
+	local health = math.random(100, 200)
+
+	LevelState.buildingsHealth[building] = health
+end
+
+function LevelService.DamageBuilding(building: Part, damage: number)
+	assert(damage > 0, "Damage Building : Damaeg needs to be Higher than 0")
+	-- TODO
+
+	local buildingHealth = LevelState.buildingsHealth[building]
+
+	if not buildingHealth then
+		LevelService.GenerateBuildingHealth(building)
+	end
+
+	LevelState.buildingsHealth[building] -= damage
+	local damagedHealth = LevelState.buildingsHealth[building]
+
+	if damagedHealth <= 50 then
+		-- TODO : Break
+	end
+
+	if damagedHealth <= 0 then
+		building:Destroy()
+	end
 end
 
 -- #endregion
@@ -344,29 +397,24 @@ function LevelService.GenerateMap(mapId, stageRadiusSize, buildingsAmount)
 	LevelService.DebugDraw(stageRadiusSize)
 
 	-- 1] Create Nodes at random Positions
-	local buildingNodes = LevelService.GenerateNodes(buildings, stageRadiusSize, buildingsAmount)
+	local circularNodes, prefabs = LevelService.GenerateNodes(buildings, stageRadiusSize, buildingsAmount)
 
 	-- 2] Collisions Detection + Solver
+	local constraints = {
+		function(point)
+			return LevelService.CircleContainer(point, Vector2.zero, stageRadiusSize)
+		end,
+	}
 
-	local COLLISIONS_DETECTIONS_ITERATIONS = 6
-
-	for i = 1, COLLISIONS_DETECTIONS_ITERATIONS do
-		local collisions = LevelService.CollisionsDetection(buildingNodes)
-		warn(buildingNodes)
-		LevelService.Solver(buildingNodes, collisions)
-		warn(buildingNodes)
+	for i = 1, LevelConst.COLLISIONS_DETECTIONS_ITERATIONS do
+		local collisions = LevelService.CollisionsDetection(circularNodes)
+		-- warn(circularNodes)
+		LevelService.Solver(circularNodes, collisions, constraints)
+		-- warn(circularNodes)
 	end
 
 	-- 3] Spawn Buildings
-	-- Add Prefab in the Nodes
-	for i = 1, buildingsAmount do
-		local buildingIndex = math.max(1, i % #buildings)
-		local prefab = buildings[buildingIndex].prefab
-
-		buildingNodes[i].prefab = prefab
-	end
-
-	LevelService.SpawnBuildings(buildingNodes)
+	LevelService.SpawnBuildings(circularNodes, prefabs)
 
 	LevelState.totalParts *= 0.5 -- Require 50% of the stage to be completed
 end
@@ -387,7 +435,8 @@ end
 
 --- Generate Building Nodes at random positions
 function LevelService.GenerateNodes(buildings, outerRadius, amount)
-	local buildingNodes = {}
+	local circularNodes = {}
+	local prefabs = {}
 
 	local buildingIndex = math.random(1, #buildings)
 
@@ -407,12 +456,16 @@ function LevelService.GenerateNodes(buildings, outerRadius, amount)
 
 		-- Build Circular Nodes
 		local buildingNode = { position = positions[i], radius = building.radius } :: Circle
-		buildingNodes[i] = buildingNode
+		circularNodes[i] = buildingNode
+
+		-- Add Prefab
+		local prefab = buildings[buildingIndex].prefab
+		table.insert(prefabs, prefab)
 
 		buildingIndex = Gears.LoopValue(buildingIndex + 1, #buildings, 1)
 	end
 
-	return buildingNodes
+	return circularNodes, prefabs
 end
 
 --- Get random points within 2 Circles -> Inner Circle is at the Center of Outer Circle
@@ -451,29 +504,48 @@ function LevelService.GetPosWithinCircle(outerRadius, amount, constraints)
 end
 
 --- Spawn Buildings based on Node Locations
-function LevelService.SpawnBuildings(buildingNodes)
+function LevelService.SpawnBuildings(buildingNodes, prefabs)
 	for i = 1, #buildingNodes do
-		-- DEBUG : Draw Nodes Radius
 		local node = buildingNodes[i]
+		local prefab = prefabs[i]
+
+		-- DEBUG : Draw Nodes Radius
 		PlayerService.StateUpdate:Connect(function(state, dt)
 			local pos = Vector3.new(node.position.X, 3, node.position.Y)
 			local outerRadiusPoints = Gears.CirclePoints(node.radius, 20)
 			Gears.DrawCircle(pos, outerRadiusPoints)
 		end)
 
-		-- local building =
-		-- TODO
+		local building = prefab:clone()
+		building.Parent = BUILDING_FOLDER
+		-- TODO : Raycast to find Y (height) value -> Allow Different Terrain Heights
+		local buildingHeight = building:GetPivot().Position.Y
+		local buildingPos = CFrame.new(node.position.X, buildingHeight, node.position.Y)
+		building:PivotTo(buildingPos)
+
+		table.insert(LevelState.currentBuildings, building)
 	end
 end
 
 --- Destroy Every Buildings
 function LevelService.ClearBuildings()
-	-- TODO
+	for i = 1, #LevelState.currentBuildings do
+		local building = LevelState.currentBuildings[i]
+		building:Destroy()
+	end
+
+	table.clear(LevelState.currentBuildings)
 end
 
 --- Scatter random weapons in the Map
-function LevelService.GenerateWeapons()
-	-- TODO
+function LevelService.GenerateWeapons(amount)
+	for i = 1, amount do
+		-- Random Building to Spawn Weapon into
+		local buildingIndex = math.random(1, #LevelState.currentBuildings)
+
+		-- Random Weapon
+		-- ItemService.
+	end
 end
 
 -- #endregion
@@ -537,6 +609,23 @@ function LevelService.CircleConstraint(point: Vector2, circlePos: Vector2, radiu
 	return point
 end
 
+--- Keep a 2D Point IN a Circle
+function LevelService.CircleContainer(point: Vector2, circlePos: Vector2, radius: number)
+	-- Point / Circle Col Detection
+	local circleToPoint = point - circlePos
+	local distance = circleToPoint.Magnitude
+	local isInCircle = distance < radius
+
+	if isInCircle then
+		return point
+	end
+
+	local circlePointNormal = Gears.NormalizeOrZero(circleToPoint)
+	point = circlePointNormal * radius
+
+	return point
+end
+
 --- Detect Collision between 2 Circles,
 --- Return normal, penetrationDepth or nil
 function LevelService.RadiusRadiusCol(pos1, radius1, pos2, radius2)
@@ -590,7 +679,7 @@ function LevelService.RadiusRadiusesCol(
 	end
 end
 
---- Build an Ignore List for an Object based on collisionsData
+--- Build an Ignore List of Objects that already Detected a Collision with an Object
 function LevelService.IgnoreList(collisionsData: CollisionsData, index: number)
 	local ignoreList = {}
 
@@ -606,11 +695,9 @@ function LevelService.IgnoreList(collisionsData: CollisionsData, index: number)
 	return ignoreList
 end
 
---- Solve collisions between Nodes within 2 Circles
-function LevelService.Solver(circularNodes, collisionsData: CollisionsData, constraints)
-	local SOLVER_ITERATIONS = 10
-
-	for i = 1, SOLVER_ITERATIONS do
+--- Solve collisions between Nodes
+function LevelService.Solver(circularNodes, collisionsData: CollisionsData, constraints: {})
+	for i = 1, LevelConst.SOLVER_ITERATIONS do
 		for j = 1, #collisionsData.object1 do
 			local object1 = circularNodes[collisionsData.object1[j]]
 			local object2 = circularNodes[collisionsData.object2[j]]
@@ -622,6 +709,7 @@ function LevelService.Solver(circularNodes, collisionsData: CollisionsData, cons
 	end
 end
 
+--- Solve a Collision Between 2 Circles
 function LevelService.SolveCol(
 	object1: Circle,
 	object2: Circle,
@@ -644,7 +732,15 @@ function LevelService.SolveCol(
 	object1.position -= correctionVector -- * invMass1
 	object2.position += correctionVector -- * invMass2
 
-	-- Constraints
+	-- Apply Constraints
+	if not constraints then
+		return
+	end
+
+	for i = 1, #constraints do
+		object1.position = constraints[i](object1.position)
+		object2.position = constraints[i](object2.position)
+	end
 end
 
 -- #endregion
@@ -658,6 +754,7 @@ function LevelService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 	EnemyService = Knit.GetService("EnemyService")
 	ItemService = Knit.GetService("ItemService")
+	CombatService = Knit.GetService("CombatService")
 end
 
 return LevelService

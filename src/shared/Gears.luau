@@ -161,8 +161,9 @@ function Gears.FindUniqueHumanoids(parts, charactersBanned)
 		local humanoid = Gears.FindHumanoidFromPart(hit)
 
 		local isInBanList = charactersBanned and table.find(charactersBanned, humanoid.Parent)
+		local isValid = humanoid and not table.find(humanoids, humanoid) and not isInBanList
 
-		if not humanoid or table.find(humanoids, humanoid) or isInBanList then
+		if not isValid then
 			continue
 		end
 

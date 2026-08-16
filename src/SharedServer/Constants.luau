@@ -12,7 +12,7 @@ local PREFABS_FOLDER = ReplicatedStorage.Shared.Prefabs
 local WEAPON_HIT_FOLDER = workspace.WeaponHit
 local DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities
 
--- #region Player
+-- #region PlayerService
 
 -- TODO : Rename (enum)
 local PLAYER_STATES = {
@@ -45,18 +45,7 @@ local MAX_CURRENCIES = {
 	10_000,
 }
 
--- PickupRange Parameters
-local AUTO_PICKUP_PARAM = OverlapParams.new()
-AUTO_PICKUP_PARAM.FilterType = Enum.RaycastFilterType.Include
-AUTO_PICKUP_PARAM.FilterDescendantsInstances = { workspace.AutoPickup }
-AUTO_PICKUP_PARAM.MaxParts = 50
-
--- Enemies Detection
-local DETECTION_PARAM = OverlapParams.new()
-DETECTION_PARAM.FilterType = Enum.RaycastFilterType.Include
-DETECTION_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
-DETECTION_PARAM.MaxParts = 500
-local DETECTION_RADIUS = 100
+local ENEMIES_DETECTION_RADIUS = 100
 
 -- #endregion
 
@@ -65,15 +54,14 @@ local RpgConst = {
 	MULTIPLIER_XP = 1.2,
 }
 
--- Combat
-local WEAPON_HIT_PARAM = OverlapParams.new()
-WEAPON_HIT_PARAM.FilterType = Enum.RaycastFilterType.Include
-WEAPON_HIT_PARAM.FilterDescendantsInstances = { workspace.WeaponHit }
-WEAPON_HIT_PARAM.MaxParts = 100
+local LevelConst = {
+	COLLISIONS_DETECTIONS_ITERATIONS = 10,
+	SOLVER_ITERATIONS = 10,
+}
 
 -- EnemyService
--- local DISABLED_POSITION = Vector3.new(0, 20, 0)
-local DISABLED_POSITION = Vector3.new(300, 0, 0)
+local DISABLED_POSITION = Vector3.new(300, 0, 0) -- Vector3.new(0, 20, 0)
+
 local EnemyConst = {
 	ENEMY_LVL_UP_BREAKPOINT = 30,
 
@@ -143,22 +131,19 @@ local CONSTANTS = {
 	PREFABS_FOLDER = PREFABS_FOLDER,
 	WEAPON_HIT_FOLDER = WEAPON_HIT_FOLDER,
 	DISABLED_ENTITIES_FOLDER = DISABLED_ENTITIES_FOLDER,
-	-- Overlap Param
-	AUTO_PICKUP_PARAM = AUTO_PICKUP_PARAM,
-	DETECTION_PARAM = DETECTION_PARAM,
-	DETECTION_RADIUS = DETECTION_RADIUS,
-	WEAPON_HIT_PARAM = WEAPON_HIT_PARAM,
-	-- Enums
+	-- Players
+	ENEMIES_DETECTION_RADIUS = ENEMIES_DETECTION_RADIUS,
 	PLAYER_STATES = PLAYER_STATES,
 	CURRENCIES = CURRENCIES,
 	CURRENCIES_NAMES = CURRENCIES_NAMES,
 	MAX_CURRENCIES = MAX_CURRENCIES,
-	-- Services
-	RpgConst = RpgConst,
-	EnemyConst = EnemyConst,
 	-- Ecs
 	DISABLED_POSITION = DISABLED_POSITION,
 	EcsStorages = EcsStorages,
+	-- Full Services
+	RpgConst = RpgConst,
+	LevelConst = LevelConst,
+	EnemyConst = EnemyConst,
 }
 
 return CONSTANTS

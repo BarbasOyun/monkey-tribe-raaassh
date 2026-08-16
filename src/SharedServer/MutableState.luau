@@ -17,7 +17,26 @@ local EnemiesStats = EnemyDefinitions.EnemiesStats
 
 local mainSounds = CONSTANTS.PREFABS_FOLDER.Sounds.MainSounds
 
+-- Player Service State
+local enemiesDetectionParam = OverlapParams.new()
+enemiesDetectionParam.FilterType = Enum.RaycastFilterType.Include
+enemiesDetectionParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER }
+enemiesDetectionParam.MaxParts = 500
+
+local autoPickupParam = OverlapParams.new()
+autoPickupParam.FilterType = Enum.RaycastFilterType.Include
+autoPickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
+autoPickupParam.MaxParts = 50
+
+local PlayerServiceState = {
+	playersDetections = {},
+	buildingsDetections = {},
+	enemiesDetectionParam = enemiesDetectionParam,
+	autoPickupParam = autoPickupParam,
+}
+
 local LevelState = {
+	buildingsDetectionParam = nil,
 	-- Map
 	currentMapId = 1,
 	addMusicHandle = nil,
@@ -26,6 +45,7 @@ local LevelState = {
 	-- Stage
 	stageProgress = 0,
 	isWaitingForNextStage = false,
+	buildingsHealth = {}, -- TODO : Use ECS instead
 	buildingAmount = 3,
 	currentBuildings = {},
 	totalParts = 0,
@@ -127,8 +147,16 @@ local EcsState = {
 
 -- #endregion
 
+-- Combat State
+local weaponHitParam = OverlapParams.new()
+weaponHitParam.FilterType = Enum.RaycastFilterType.Include
+weaponHitParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER }
+weaponHitParam.MaxParts = 100
+
 local CombatState = {
+	weaponHitParam = weaponHitParam,
 	playersClosestEnemy = {},
+	playersClosestBuilding = {},
 	expectingAttack = {},
 	attackBuffer = {},
 	lastAttacks = {},
@@ -137,17 +165,17 @@ local CombatState = {
 }
 
 local MutState = {
-	mainSounds = mainSounds,
 	gameTimer = 0,
 	gameTimerCount = 0,
 	frameCount = 0,
-	playersDetections = {}, -- TODO : Flatten -> use playersDetectionCount
+	mainSounds = mainSounds,
+	PlayerServiceState = PlayerServiceState,
 	LevelState = LevelState,
 	CombatState = CombatState,
 	RpgState = RpgState,
 	EnemyServiceState = EnemyServiceState,
 	EcsState = EcsState,
-	-- Current Place State (Hub or Level)
+	-- TODO : Current Place State (Hub or Level)
 }
 
 return MutState

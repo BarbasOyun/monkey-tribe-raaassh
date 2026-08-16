@@ -23,6 +23,7 @@ local Selectors = RoduxStore.Selectors
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local EnemyServiceState = MutState.EnemyServiceState
 local EcsState = MutState.EcsState
+local PlayerServiceState = MutState.PlayerServiceState
 
 -- Get Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -365,8 +366,6 @@ function EnemyService.EnableNextInPool(enemyId, position)
 	local entityId = EnemyServiceState.entitiesPool[index]
 
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-	-- local GameObjectStorageState = GameObjectStorage.GetState()
-	-- local character = GameObjectStorageState.gameObjects[entityId]
 	local character = GameObjectStorage.GetGameObject(entityId)
 
 	-- warn("Enable Object in Pool = " .. pool.name .. ", Entity ID = " .. entityId)
@@ -449,7 +448,7 @@ function EnemyService.GetNearestPlayer(state, enemy)
 			continue
 		end
 
-		local distance = MutState.playersDetections[player.UserId][enemy]
+		local distance = PlayerServiceState.playersDetections[player.UserId][enemy]
 		-- warn(enemy.Name .. " Distance With " .. player.Name .. " = " .. distance)
 		local isCloser = distance and distance < minDistance
 
@@ -686,8 +685,6 @@ function EnemyService.UnitUpdate(dt)
 		end
 
 		-- Dispawn CD
-		-- local dispawnCd = UnitStorageState.dispawnCd[i]
-
 		if UnitStorageState.dispawnCd[i] <= 0 then
 			continue
 		end

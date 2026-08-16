@@ -16,13 +16,12 @@ local Selectors = RoduxStore.Selectors
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local CombatState = MutState.CombatState
+local PlayerServiceState = MutState.PlayerServiceState
 
 -- Get Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
-local PlayerService
-local EnemyService
-local ItemService
+local PlayerService, EnemyService, LevelService, ItemService
 
 local CombatService = Knit.CreateService({
 	Name = "CombatService",
@@ -33,7 +32,84 @@ local CombatService = Knit.CreateService({
 
 -- #region HIT DETECTION + DMG
 
-local function attackFeedback(weaponData, isCrit)
+--- Return a table of every unique humanoid in a Sphere
+function CombatService.HitsDetection(position, radius, param, charactersBanned)
+	local hits = workspace:GetPartBoundsInRadius(position, radius, param)
+	local humanoidsHit = {} -- Unique Humanoids
+	local buildingsHit = {} -- Parts
+
+	-- Debug HitZone
+	Gears.ExecuteFor(0.5, function()
+		Gears.DrawSphere(position, radius)
+	end)
+
+	if #hits <= 0 then
+		return humanoidsHit, buildingsHit
+	end
+
+	-- humanoidsHit = Gears.FindUniqueHumanoids(hits, charactersBanned)
+
+	for _, hit in pairs(hits) do
+		local humanoid = Gears.FindHumanoidFromPart(hit)
+
+		-- Hit Building
+		if not humanoid then
+			table.insert(buildingsHit, hit)
+			continue
+		end
+
+		-- Hit Humanoid
+		local isInBanList = charactersBanned and table.find(charactersBanned, humanoid.Parent)
+		local isValid = humanoid and not table.find(humanoidsHit, humanoid) and not isInBanList
+
+		if not isValid then
+			continue
+		end
+
+		table.insert(humanoidsHit, humanoid)
+	end
+
+	return humanoidsHit, buildingsHit
+end
+
+-- Context = After Validation
+function CombatService.AttackHit(player, playerStats, weaponState)
+	-- warn("Attack Hit AOE = " .. playerStats.aoe)
+
+	local character = player.Character or player.CharacterAdded:Wait()
+	local attackPosition = CombatService.GetAttackPosition(player, weaponState)
+
+	-- Hits Detection
+	local banList = { character }
+	local humanoidsHit, buildingsHit =
+		CombatService.HitsDetection(attackPosition, playerStats.aoe, CombatState.weaponHitParam, banList)
+
+	local isCrit = CombatService.RollCrit(playerStats)
+	local hasHitBuilding = #buildingsHit > 0
+
+	if #humanoidsHit <= 0 and #buildingsHit <= 0 then
+		CombatService.AttackFeedback(weaponState, isCrit, hasHitBuilding)
+		return
+	end
+
+	-- Damage
+	local damage = CombatService.RollAttackDamage(playerStats, isCrit)
+
+	-- Damage Building
+	for i = 1, #buildingsHit do
+		local building = buildingsHit[i]
+		LevelService.DamageBuilding(building, damage)
+	end
+
+	-- Damage Humanoids
+	for _, humanoid in pairs(humanoidsHit) do
+		EnemyService.DamageEnemy(player, humanoid.Parent:GetAttribute("EntityId"), humanoid, damage)
+	end
+
+	CombatService.AttackFeedback(weaponState, isCrit, hasHitBuilding)
+end
+
+function CombatService.AttackFeedback(weaponData, isCrit, hasHitBuilding)
 	-- VFX
 	weaponData.attackVFX:Emit(5)
 
@@ -43,10 +119,15 @@ local function attackFeedback(weaponData, isCrit)
 		return
 	end
 
+	if hasHitBuilding then
+		Gears.SafePlaySound(weaponData.sounds.buildingHit)
+		return
+	end
+
 	Gears.SafePlaySound(weaponData.sounds.slash)
 end
 
-local function rollCrit(playerStats)
+function CombatService.RollCrit(playerStats)
 	local isCrit = false
 	local critRoll = math.random(0, 100)
 	-- print("Crit roll : " .. critRoll .. " Crit Chance : " .. playerStats.critChance)
@@ -58,7 +139,7 @@ local function rollCrit(playerStats)
 	return isCrit
 end
 
-local function rollAttackDamage(playerStats, isCrit)
+function CombatService.RollAttackDamage(playerStats, isCrit)
 	-- Attack Damage
 	local damage = playerStats.attackDamage
 
@@ -68,25 +149,6 @@ local function rollAttackDamage(playerStats, isCrit)
 	end
 
 	return damage
-end
-
--- Return a table of every unique humanoid in a Sphere
-function CombatService.HitsDetection(position, radius, param, charactersBanned)
-	local hits = workspace:GetPartBoundsInRadius(position, radius, param)
-	local humanoidsHit = {} -- Unique Humanoids
-
-	-- Debug HitZone
-	Gears.ExecuteFor(0.5, function()
-		Gears.DrawSphere(position, radius)
-	end)
-
-	if #hits <= 0 then
-		return humanoidsHit
-	end
-
-	humanoidsHit = Gears.FindUniqueHumanoids(hits, charactersBanned)
-
-	return humanoidsHit
 end
 
 function CombatService.GetAttackPosition(player, weaponState)
@@ -115,33 +177,6 @@ function CombatService.GetAttackPosition(player, weaponState)
 	end
 
 	return attackPosition
-end
-
--- Context = After Validation
-function CombatService.AttackHit(player, playerStats, weaponState)
-	-- warn("Attack Hit AOE = " .. playerStats.aoe)
-
-	local character = player.Character or player.CharacterAdded:Wait()
-	local attackPosition = CombatService.GetAttackPosition(player, weaponState)
-
-	-- Hits Detection
-	local hits = CombatService.HitsDetection(attackPosition, playerStats.aoe, CONSTANTS.WEAPON_HIT_PARAM, { character })
-
-	local isCrit = rollCrit(playerStats)
-
-	if #hits <= 0 then
-		attackFeedback(weaponState, isCrit)
-		return
-	end
-
-	-- Damage
-	local damage = rollAttackDamage(playerStats, isCrit)
-
-	for _, humanoid in pairs(hits) do
-		EnemyService.DamageEnemy(player, humanoid.Parent:GetAttribute("EntityId"), humanoid, damage)
-	end
-
-	attackFeedback(weaponState, isCrit)
 end
 
 function CombatService.IncrementCombo(player, weaponData)
@@ -270,8 +305,15 @@ end
 
 -- #region AUTO TARGET
 
+--- Get the Range at which a Player can Hit a Target
+function CombatService.PlayerRange(playerStats)
+	assert(playerStats, "Player Stats = nil")
+	return playerStats.aoe * 2
+end
+
 --- Make a Player Attack Automatically Closest Enemy
 function CombatService.AutoTarget(state, player)
+	-- Validation
 	local userId = player.UserId
 	local playerState = Selectors.PlayerState(state, userId)
 
@@ -286,10 +328,10 @@ function CombatService.AutoTarget(state, player)
 	end
 
 	-- Check closestEnemy Distance
-	local targetDistance = MutState.playersDetections[userId][closestEnemy]
+	local targetDistance = PlayerServiceState.playersDetections[userId][closestEnemy]
 
 	local playerStats, weaponState = Selectors.PlayerStats(playerState)
-	local isInRange = targetDistance <= playerStats.aoe * 2
+	local isInRange = targetDistance <= CombatService.PlayerRange(playerStats)
 
 	-- Start Attack
 	if weaponState and isInRange then
@@ -298,9 +340,9 @@ function CombatService.AutoTarget(state, player)
 end
 
 --- Find Closest Enemy to a Player
-function CombatService.FindClosestEnemies(player)
+function CombatService.FindClosestEnemy(player)
 	local userId = player.UserId
-	local playerDetection = MutState.playersDetections[userId]
+	local playerDetection = PlayerServiceState.playersDetections[userId]
 
 	if not playerDetection then
 		-- warn(player.Name .. " No player Detection")
@@ -321,13 +363,65 @@ function CombatService.FindClosestEnemies(player)
 	CombatState.playersClosestEnemy[userId] = closestEnemy
 end
 
+--- Make a Player Attack Automatically Closest Building
+function CombatService.AutoTargetBuildings(state, player)
+	-- Validation
+	local userId = player.UserId
+	local playerState = Selectors.PlayerState(state, userId)
+
+	if not playerState then
+		return
+	end
+
+	local closestBuilding = CombatState.playersClosestBuilding[userId]
+
+	if not closestBuilding then
+		return
+	end
+
+	-- Check closestEnemy Distance
+	local targetDistance = PlayerServiceState.buildingsDetections[userId][closestBuilding]
+
+	local playerStats, weaponState = Selectors.PlayerStats(playerState)
+	local isInRange = targetDistance <= CombatService.PlayerRange(playerStats)
+
+	-- Start Attack
+	if weaponState and isInRange then
+		CombatService.StartAttack(state, player, playerStats, weaponState)
+	end
+end
+
+--- Find Closest Building to a Player
+function CombatService.FindClosestBuilding(player)
+	local userId = player.UserId
+	local buildingDetection = PlayerServiceState.buildingsDetections[userId]
+
+	if not buildingDetection then
+		-- warn(player.Name .. " No player Detection")
+		return
+	end
+
+	-- Find Closest Enemy
+	local closestDistance = math.huge
+	local closestBuilding = nil -- Model
+
+	for building, distance in pairs(buildingDetection) do
+		if distance < closestDistance then
+			closestDistance = distance
+			closestBuilding = building
+		end
+	end
+
+	CombatState.playersClosestBuilding[userId] = closestBuilding
+end
+
 -- #endregion
 
 -- #region COMBAT SERVICE
 
-local function combatServiceUpdate(state)
+local function combatServiceUpdate(state, dt)
 	for _, player in pairs(Players:GetPlayers()) do
-		CombatService.FindClosestEnemies(player)
+		CombatService.FindClosestEnemy(player)
 		CombatService.AutoTarget(state, player)
 	end
 end
@@ -359,6 +453,7 @@ end
 function CombatService:KnitStart()
 	PlayerService = Knit.GetService("PlayerService")
 	EnemyService = Knit.GetService("EnemyService")
+	LevelService = Knit.GetService("LevelService")
 	ItemService = Knit.GetService("ItemService")
 
 	setupPlayerService()

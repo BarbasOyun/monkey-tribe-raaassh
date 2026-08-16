@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local DataStoreService = game:GetService("DataStoreService")
 
+local CombatService = require(script.Parent.CombatService)
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
@@ -18,6 +19,7 @@ local StoreActions = RoduxStore.Actions
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
+local PlayerServiceState = MutState.PlayerServiceState
 
 -- Get DataStore
 local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
@@ -100,7 +102,8 @@ function PlayerService.AddPlayer(player)
 	PlayerService.Client.ReplicateStore:Fire(player, state)
 
 	-- Set Detection to empty
-	MutState.playersDetections[userId] = {}
+	PlayerServiceState.playersDetections[userId] = {}
+	PlayerServiceState.buildingsDetections[userId] = {}
 
 	-- Events
 	PlayerService.PlayerAdded:Fire(player)
@@ -291,6 +294,8 @@ end
 
 --- CheckGameOver on player Death
 function PlayerService.SetupGameOver(player)
+	Players.CharacterAutoLoads = false
+
 	local function onCharacterAdded(character)
 		local humanoid = character:WaitForChild("Humanoid")
 		humanoid.Died:Connect(PlayerService.CheckGameOver)
@@ -321,6 +326,15 @@ function PlayerService.CheckGameOver()
 
 	if deadPlayersCount >= #players then
 		PlayerService.GameOver()
+	end
+end
+
+--- Resurrect every Dead players
+function PlayerService.ResurrectAll()
+	for _, player in pairs(Players:GetPlayers()) do
+		if player.character.Humanoid.Health <= 0 then
+			player:LoadCharacterAsync()
+		end
 	end
 end
 
@@ -405,7 +419,7 @@ local function enemiesDetection(state, player)
 	local userId = player.UserId
 	local playerState = state.players[userId]
 
-	MutState.playersDetections[userId] = {}
+	PlayerServiceState.playersDetections[userId] = {}
 
 	if not playerState then
 		return
@@ -419,7 +433,11 @@ local function enemiesDetection(state, player)
 	-- Gears.DisplayHitBox(position, 10, 0.1)
 
 	-- Calc Distance Player -> Enemy
-	local hits = workspace:GetPartBoundsInRadius(playerPos, CONSTANTS.DETECTION_RADIUS, CONSTANTS.DETECTION_PARAM)
+	local hits = workspace:GetPartBoundsInRadius(
+		playerPos,
+		CONSTANTS.ENEMIES_DETECTION_RADIUS,
+		PlayerServiceState.enemiesDetectionParam
+	)
 
 	-- Detect Enemy Humanoids
 	local detectedEnemies = Gears.FindUniqueHumanoids(hits)
@@ -432,7 +450,42 @@ local function enemiesDetection(state, player)
 		local playerToEnemyDirection = enemyPos - playerPos
 
 		local playerToEnemyDistance = vector.magnitude(playerToEnemyDirection) :: number
-		MutState.playersDetections[userId][enemy] = playerToEnemyDistance
+		PlayerServiceState.playersDetections[userId][enemy] = playerToEnemyDistance
+
+		-- TODO : Calculate Normals
+	end
+end
+
+--- Detect Buildings around player -> Calculate Distance + Normals
+function PlayerService.BuildingsDetection(state, player)
+	local userId = player.UserId
+	local playerState = state.players[userId]
+
+	PlayerServiceState.buildingsDetections[userId] = {}
+
+	if not playerState then
+		return
+	end
+
+	local character = player.Character or player.CharacterAdded:Wait()
+	local torso = character.UpperTorso or character.Torso
+	local playerPos = torso.CFrame.Position
+
+	-- Detection
+	local hits = workspace:GetPartBoundsInRadius(
+		playerPos,
+		CombatService.PlayerRange(playerState.stats),
+		MutState.LevelState.buildingsDetectionParam
+	)
+
+	-- Calculate Distance Player to Building
+	for _, part in pairs(hits) do
+		local buildingPos = part.CFrame.Position
+
+		local playerToBuilding = buildingPos - playerPos
+
+		local playerToBuildingDistance = vector.magnitude(playerToBuilding) :: number
+		PlayerServiceState.buildingsDetections[userId][part] = playerToBuildingDistance
 
 		-- TODO : Calculate Normals
 	end
@@ -487,7 +540,7 @@ local function autoPickupRange(state, player)
 	-- DEBUG
 	-- Gears.DisplayHitBox(position, pickupRange, 0.1)
 
-	local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, CONSTANTS.AUTO_PICKUP_PARAM)
+	local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, PlayerServiceState.autoPickupParam)
 
 	for _, itemModel in ipairs(autoPickupItems) do
 		autoPickup(player, itemModel)

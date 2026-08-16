@@ -26,8 +26,7 @@ local StoreActions = RoduxStore.Actions
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local PlayerService
-local RpgService
+local PlayerService, RpgService
 
 local ItemService = Knit.CreateService({
 	Name = "ItemService",
@@ -132,6 +131,25 @@ function ItemService.SpawnItemDef(itemDefinitionId, position)
 
 	return newModel
 end
+
+-- function ItemService.SpawnItem(itemCategory, itemDefinitionId, position)
+-- 	local itemDefinition = itemDefinitions[itemDefinitionId]
+
+-- 	-- Spawn Model
+-- 	local newModel = itemPrefabs[itemDefinition.id]:Clone()
+
+-- 	local partToMove = newModel
+
+-- 	if itemDefinition.itemType == itemTypes.weapon then
+-- 		partToMove = newModel.Handle
+-- 	end
+
+-- 	partToMove.CFrame = CFrame.new(position)
+-- 	-- newModel.Name = itemDefinition.name
+-- 	newModel.Parent = workspace
+
+-- 	return newModel
+-- end
 
 --- Make a part move
 function ItemService.LootMovement(partToMove, startPos)
@@ -244,17 +262,26 @@ end
 
 local function addSounds(player, weapon)
 	local playerGUi = player.PlayerGui
+	local soundsPrefab = ReplicatedStorage.Shared.Prefabs.Sounds
 
 	-- Create Sounds
-	local soundsPrefab = ReplicatedStorage.Shared.Prefabs.Sounds
-	soundsPrefab.Unsheath:clone().Parent = playerGUi
-	soundsPrefab.Slash:clone().Parent = playerGUi
-	soundsPrefab.CriticalSlash:clone().Parent = playerGUi
+	local unsheath = soundsPrefab.Unsheath:clone()
+	unsheath.Parent = playerGUi
+
+	local slash = soundsPrefab.Slash:clone()
+	slash.Parent = playerGUi
+
+	local crit = soundsPrefab.CriticalSlash:clone()
+	crit.Parent = playerGUi
+
+	local buildingHit = soundsPrefab.BuildingHit:clone()
+	buildingHit.Parent = playerGUi
 
 	weapon.sounds = {
-		unsheath = playerGUi.Unsheath,
-		slash = playerGUi.Slash,
-		crit = playerGUi.CriticalSlash,
+		unsheath = unsheath,
+		slash = slash,
+		crit = crit,
+		buildingHit = buildingHit,
 	}
 end
 
