@@ -2,7 +2,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
-local RunService = game:GetService("RunService")
+-- local RunService = game:GetService("RunService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
@@ -13,14 +13,21 @@ local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefi
 
 local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
 local itemDefinitions = itemDef.itemDefinitions
-local itemStore = itemDef.itemStore
 local itemTypes = itemDef.itemTypes
-local itemPrefabs = itemDef.itemPrefabs
+-- local itemStore = itemDef.itemStore
+-- local itemPrefabs = itemDef.itemPrefabs
 
--- Get Store
+local ItemDefinitions = itemDef.ItemDefinitions
+local ItemRegistries = itemDef.ItemRegistries
+
+-- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
 local StoreActions = RoduxStore.Actions
+
+-- Get MutState
+local MutState = require(ServerScriptService.SharedServer.MutableState)
+local ItemServiceState = MutState.ItemServiceState
 
 -- Get Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -76,6 +83,31 @@ local usablesLogicDefinition = {
 
 -- #endregion
 
+--- Get an Item's Definition using GLobalId
+function ItemService.GetItemDefinition(globalId: number)
+	warn("Get Item Definition Global ID = " .. globalId)
+	local currentCategory = ItemDefinitions.Usables
+	local count = 0
+
+	for i = 1, #ItemDefinitions do
+		warn(globalId .. " <= " .. #currentCategory)
+		if globalId <= #currentCategory then
+			local index = globalId - count
+			local definition = currentCategory[index]
+			return definition
+		end
+
+		count += #currentCategory
+	end
+
+	return nil
+end
+
+--- Get an Item's GlobalId
+function ItemService.GetGlobalId(category, id)
+	-- TODO
+end
+
 -- #region CREATE ITEMS
 
 --- Create an Instance of statsDefinition.WeaponData struct using WeaponDefinition
@@ -113,26 +145,7 @@ end
 -- #region SPAWN ITEMS MODELS
 
 --- Spawn model at Position
-function ItemService.SpawnItemDef(itemDefinitionId, position)
-	local itemDefinition = itemDefinitions[itemDefinitionId]
-
-	-- Spawn Model
-	local newModel = itemPrefabs[itemDefinition.id]:Clone()
-
-	local partToMove = newModel
-
-	if itemDefinition.itemType == itemTypes.weapon then
-		partToMove = newModel.Handle
-	end
-
-	partToMove.CFrame = CFrame.new(position)
-	-- newModel.Name = itemDefinition.name
-	newModel.Parent = workspace
-
-	return newModel
-end
-
--- function ItemService.SpawnItem(itemCategory, itemDefinitionId, position)
+-- function ItemService.SpawnItemDef(itemDefinitionId, position)
 -- 	local itemDefinition = itemDefinitions[itemDefinitionId]
 
 -- 	-- Spawn Model
@@ -151,7 +164,75 @@ end
 -- 	return newModel
 -- end
 
---- Make a part move
+--- Spawn Item Model at Position,
+--- eg : ItemService.SpawnItem(ItemRegistries.Weapons.WoodenClub, Vector3.zero)
+function ItemService.SpawnItem(item, position)
+	local usePos = position or Vector3.zero
+	local itemDefinition = item.definition
+
+	-- Spawn Model
+	local newModel = item.prefab:Clone()
+
+	local partToMove = newModel
+
+	if itemDefinition.itemType == itemTypes.weapon then
+		partToMove = newModel.Handle
+	end
+
+	partToMove.CFrame = CFrame.new(usePos)
+	-- newModel.Name = itemDefinition.name
+	newModel.Parent = workspace
+
+	return newModel
+end
+
+--- SpawnItem + lootMovement
+function ItemService.SpawnLoot(itemDefinitionId, position)
+	-- local partToMove = ItemService.SpawnItemDef(itemDefinitionId, position)
+	local partToMove = ItemService.SpawnItem(itemDefinitionId, position)
+
+	task.wait(ItemService.LootMovement(partToMove, position))
+	-- partToMove.Parent = workspace.AutoPickup -- Enable Pickup
+end
+
+--- Spawn Mutliple Items + Loot Movement
+function ItemService.SpawnManyItem(itemDefinitionId, position, itemCount)
+	-- FIXME
+	for i = 1, itemCount do
+		-- task.spawn(function()
+		-- 	ItemService.SpawnLoot(itemDefinitionId, position)
+		-- end)
+		ItemService.SpawnLoot(itemDefinitionId, position)
+		-- task.wait() -- delay between item
+	end
+end
+
+function ItemService.GenerateLoot(player, enemyHumanoid)
+	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
+
+	local orbsRng = math.random(1, 3)
+	-- ItemService.SpawnManyItem(itemStore.SmallXPOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
+	ItemService.SpawnManyItem(ItemDefinitions.Usables.SmallXPOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
+end
+
+--- eg ItemService.SpawnRandomItem(ItemDefinitions.Weapons, ItemRegistries.Weapons)
+function ItemService.SpawnRandomItem(itemDefinitions, itemRegistry, position)
+	assert(itemDefinitions, "SpawnRandomItem : itemDefinitions == nil")
+	assert(itemRegistry, "SpawnRandomItem : itemRegistry == nil")
+
+	local randomItem = math.random(1, #itemDefinitions)
+	local itemDef = itemDefinitions[randomItem]
+	local item = itemRegistry[itemDef.name]
+
+	ItemService.SpawnItem(item, position)
+end
+
+function ItemService.RemoveGroundItem(itemModel, instanceId)
+	-- TODO : Object Pooling
+	itemModel:Destroy()
+end
+
+--- Make a Part (Item Model) move
 function ItemService.LootMovement(partToMove, startPos)
 	partToMove.CFrame = CFrame.new(startPos)
 
@@ -168,43 +249,42 @@ function ItemService.LootMovement(partToMove, startPos)
 	local finalTargetPos = result.Position + posOffset
 
 	-- Perform Movement in X Steps
-	local steps = 60
+	local steps = math.random(30, 90)
 	local height = math.random(3, 6)
 
-	for i = 1, steps do
-		local progress = i / steps
-		partToMove.CFrame = CFrame.new(Gears.ParabolaPos(startPos, finalTargetPos, height, progress))
-		RunService.Heartbeat:Wait()
+	-- Create Movement Context
+	ItemServiceState.itemsMovement[partToMove] = {
+		steps = steps,
+		-- delay
+		currentStep = steps,
+		startPos = startPos,
+		finalTargetPos = finalTargetPos,
+		height = height,
+	}
+
+	-- for i = 1, steps do
+	-- 	local progress = i / steps
+	-- 	partToMove.CFrame = CFrame.new(Gears.ParabolaPos(startPos, finalTargetPos, height, progress))
+	-- 	RunService.Heartbeat:Wait()
+	-- end
+end
+
+function ItemService.LootMovementUpdate()
+	for part, movementCtx in pairs(ItemServiceState.itemsMovement) do
+		-- Move
+		local progress = movementCtx.currentStep / movementCtx.steps
+
+		local newPos = Gears.ParabolaPos(movementCtx.startPos, movementCtx.finalTargetPos, movementCtx.height, progress)
+		part.CFrame = CFrame.new(newPos)
+
+		ItemServiceState.itemsMovement[part].currentStep -= 1
+
+		-- End Movement
+		if ItemServiceState.itemsMovement[part].currentStep == 0 then
+			ItemServiceState.itemsMovement[part] = nil
+			part.Parent = workspace.AutoPickup -- Enable Pickup
+		end
 	end
-end
-
---- SpawnItem + lootMovement
-function ItemService.SpawnLoot(itemDefinitionId, position)
-	local partToMove = ItemService.SpawnItemDef(itemDefinitionId, position)
-
-	task.wait(ItemService.LootMovement(partToMove, position))
-	partToMove.Parent = workspace.AutoPickup -- Enable Pickup
-end
-
-function ItemService.SpawnManyItem(itemDefinitionId, position, itemCount)
-	for i = 1, itemCount, 1 do
-		task.spawn(function()
-			ItemService.SpawnLoot(itemDefinitionId, position)
-		end)
-		task.wait() -- delay between item
-	end
-end
-
-function ItemService.GenerateLoot(player, enemyHumanoid)
-	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
-
-	local orbsRng = math.random(1, 3)
-	ItemService.SpawnManyItem(itemStore.SmallXPOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
-end
-
-function ItemService.RemoveGroundItem(itemModel, instanceId)
-	-- TODO : Object Pooling
-	itemModel:Destroy()
 end
 
 -- #endregion
@@ -346,7 +426,10 @@ local function SetupWeaponType(weaponType)
 		-- print("Setup weapon model : " .. weaponModel.Name)
 
 		local definitionId = weaponModel:GetAttribute("DefinitionId")
-		local itemDefinition = itemDefinitions[definitionId]
+		-- local itemDefinition = itemDefinitions[definitionId]
+		warn(definitionId)
+		local itemDefinition = ItemService.GetItemDefinition(definitionId)
+		warn(itemDefinition)
 
 		local weaponData = createWeapon(itemDefinition, weaponModel)
 
@@ -386,6 +469,10 @@ function ItemService:KnitStart()
 	SetupWeaponType("WoodenClub")
 	SetupWeaponType("IronMace")
 	SetupWeaponType("IronAxe")
+
+	PlayerService.StateUpdate:Connect(function(state, dt)
+		ItemService.LootMovementUpdate()
+	end)
 end
 
 return ItemService

@@ -28,8 +28,7 @@ local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local RpgService
-local ItemService
+local RpgService, ItemService
 
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",

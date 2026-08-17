@@ -13,6 +13,10 @@ local LevelDefinitions
 local Events, EventsSounds, Maps, MapsMusics, MapsBuildings
 local BUILDING_FOLDER
 
+local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
+local ItemDefinitions = itemDef.ItemDefinitions
+local ItemRegistries = itemDef.ItemRegistries
+
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
@@ -164,7 +168,10 @@ function LevelService.StartStage()
 
 	-- Additional Setup
 	LevelService.SetMusic(LevelState.currentMapId)
-	LevelService.GenerateWeapons()
+
+	local randomWeaponAmount = math.random(1, 3)
+	LevelService.GenerateWeapons(randomWeaponAmount)
+
 	LevelService.GenerateEvents()
 end
 
@@ -542,9 +549,11 @@ function LevelService.GenerateWeapons(amount)
 	for i = 1, amount do
 		-- Random Building to Spawn Weapon into
 		local buildingIndex = math.random(1, #LevelState.currentBuildings)
+		local building = LevelState.currentBuildings[buildingIndex]
 
 		-- Random Weapon
-		-- ItemService.
+		local pos = building:GetPivot().Position
+		ItemService.SpawnRandomItem(ItemDefinitions.Weapons, ItemRegistries.WeaponsRegistry, pos)
 	end
 end
 

@@ -29,10 +29,10 @@ autoPickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
 autoPickupParam.MaxParts = 50
 
 local PlayerServiceState = {
-	playersDetections = {},
-	buildingsDetections = {},
 	enemiesDetectionParam = enemiesDetectionParam,
 	autoPickupParam = autoPickupParam,
+	playersDetections = {},
+	buildingsDetections = {},
 }
 
 local LevelState = {
@@ -53,6 +53,10 @@ local LevelState = {
 	-- Events
 	maxEvents = 0,
 	currentEventIndex = 1,
+}
+
+local ItemServiceState = {
+	itemsMovement = {},
 }
 
 local RpgState = {
@@ -171,6 +175,7 @@ local MutState = {
 	mainSounds = mainSounds,
 	PlayerServiceState = PlayerServiceState,
 	LevelState = LevelState,
+	ItemServiceState = ItemServiceState,
 	CombatState = CombatState,
 	RpgState = RpgState,
 	EnemyServiceState = EnemyServiceState,

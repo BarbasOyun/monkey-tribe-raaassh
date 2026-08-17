@@ -23,7 +23,32 @@ local prefabs = ReplicatedStorage.Shared.Prefabs
 -- 2) AutoPickup Usables
 -- 	Subtype = Orb -> consumed on pickup eg XpOrbs
 
--- TODO : Split per type -> avoid Item Editing Nightmare
+-- ITEMS TYPES
+
+local itemTypes = {
+	orb = "Orb",
+	weapon = "Weapon",
+	-- equipment
+}
+
+local DataSourceType = {
+	Defined = "Defined",
+	Instance = "Instance",
+}
+
+local PickupType = {
+	Auto = "Auto",
+	Vacuum = "Vacuum",
+}
+
+local itemTypeDefinition = {
+	["Orb"] = { DataSourceType.Defined, PickupType.Vacuum },
+	["Weapon"] = { DataSourceType.Instance, PickupType.Auto },
+	-- equipment
+}
+
+-- ITEMS DEFINITIONS
+
 local itemDefinitions = {
 	-- Usables
 	{
@@ -92,52 +117,142 @@ local itemDefinitions = {
 	-- Equipment
 }
 
-local itemStore = {
-	SmallXPOrb = 1,
-	Banana = 2,
-	Stick = 3,
-	Stone = 4,
-	WoodenClub = 5,
-	IronMace = 6,
-	IronAxe = 7,
+local Usables = {
+	{
+		-- id = 1,
+		name = "SmallXpOrb",
+		itemType = "Orb",
+		xp = 10,
+	},
+	{
+		-- id = 2,
+		name = "Banana",
+		itemType = "Orb",
+		banana = 1,
+	},
+	{
+		-- id = 3,
+		name = "Stick",
+		itemType = "Orb",
+		stick = 1,
+	},
+	{
+		-- id = 4,
+		name = "Stone",
+		itemType = "Orb",
+		stone = 1,
+	},
 }
 
-local itemPrefabs = {
-	prefabs.SmallXpOrb,
-	prefabs:FindFirstChild("Banana"),
-	prefabs:FindFirstChild("Stick"),
-	prefabs:FindFirstChild("Rock"),
-	prefabs.WoodenClub,
-	prefabs.IronMace,
-	prefabs.IronAxe,
+local Weapons = {
+	{
+		-- id = 5,
+		name = "WoodenClub",
+		displayName = "Wooden Club",
+		itemType = "Weapon",
+		equipmentType = "Mace",
+		damage = 25,
+		attackSpeed = 0.75,
+		range = 6,
+		maxCombo = 2,
+	},
+	{
+		-- id = 6,
+		name = "IronMace",
+		displayName = "Iron Mace",
+		itemType = "Weapon",
+		weaponType = "Mace",
+		damage = 35,
+		attackSpeed = 0.8,
+		range = 8,
+	},
+	{
+		-- id = 7,
+		name = "IronAxe",
+		displayName = "Iron Axe",
+		itemType = "Weapon",
+		weaponType = "Axe",
+		damage = 30,
+		attackSpeed = 1,
+		range = 7,
+	},
+	--[[
+	["IronSword"] = {
+		weaponType = "Sword",
+		damage = 20,
+		attackSpeed = 1,
+		range = 6,
+	},
+    ]]
 }
 
-local itemTypes = {
-	orb = "Orb",
-	weapon = "Weapon",
-	-- equipment
+local ItemDefinitions = {
+	Usables = Usables,
+	Weapons = Weapons,
 }
 
-local itemTypeTags = {
-	-- Data source type
-	Defined = "Defined",
-	Instance = "Instance",
-	-- Pickup Behavior
-	Auto = "Auto",
-	Vacuum = "Vacuum",
+-- local itemStore = {
+-- 	SmallXPOrb = 1,
+-- 	Banana = 2,
+-- 	Stick = 3,
+-- 	Stone = 4,
+-- 	WoodenClub = 5,
+-- 	IronMace = 6,
+-- 	IronAxe = 7,
+-- }
+
+-- local itemPrefabs = {
+-- 	prefabs.SmallXpOrb,
+-- 	prefabs:FindFirstChild("Banana"),
+-- 	prefabs:FindFirstChild("Stick"),
+-- 	prefabs:FindFirstChild("Rock"),
+-- 	prefabs.WoodenClub,
+-- 	prefabs.IronMace,
+-- 	prefabs.IronAxe,
+-- }
+
+-- ITEMS REGISTRIES
+
+--- Build an item Registry -> Link item Definitions + Prefabs
+local function buildRegistry(baseDefinitions)
+	local registry = {}
+
+	for i = 1, #baseDefinitions do
+		local definition = baseDefinitions[i]
+
+		local item = {
+			definition = definition,
+			prefab = prefabs:FindFirstChild(definition.name),
+		}
+
+		registry[definition.name] = item
+	end
+
+	return registry
+end
+
+local UsablesRegistry = buildRegistry(Usables)
+local WeaponsRegistry = buildRegistry(Weapons)
+
+local ItemRegistries = {
+	UsablesRegistry = UsablesRegistry,
+	WeaponsRegistry = WeaponsRegistry,
 }
 
-local itemTypeDefinition = {
-	["Orb"] = { itemTypeTags.Defined, itemTypeTags.Vacuum },
-	["Weapon"] = { itemTypeTags.Instance, itemTypeTags.Auto },
-	-- equipment
+--[[
+local ItemCategoryStore = {
+	Usable = 1,
+	Weapons = 2,
 }
+]]
 
 return {
 	itemDefinitions = itemDefinitions,
-	itemStore = itemStore,
+	-- itemStore = itemStore,
 	itemTypes = itemTypes,
 	-- itemTypeTags = itemTypeTags,
 	-- itemTypeDefinition = itemTypeDefinition,
-	itemPrefabs = itemPrefabs,
+	-- itemPrefabs = itemPrefabs,
+	ItemDefinitions = ItemDefinitions,
+	ItemRegistries = ItemRegistries,
 }
