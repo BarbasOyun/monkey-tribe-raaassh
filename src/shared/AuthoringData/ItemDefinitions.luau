@@ -49,74 +49,6 @@ local itemTypeDefinition = {
 
 -- ITEMS DEFINITIONS
 
-local itemDefinitions = {
-	-- Usables
-	{
-		id = 1,
-		name = "Small XP Orb",
-		itemType = "Orb",
-		xp = 10,
-	},
-	{
-		id = 2,
-		name = "Banana",
-		itemType = "Orb",
-		banana = 1,
-	},
-	{
-		id = 3,
-		name = "Stick",
-		itemType = "Orb",
-		stick = 1,
-	},
-	{
-		id = 4,
-		name = "Stone",
-		itemType = "Orb",
-		stone = 1,
-	},
-
-	-- Weapons
-	{
-		id = 5,
-		name = "Wooden Club",
-		itemType = "Weapon",
-		equipmentType = "Mace",
-		damage = 25,
-		attackSpeed = 0.75,
-		range = 6,
-		maxCombo = 2,
-	},
-	{
-		id = 6,
-		name = "Iron Mace",
-		itemType = "Weapon",
-		weaponType = "Mace",
-		damage = 35,
-		attackSpeed = 0.8,
-		range = 8,
-	},
-	{
-		id = 7,
-		name = "Iron Axe",
-		itemType = "Weapon",
-		weaponType = "Axe",
-		damage = 30,
-		attackSpeed = 1,
-		range = 7,
-	},
-	--[[
-	["IronSword"] = {
-		weaponType = "Sword",
-		damage = 20,
-		attackSpeed = 1,
-		range = 6,
-	},
-    ]]
-
-	-- Equipment
-}
-
 local Usables = {
 	{
 		-- id = 1,
@@ -165,6 +97,7 @@ local Weapons = {
 		damage = 35,
 		attackSpeed = 0.8,
 		range = 8,
+		maxCombo = 2,
 	},
 	{
 		-- id = 7,
@@ -175,6 +108,7 @@ local Weapons = {
 		damage = 30,
 		attackSpeed = 1,
 		range = 7,
+		maxCombo = 2,
 	},
 	--[[
 	["IronSword"] = {
@@ -186,32 +120,14 @@ local Weapons = {
     ]]
 }
 
-local ItemDefinitions = {
-	Usables = Usables,
-	Weapons = Weapons,
+local CategoryDefinitions = {
+	Usables,
+	Weapons,
 }
 
--- local itemStore = {
--- 	SmallXPOrb = 1,
--- 	Banana = 2,
--- 	Stick = 3,
--- 	Stone = 4,
--- 	WoodenClub = 5,
--- 	IronMace = 6,
--- 	IronAxe = 7,
--- }
-
--- local itemPrefabs = {
--- 	prefabs.SmallXpOrb,
--- 	prefabs:FindFirstChild("Banana"),
--- 	prefabs:FindFirstChild("Stick"),
--- 	prefabs:FindFirstChild("Rock"),
--- 	prefabs.WoodenClub,
--- 	prefabs.IronMace,
--- 	prefabs.IronAxe,
--- }
-
 -- ITEMS REGISTRIES
+
+local globalIdCount = 0
 
 --- Build an item Registry -> Link item Definitions + Prefabs
 local function buildRegistry(baseDefinitions)
@@ -221,6 +137,7 @@ local function buildRegistry(baseDefinitions)
 		local definition = baseDefinitions[i]
 
 		local item = {
+			id = globalIdCount + i,
 			definition = definition,
 			prefab = prefabs:FindFirstChild(definition.name),
 		}
@@ -228,31 +145,27 @@ local function buildRegistry(baseDefinitions)
 		registry[definition.name] = item
 	end
 
+	globalIdCount += #baseDefinitions
+
 	return registry
 end
 
 local UsablesRegistry = buildRegistry(Usables)
 local WeaponsRegistry = buildRegistry(Weapons)
 
-local ItemRegistries = {
-	UsablesRegistry = UsablesRegistry,
-	WeaponsRegistry = WeaponsRegistry,
+local CategoryRegistries = {
+	UsablesRegistry,
+	WeaponsRegistry,
 }
 
---[[
-local ItemCategoryStore = {
+local CategoryStore = {
 	Usable = 1,
 	Weapons = 2,
 }
-]]
 
 return {
-	itemDefinitions = itemDefinitions,
-	-- itemStore = itemStore,
 	itemTypes = itemTypes,
-	-- itemTypeTags = itemTypeTags,
-	-- itemTypeDefinition = itemTypeDefinition,
-	-- itemPrefabs = itemPrefabs,
-	ItemDefinitions = ItemDefinitions,
-	ItemRegistries = ItemRegistries,
+	CategoryStore = CategoryStore,
+	CategoryDefinitions = CategoryDefinitions,
+	CategoryRegistries = CategoryRegistries,
 }

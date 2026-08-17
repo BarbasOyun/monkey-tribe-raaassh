@@ -1,5 +1,4 @@
 -- UTILS / HELPER FUNCTIONS
--- Controller?
 
 local RunService = game:GetService("RunService")
 
@@ -467,11 +466,14 @@ end
 
 -- #region MATH
 
+Gears.MAX_RAD = math.pi * 2
+
+--- Get the Magnitude of a Vector before SquareRoot
 function Gears.SquaredMagnitude(vector3)
 	return (vector3.X * vector3.X) + (vector3.Y * vector3.Y) + (vector3.Z * vector3.Z)
 end
 
--- eg 10% Increase -> 1.1
+--- eg 10% Increase -> 1.1
 function Gears.IncreaseToMultiplier(increaseValue)
 	return 1 + increaseValue / 100
 end
@@ -508,6 +510,42 @@ end
 -- #endregion
 
 -- #region GEOMETRY
+
+--- Get random points within a Circle
+function Gears.GetPosWithinCircle(outerRadius, amount, constraints)
+	local positions = {}
+	local useConstraints = constraints or {}
+
+	for i = 1, amount do
+		local radius = Gears.FloatRandom(0, outerRadius)
+		local progress = Gears.FloatRandom(0, Gears.MAX_RAD)
+
+		local point = Gears.CirclePos(radius, progress)
+
+		-- Apply Constraints
+		for j = 1, #useConstraints do
+			point = useConstraints[j](point)
+		end
+
+		positions[i] = point
+	end
+
+	return positions
+end
+
+--- Get random points within 2 Circles -> Inner Circle is at the Center of Outer Circle
+function Gears.GetPosWithinCircles(innerRadius, outerRadius, amount)
+	local positions = {}
+
+	for i = 1, amount do
+		local radius = Gears.FloatRandom(innerRadius, outerRadius)
+		local progress = Gears.FloatRandom(0, Gears.MAX_RAD)
+
+		positions[i] = Gears.CirclePos(radius, progress)
+	end
+
+	return positions
+end
 
 --- Get the Magnitude of a Vector
 function Gears.PointsDistance(pointA, pointB)

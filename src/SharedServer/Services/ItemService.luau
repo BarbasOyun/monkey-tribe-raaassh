@@ -12,13 +12,11 @@ local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
 local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-local itemDefinitions = itemDef.itemDefinitions
 local itemTypes = itemDef.itemTypes
--- local itemStore = itemDef.itemStore
--- local itemPrefabs = itemDef.itemPrefabs
 
-local ItemDefinitions = itemDef.ItemDefinitions
-local ItemRegistries = itemDef.ItemRegistries
+local CategoryStore = itemDef.CategoryStore
+local CategoryDefinitions = itemDef.CategoryDefinitions
+local CategoryRegistries = itemDef.CategoryRegistries
 
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -60,7 +58,7 @@ local usablesLogicDefinition = {
 	-- Banana
 	function(player, itemDefinition, itemModel)
 		local bananas = itemDefinition.banana
-		print("Add Banana to all players : " .. bananas)
+		-- print("Add Banana to all players : " .. bananas)
 		PlayerService.AddCurrencyToAllPlayers(CONSTANTS.CURRENCIES.bananas, bananas)
 		ItemService.Client.GetOrb:Fire(player)
 		ItemService.RemoveGroundItem(itemModel)
@@ -83,21 +81,24 @@ local usablesLogicDefinition = {
 
 -- #endregion
 
---- Get an Item's Definition using GLobalId
+--- Get an Item's Definition using GlobalId
 function ItemService.GetItemDefinition(globalId: number)
-	warn("Get Item Definition Global ID = " .. globalId)
-	local currentCategory = ItemDefinitions.Usables
+	-- warn("Get Item Definition Global ID = " .. globalId)
 	local count = 0
 
-	for i = 1, #ItemDefinitions do
-		warn(globalId .. " <= " .. #currentCategory)
-		if globalId <= #currentCategory then
+	for i = 1, #CategoryDefinitions do
+		local category = CategoryDefinitions[i]
+		local threshold = count + #category
+
+		if globalId <= threshold then
 			local index = globalId - count
-			local definition = currentCategory[index]
+			local definition = category[index]
+
+			-- warn(definition)
 			return definition
 		end
 
-		count += #currentCategory
+		count += threshold
 	end
 
 	return nil
@@ -142,30 +143,10 @@ end
 
 -- #endregion
 
--- #region SPAWN ITEMS MODELS
-
---- Spawn model at Position
--- function ItemService.SpawnItemDef(itemDefinitionId, position)
--- 	local itemDefinition = itemDefinitions[itemDefinitionId]
-
--- 	-- Spawn Model
--- 	local newModel = itemPrefabs[itemDefinition.id]:Clone()
-
--- 	local partToMove = newModel
-
--- 	if itemDefinition.itemType == itemTypes.weapon then
--- 		partToMove = newModel.Handle
--- 	end
-
--- 	partToMove.CFrame = CFrame.new(position)
--- 	-- newModel.Name = itemDefinition.name
--- 	newModel.Parent = workspace
-
--- 	return newModel
--- end
+-- #region SPAWN ITEMS
 
 --- Spawn Item Model at Position,
---- eg : ItemService.SpawnItem(ItemRegistries.Weapons.WoodenClub, Vector3.zero)
+--- eg : ItemService.SpawnItem(ItemRegistries[CategoryStore.Weapons].WoodenClub, Vector3.zero)
 function ItemService.SpawnItem(item, position)
 	local usePos = position or Vector3.zero
 	local itemDefinition = item.definition
@@ -175,54 +156,56 @@ function ItemService.SpawnItem(item, position)
 
 	local partToMove = newModel
 
+	-- Weapon Setup
 	if itemDefinition.itemType == itemTypes.weapon then
 		partToMove = newModel.Handle
 	end
 
+	-- Set Item
 	partToMove.CFrame = CFrame.new(usePos)
 	-- newModel.Name = itemDefinition.name
+	newModel:SetAttribute("DefinitionId", item.id)
 	newModel.Parent = workspace
 
 	return newModel
 end
 
---- SpawnItem + lootMovement
+--- SpawnItem + LootMovement
 function ItemService.SpawnLoot(itemDefinitionId, position)
 	-- local partToMove = ItemService.SpawnItemDef(itemDefinitionId, position)
 	local partToMove = ItemService.SpawnItem(itemDefinitionId, position)
 
-	task.wait(ItemService.LootMovement(partToMove, position))
-	-- partToMove.Parent = workspace.AutoPickup -- Enable Pickup
+	ItemService.LootMovement(partToMove, position)
 end
 
 --- Spawn Mutliple Items + Loot Movement
 function ItemService.SpawnManyItem(itemDefinitionId, position, itemCount)
-	-- FIXME
 	for i = 1, itemCount do
-		-- task.spawn(function()
-		-- 	ItemService.SpawnLoot(itemDefinitionId, position)
-		-- end)
 		ItemService.SpawnLoot(itemDefinitionId, position)
-		-- task.wait() -- delay between item
 	end
 end
 
+--- Generate Loot of a Killed Enemy
 function ItemService.GenerateLoot(player, enemyHumanoid)
 	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
 
+	local pos = enemyHumanoid.Parent:GetPivot().Position
 	local orbsRng = math.random(1, 3)
-	-- ItemService.SpawnManyItem(itemStore.SmallXPOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
-	ItemService.SpawnManyItem(ItemDefinitions.Usables.SmallXPOrb, enemyHumanoid.Parent:GetPivot().Position, orbsRng)
+
+	ItemService.SpawnManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)
 end
 
 --- eg ItemService.SpawnRandomItem(ItemDefinitions.Weapons, ItemRegistries.Weapons)
-function ItemService.SpawnRandomItem(itemDefinitions, itemRegistry, position)
-	assert(itemDefinitions, "SpawnRandomItem : itemDefinitions == nil")
-	assert(itemRegistry, "SpawnRandomItem : itemRegistry == nil")
+function ItemService.SpawnRandomItem(categoryId, position)
+	local defintions = CategoryDefinitions[categoryId]
+	local registry = CategoryRegistries[categoryId]
 
-	local randomItem = math.random(1, #itemDefinitions)
-	local itemDef = itemDefinitions[randomItem]
-	local item = itemRegistry[itemDef.name]
+	assert(defintions, "wrong categoryId")
+	assert(registry, "wrong categoryId")
+
+	local randomItem = math.random(1, #defintions)
+	local itemDef = defintions[randomItem]
+	local item = registry[itemDef.name]
 
 	ItemService.SpawnItem(item, position)
 end
@@ -232,57 +215,60 @@ function ItemService.RemoveGroundItem(itemModel, instanceId)
 	itemModel:Destroy()
 end
 
---- Make a Part (Item Model) move
-function ItemService.LootMovement(partToMove, startPos)
-	partToMove.CFrame = CFrame.new(startPos)
+--- Make a Part (Item Model) move along a Parabola
+function ItemService.LootMovement(part, startPos)
+	part.CFrame = CFrame.new(startPos)
 
 	-- Find Target Pos
 	local dist = 4
-	local targetPos = startPos + Vector3.new(math.random(-dist, dist), 5, math.random(-dist, dist))
-	local result = workspace:Raycast(targetPos, Vector3.new(0, -10, 0))
+	local targetPos = Vector3.new(startPos.X + math.random(-dist, dist), 2.5, startPos.Z + math.random(-dist, dist))
 
-	if not result then
-		return
-	end
+	-- local targetPos = startPos + Vector3.new(math.random(-dist, dist), 5, math.random(-dist, dist))
+	-- local result = workspace:Raycast(targetPos, Vector3.new(0, -10, 0))
 
-	local posOffset = Vector3.new(0, 2, 0)
-	local finalTargetPos = result.Position + posOffset
+	-- if not result then
+	-- 	return
+	-- end
+
+	-- local posOffset = Vector3.new(0, 2, 0)
+	-- local finalTargetPos = result.Position + posOffset
+	local finalTargetPos = targetPos
 
 	-- Perform Movement in X Steps
 	local steps = math.random(30, 90)
 	local height = math.random(3, 6)
 
 	-- Create Movement Context
-	ItemServiceState.itemsMovement[partToMove] = {
+	local movementCtx = {
+		part = part,
 		steps = steps,
+		currentStep = 0,
 		-- delay
-		currentStep = steps,
 		startPos = startPos,
-		finalTargetPos = finalTargetPos,
+		endPos = finalTargetPos,
 		height = height,
 	}
 
-	-- for i = 1, steps do
-	-- 	local progress = i / steps
-	-- 	partToMove.CFrame = CFrame.new(Gears.ParabolaPos(startPos, finalTargetPos, height, progress))
-	-- 	RunService.Heartbeat:Wait()
-	-- end
+	table.insert(ItemServiceState.itemsMovement, movementCtx)
 end
 
 function ItemService.LootMovementUpdate()
-	for part, movementCtx in pairs(ItemServiceState.itemsMovement) do
+	for i = #ItemServiceState.itemsMovement, 1, -1 do
+		local movementCtx = ItemServiceState.itemsMovement[i]
+
 		-- Move
+		movementCtx.currentStep += 1
+
 		local progress = movementCtx.currentStep / movementCtx.steps
 
-		local newPos = Gears.ParabolaPos(movementCtx.startPos, movementCtx.finalTargetPos, movementCtx.height, progress)
-		part.CFrame = CFrame.new(newPos)
-
-		ItemServiceState.itemsMovement[part].currentStep -= 1
+		local newPos = Gears.ParabolaPos(movementCtx.startPos, movementCtx.endPos, movementCtx.height, progress)
+		movementCtx.part.CFrame = CFrame.new(newPos)
 
 		-- End Movement
-		if ItemServiceState.itemsMovement[part].currentStep == 0 then
-			ItemServiceState.itemsMovement[part] = nil
-			part.Parent = workspace.AutoPickup -- Enable Pickup
+		if progress >= 1 then
+			-- warn("End Movement")
+			movementCtx.part.Parent = workspace.AutoPickup -- Enable Pickup
+			table.remove(ItemServiceState.itemsMovement, i) -- Reverse Iteration?
 		end
 	end
 end
@@ -427,9 +413,7 @@ local function SetupWeaponType(weaponType)
 
 		local definitionId = weaponModel:GetAttribute("DefinitionId")
 		-- local itemDefinition = itemDefinitions[definitionId]
-		warn(definitionId)
 		local itemDefinition = ItemService.GetItemDefinition(definitionId)
-		warn(itemDefinition)
 
 		local weaponData = createWeapon(itemDefinition, weaponModel)
 

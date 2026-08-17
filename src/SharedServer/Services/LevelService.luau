@@ -14,8 +14,8 @@ local Events, EventsSounds, Maps, MapsMusics, MapsBuildings
 local BUILDING_FOLDER
 
 local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-local ItemDefinitions = itemDef.ItemDefinitions
-local ItemRegistries = itemDef.ItemRegistries
+local CategoryStore = itemDef.CategoryStore
+local CategoryRegistries = itemDef.CategoryRegistries
 
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -257,7 +257,6 @@ end
 
 function LevelService.DamageBuilding(building: Part, damage: number)
 	assert(damage > 0, "Damage Building : Damaeg needs to be Higher than 0")
-	-- TODO
 
 	local buildingHealth = LevelState.buildingsHealth[building]
 
@@ -268,11 +267,14 @@ function LevelService.DamageBuilding(building: Part, damage: number)
 	LevelState.buildingsHealth[building] -= damage
 	local damagedHealth = LevelState.buildingsHealth[building]
 
-	if damagedHealth <= 50 then
-		-- TODO : Break
-	end
+	-- if damagedHealth <= 50 then
+	-- 	-- TODO : Break
+	-- end
 
 	if damagedHealth <= 0 then
+		local pos = building.CFrame.Position
+		-- warn("Spawn Banana")
+		ItemService.SpawnLoot(CategoryRegistries[CategoryStore.Usable].Banana, pos)
 		building:Destroy()
 	end
 end
@@ -398,27 +400,28 @@ end
 -- #region MAP GENERATION
 
 --- Generate Random Buildings
-function LevelService.GenerateMap(mapId, stageRadiusSize, buildingsAmount)
+function LevelService.GenerateMap(mapId, stageRadius, buildingsAmount)
 	local buildings = MapsBuildings[mapId]
 
-	LevelService.DebugDraw(stageRadiusSize)
+	LevelService.DebugDraw(stageRadius)
 
-	-- 1] Create Nodes at random Positions
-	local circularNodes, prefabs = LevelService.GenerateNodes(buildings, stageRadiusSize, buildingsAmount)
-
-	-- 2] Collisions Detection + Solver
 	local constraints = {
+		-- TODO : Spawn Constraint -> Send to Center
+		-- Avoid generating building near spawn point
 		function(point)
-			return LevelService.CircleContainer(point, Vector2.zero, stageRadiusSize)
+			return LevelService.CircleConstraint(point, LevelDefinitions.SPAWN_POS, LevelDefinitions.MINIMUM_RADIUS)
+		end,
+		-- Stage Radius Constraint
+		function(point)
+			return LevelService.CircleContainer(point, Vector2.zero, stageRadius)
 		end,
 	}
 
-	for i = 1, LevelConst.COLLISIONS_DETECTIONS_ITERATIONS do
-		local collisions = LevelService.CollisionsDetection(circularNodes)
-		-- warn(circularNodes)
-		LevelService.Solver(circularNodes, collisions, constraints)
-		-- warn(circularNodes)
-	end
+	-- 1] Create Nodes at random Positions
+	local circularNodes, prefabs = LevelService.GenerateNodes(buildings, stageRadius, buildingsAmount, constraints)
+
+	-- 2] Collisions Detection + Solver
+	LevelService.SeparateCircles(circularNodes, constraints)
 
 	-- 3] Spawn Buildings
 	LevelService.SpawnBuildings(circularNodes, prefabs)
@@ -427,10 +430,10 @@ function LevelService.GenerateMap(mapId, stageRadiusSize, buildingsAmount)
 end
 
 --- DEBUG : Draw Stage Radius + Minimum Radius
-function LevelService.DebugDraw(stageRadiusSize)
+function LevelService.DebugDraw(stageRadius)
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		-- Outer Radius
-		local outerRadiusPoints = Gears.CirclePoints(stageRadiusSize, 20)
+		local outerRadiusPoints = Gears.CirclePoints(stageRadius, 20)
 		Gears.DrawCircle(Vector3.new(0, 3, 0), outerRadiusPoints)
 
 		-- Inner Radius
@@ -441,19 +444,14 @@ function LevelService.DebugDraw(stageRadiusSize)
 end
 
 --- Generate Building Nodes at random positions
-function LevelService.GenerateNodes(buildings, outerRadius, amount)
+function LevelService.GenerateNodes(buildings, stageRadius, amount, constraints)
 	local circularNodes = {}
 	local prefabs = {}
 
 	local buildingIndex = math.random(1, #buildings)
 
 	-- Generate Nodes Positions
-	local constraints = {
-		function(point)
-			return LevelService.CircleConstraint(point, LevelDefinitions.SPAWN_POS, LevelDefinitions.MINIMUM_RADIUS)
-		end,
-	}
-	local positions = LevelService.GetPosWithinCircle(outerRadius, amount, constraints)
+	local positions = Gears.GetPosWithinCircle(stageRadius, amount, constraints)
 
 	-- Generate Building Nodes
 	for i = 1, amount do
@@ -475,41 +473,6 @@ function LevelService.GenerateNodes(buildings, outerRadius, amount)
 	return circularNodes, prefabs
 end
 
---- Get random points within 2 Circles -> Inner Circle is at the Center of Outer Circle
-function LevelService.GetPosWithinCircles(innerRadius, outerRadius, amount)
-	local positions = {}
-
-	for i = 1, amount do
-		local radius = Gears.FloatRandom(innerRadius, outerRadius)
-		local progress = Gears.FloatRandom(0, CONSTANTS.MAX_RADIANT)
-
-		positions[i] = Gears.CirclePos(radius, progress)
-	end
-
-	return positions
-end
-
---- Get random points within a Circle
-function LevelService.GetPosWithinCircle(outerRadius, amount, constraints)
-	local positions = {}
-
-	for i = 1, amount do
-		local radius = Gears.FloatRandom(0, outerRadius)
-		local progress = Gears.FloatRandom(0, CONSTANTS.MAX_RADIANT)
-
-		local point = Gears.CirclePos(radius, progress)
-
-		-- Apply Constraints
-		for j = 1, #constraints do
-			point = constraints[j](point)
-		end
-
-		positions[i] = point
-	end
-
-	return positions
-end
-
 --- Spawn Buildings based on Node Locations
 function LevelService.SpawnBuildings(buildingNodes, prefabs)
 	for i = 1, #buildingNodes do
@@ -523,8 +486,11 @@ function LevelService.SpawnBuildings(buildingNodes, prefabs)
 			Gears.DrawCircle(pos, outerRadiusPoints)
 		end)
 
+		-- Building OnSpawn
 		local building = prefab:clone()
 		building.Parent = BUILDING_FOLDER
+
+		-- Set Position
 		-- TODO : Raycast to find Y (height) value -> Allow Different Terrain Heights
 		local buildingHeight = building:GetPivot().Position.Y
 		local buildingPos = CFrame.new(node.position.X, buildingHeight, node.position.Y)
@@ -546,14 +512,26 @@ end
 
 --- Scatter random weapons in the Map
 function LevelService.GenerateWeapons(amount)
+	warn("Generate " .. amount .. " Weapons")
+
+	local buildings = table.clone(LevelState.currentBuildings)
+
 	for i = 1, amount do
 		-- Random Building to Spawn Weapon into
 		local buildingIndex = math.random(1, #LevelState.currentBuildings)
+		table.remove(buildings, buildingIndex)
+
 		local building = LevelState.currentBuildings[buildingIndex]
 
 		-- Random Weapon
+		local weaponRegistry = CategoryRegistries[CategoryStore.Weapons]
+		local items = { weaponRegistry.IronMace, weaponRegistry.IronAxe }
+
+		local randomIndex = math.random(1, #items)
+		local item = items[randomIndex]
 		local pos = building:GetPivot().Position
-		ItemService.SpawnRandomItem(ItemDefinitions.Weapons, ItemRegistries.WeaponsRegistry, pos)
+
+		ItemService.SpawnItem(item, pos)
 	end
 end
 
@@ -573,6 +551,24 @@ type CollisionsData = {
 	normals: {},
 	penetrationDepth: {},
 }
+
+--- Use Collisions Detection + Solving to Separate Circles
+function LevelService.SeparateCircles(circularNodes, constraints)
+	for i = 1, LevelConst.COLLISIONS_DETECTIONS_ITERATIONS do
+		local collisionsData = LevelService.CollisionsDetection(circularNodes)
+		warn(#collisionsData.object1 .. " Collisions Detected")
+		warn(collisionsData)
+
+		if #collisionsData.object1 == 0 then
+			break
+		end
+
+		warn("Circles Solving : ")
+		warn(circularNodes)
+		LevelService.Solver(circularNodes, collisionsData, constraints)
+		warn(circularNodes)
+	end
+end
 
 --- Detect the Collisions between (Circular) Nodes
 function LevelService.CollisionsDetection(circularNodes)
@@ -596,8 +592,6 @@ function LevelService.CollisionsDetection(circularNodes)
 		LevelService.RadiusRadiusesCol(collisionsData, ignoreList, i, circularNodes)
 	end
 
-	warn(#collisionsData.object1 .. " Collisions Detected")
-	warn(collisionsData)
 	return collisionsData
 end
 
@@ -704,7 +698,7 @@ function LevelService.IgnoreList(collisionsData: CollisionsData, index: number)
 	return ignoreList
 end
 
---- Solve collisions between Nodes
+--- Solve collisions between Circles
 function LevelService.Solver(circularNodes, collisionsData: CollisionsData, constraints: {})
 	for i = 1, LevelConst.SOLVER_ITERATIONS do
 		for j = 1, #collisionsData.object1 do

@@ -20,6 +20,8 @@ local defaultGameState = {
 
 local Selectors = {
 	PlayerState = function(state, userId)
+		assert(state, "State is nil")
+		assert(userId, "userId is nil")
 		return state.players[userId]
 	end,
 

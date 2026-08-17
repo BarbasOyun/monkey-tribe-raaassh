@@ -15,7 +15,7 @@ local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
 local StoreActions = RoduxStore.Actions
--- local Selectors = RoduxStore.Selectors
+local Selectors = RoduxStore.Selectors
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
@@ -355,17 +355,17 @@ end
 
 -- #region CURRENCIES
 
--- currencyId = from CONSTANTS.CURRENCIES
+--- currencyId = from CONSTANTS.CURRENCIES
 function PlayerService.GetCurrency(state, userId, currencyId)
-	local playerData = state.players[userId]
-	local currency = playerData[CONSTANTS.CURRENCIES_NAMES[currencyId]]
+	local playerState = Selectors.PlayerState(state, userId)
+	local currency = playerState[CONSTANTS.CURRENCIES_NAMES[currencyId]]
 	return if currency ~= nil then currency else 0
 end
 
 local function updateCurrency(state, player, currencyId, value)
 	local userId = player.UserId
 
-	local currency = PlayerService:GetCurrency(state, userId, currencyId)
+	local currency = PlayerService.GetCurrency(state, userId, currencyId)
 	local newValue = math.clamp(currency + value, 0, CONSTANTS.MAX_CURRENCIES[currencyId])
 
 	local patch = { [CONSTANTS.CURRENCIES_NAMES[currencyId]] = newValue }
