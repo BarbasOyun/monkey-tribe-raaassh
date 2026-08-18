@@ -75,6 +75,14 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 	}
 end)(textLabel)
 
+-- Stage Countdown
+local stageCountdownProps = {
+	position = UDim2.fromScale(0.45, 0.2),
+	size = UDim2.fromScale(0.1, 0.1),
+	text = "10",
+	-- textStrokeTransparency = 1,
+}
+
 -- GameTimer
 local gameTimerProps = {
 	position = UDim2.fromScale(0.1, 0.0),
@@ -242,6 +250,7 @@ local function mainGui()
 		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
 		GameTimer = textLabel(gameTimerProps),
 		-- Top Mid
+		StageCountdown = textLabel(stageCountdownProps),
 		CurrentStageText = Roact.createElement(currentStageText),
 		ProgressBar = resourceBar(progressBarProps),
 		EventsIcons = Roact.createElement(eventsIcons),
@@ -280,6 +289,14 @@ local function generateUi()
 
 	LevelService.ProgressUpdate:Connect(function(progress)
 		progressBarRef.Size = UDim2.fromScale(progress, 1)
+	end)
+
+	-- Stage Countdown Update
+	local stageCountdown = mainGuiRef.StageCountdown
+
+	LevelService.StageCountDownUpdate:Connect(function(countDown)
+		stageCountdown.TextStrokeTransparency = 0
+		stageCountdown.Text = countDown
 	end)
 
 	-- GameTimer Update

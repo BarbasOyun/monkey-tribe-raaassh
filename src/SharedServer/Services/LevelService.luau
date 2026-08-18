@@ -36,6 +36,7 @@ local PlayerService, EnemyService, ItemService, CombatService
 local LevelService = Knit.CreateService({
 	Name = "LevelService",
 	Client = {
+		StageCountDownUpdate = Knit.CreateSignal(),
 		GameTimerUpdate = Knit.CreateSignal(),
 		ProgressUpdate = Knit.CreateSignal(),
 	},
@@ -151,19 +152,26 @@ function LevelService.LoadLevelDefinitions()
 			CombatService.AutoTargetBuildings(state, player)
 		end
 	end)
+
+	-- Save Bananas when Player Leave
+	PlayerService.PlayerRemoved:Connect(function(player)
+		PlayerService.SaveBananaDelta(player)
+	end)
 end
 
 --- Start a New Stage
 function LevelService.StartStage()
 	LevelState.stageProgress = 0
+	LevelState.isWaitingForNextStage = false
+
 	LevelState.currentMapId = math.random(1, #MapsBuildings)
 	warn("Start Stage MapID = " .. LevelState.currentMapId)
 
 	PlayerService.ResurrectAll()
 
 	-- Generate Map
-	local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
-	-- local buildingsAmount = 6
+	-- local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
+	local buildingsAmount = 6
 	LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
 
 	-- Additional Setup
@@ -197,30 +205,64 @@ function LevelService.ProgressStage()
 
 	LevelService.CheckEvents(stageProgress)
 
-	-- Is Stage Finished
-	if stageProgress >= 1 then
-		LevelService.FinishStage()
+	local isStageFinished = stageProgress >= 1
+
+	if isStageFinished then
+		LevelService.StartStageCountdown()
 	end
 
 	LevelService.Client.ProgressUpdate:FireAll(stageProgress)
 end
 
-function LevelService.FinishStage()
-	-- TODO :
-	-- Start Countdown
-	task.wait() -- Countdown
+--- Start Next Stage Countdown -> Trigger Next Stage
+function LevelService.StartStageCountdown()
+	LevelState.isWaitingForNextStage = true
 
+	LevelState.stageCountDownTime = 0
+	LevelState.stageCountDown = 10
+
+	-- Refresh Client UI
+	LevelService.Client.StageCountDownUpdate:FireAll(LevelState.stageCountDown)
+
+	-- Start Coundown
+	local handle = PlayerService.StateUpdate:Connect(function(state, dt)
+		LevelState.stageCountDownTime += dt -- TODO : Second Global Timer (PlayerService)
+
+		if LevelState.stageCountDownTime >= 1 then
+			LevelState.stageCountDownTime -= 1 -- Reset + Keep Overtime
+
+			LevelState.stageCountDown -= 1
+			-- Refresh Client UI
+			LevelService.Client.StageCountDownUpdate:FireAll(LevelState.stageCountDown)
+
+			if LevelState.stageCountDownTime <= 0 then
+				LevelState.countdownHandle:Disconnect()
+				LevelService.FinishStage()
+			end
+		end
+	end)
+
+	LevelState.countdownHandle = handle
+end
+
+function LevelService.FinishStage()
 	-- Map Increments
 	local newBuildingAmount = LevelState.buildingAmount + LevelDefinitions.BUILDINGS_INCREMENT
 	LevelState.buildingAmount = math.min(newBuildingAmount, LevelDefinitions.BUILDING_LIMIT)
 
 	local state = Store:getState()
+
+	-- Save Bananas
+	for _, player in pairs(Players:GetPlayers()) do
+		PlayerService.SaveBananaDelta(state, player)
+	end
+
+	-- Patch Game State
 	local currentStage = state.gameState.currentStage + 1
-
 	local patch = { currentStage = currentStage }
-	Store:dispatch(StoreActions.PatchGameState(patch))
 
-	PlayerService.PatchGameState:FireAll(patch)
+	Store:dispatch(StoreActions.PatchGameState(patch))
+	PlayerService.Client.PatchGameState:FireAll(patch)
 
 	LevelService.ResetLevel()
 	LevelService.StartStage()
@@ -268,14 +310,24 @@ function LevelService.DamageBuilding(building: Part, damage: number)
 	local damagedHealth = LevelState.buildingsHealth[building]
 
 	-- if damagedHealth <= 50 then
-	-- 	-- TODO : Break
+	-- 	-- TODO : Break (Physic)
 	-- end
 
+	-- Destroy Building
 	if damagedHealth <= 0 then
-		local pos = building.CFrame.Position
-		-- warn("Spawn Banana")
-		ItemService.SpawnLoot(CategoryRegistries[CategoryStore.Usable].Banana, pos)
+		-- Spawn Bananas
+		local chance = 30
+		local roll = math.random(0, 100)
+
+		if roll <= chance then
+			local pos = building.CFrame.Position
+			local amount = math.random(1, 3)
+			ItemService.SpawnManyItem(CategoryRegistries[CategoryStore.Usable].Banana, pos, amount)
+			-- ItemService.SpawnLoot(CategoryRegistries[CategoryStore.Usable].Banana, pos)
+		end
+
 		building:Destroy()
+		LevelService.ProgressStage()
 	end
 end
 
@@ -386,7 +438,7 @@ function LevelService.CheckEvents(stageProgress)
 	if isEventReached then
 		local state = Store:getState()
 		local currentEventId = state.gameState.currentEvents[LevelState.currentEventIndex]
-		warn("Trigger Event ID = " .. currentEventId)
+		-- warn("Trigger Event ID = " .. currentEventId)
 
 		EventsSounds[currentEventId]:Play()
 		EventsLogic[currentEventId]()
@@ -565,7 +617,7 @@ function LevelService.SeparateCircles(circularNodes, constraints)
 
 		warn("Circles Solving : ")
 		warn(circularNodes)
-		LevelService.Solver(circularNodes, collisionsData, constraints)
+		circularNodes = LevelService.Solver(circularNodes, collisionsData, constraints)
 		warn(circularNodes)
 	end
 end
@@ -702,14 +754,23 @@ end
 function LevelService.Solver(circularNodes, collisionsData: CollisionsData, constraints: {})
 	for i = 1, LevelConst.SOLVER_ITERATIONS do
 		for j = 1, #collisionsData.object1 do
-			local object1 = circularNodes[collisionsData.object1[j]]
-			local object2 = circularNodes[collisionsData.object2[j]]
+			local object1Index = collisionsData.object1[j]
+			local object2Index = collisionsData.object2[j]
+
+			local object1 = circularNodes[object1Index]
+			local object2 = circularNodes[object2Index]
 			local normal = collisionsData.normals[j]
 			local penetrationDepth = collisionsData.penetrationDepth[j]
 
-			LevelService.SolveCol(object1, object2, normal, penetrationDepth, constraints)
+			local newobject1, newobject2 =
+				LevelService.SolveCol(object1, object2, normal, penetrationDepth, constraints)
+
+			circularNodes[object1Index] = newobject1
+			circularNodes[object2Index] = newobject2
 		end
 	end
+
+	return circularNodes
 end
 
 --- Solve a Collision Between 2 Circles
@@ -744,6 +805,8 @@ function LevelService.SolveCol(
 		object1.position = constraints[i](object1.position)
 		object2.position = constraints[i](object2.position)
 	end
+
+	return object1, object2
 end
 
 -- #endregion

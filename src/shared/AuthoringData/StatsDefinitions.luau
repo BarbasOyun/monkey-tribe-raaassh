@@ -159,6 +159,7 @@ local DEFAULT_PLAYER: Player = {
 	isDead = false,
 	-- Currencies
 	bananas = 0,
+	bananasSavedToDb = 0,
 	sticks = 0,
 	stones = 0,
 	-- Score

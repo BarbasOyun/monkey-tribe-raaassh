@@ -2,7 +2,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local CollectionService = game:GetService("CollectionService")
--- local RunService = game:GetService("RunService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
@@ -81,6 +80,8 @@ local usablesLogicDefinition = {
 
 -- #endregion
 
+-- #region UTILS
+
 --- Get an Item's Definition using GlobalId
 function ItemService.GetItemDefinition(globalId: number)
 	-- warn("Get Item Definition Global ID = " .. globalId)
@@ -108,6 +109,8 @@ end
 function ItemService.GetGlobalId(category, id)
 	-- TODO
 end
+
+-- #endregion
 
 -- #region CREATE ITEMS
 
@@ -171,17 +174,15 @@ function ItemService.SpawnItem(item, position)
 end
 
 --- SpawnItem + LootMovement
-function ItemService.SpawnLoot(itemDefinitionId, position)
-	-- local partToMove = ItemService.SpawnItemDef(itemDefinitionId, position)
-	local partToMove = ItemService.SpawnItem(itemDefinitionId, position)
-
+function ItemService.SpawnLoot(item, position)
+	local partToMove = ItemService.SpawnItem(item, position)
 	ItemService.LootMovement(partToMove, position)
 end
 
---- Spawn Mutliple Items + Loot Movement
-function ItemService.SpawnManyItem(itemDefinitionId, position, itemCount)
-	for i = 1, itemCount do
-		ItemService.SpawnLoot(itemDefinitionId, position)
+--- Spawn Multiple Items + Loot Movement
+function ItemService.SpawnManyItem(item, position, amount)
+	for i = 1, amount do
+		ItemService.SpawnLoot(item, position)
 	end
 end
 
@@ -268,7 +269,7 @@ function ItemService.LootMovementUpdate()
 		if progress >= 1 then
 			-- warn("End Movement")
 			movementCtx.part.Parent = workspace.AutoPickup -- Enable Pickup
-			table.remove(ItemServiceState.itemsMovement, i) -- Reverse Iteration?
+			table.remove(ItemServiceState.itemsMovement, i)
 		end
 	end
 end
@@ -283,7 +284,7 @@ function ItemService.PickupItem(player, itemModel)
 	-- Distance item / player
 
 	local definitionId = itemModel:GetAttribute("DefinitionId")
-	local itemDefinition = itemDefinitions[definitionId]
+	local itemDefinition = ItemService.GetItemDefinition(definitionId)
 
 	if not itemDefinition then
 		warn("Pickup item : itemDefinition not found for " .. itemModel.name)
@@ -412,7 +413,6 @@ local function SetupWeaponType(weaponType)
 		-- print("Setup weapon model : " .. weaponModel.Name)
 
 		local definitionId = weaponModel:GetAttribute("DefinitionId")
-		-- local itemDefinition = itemDefinitions[definitionId]
 		local itemDefinition = ItemService.GetItemDefinition(definitionId)
 
 		local weaponData = createWeapon(itemDefinition, weaponModel)

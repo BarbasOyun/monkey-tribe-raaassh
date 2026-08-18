@@ -152,22 +152,22 @@ end
 
 -- #region DB
 
---- Save a Player Score & Meta Upgrades to Db
+--- Save a Player's Bananas & Meta Upgrades to Db
 function PlayerService.SaveToDb(userId)
 	local state = Store:getState()
-	local playerData = state.players[userId]
+	local playerState = state.players[userId]
 
-	warn(playerData.username .. " Saving Meta Upgrades and Score to DB")
+	warn(playerState.username .. " Saving Meta Upgrades and Bananas to DB")
 
 	-- Bananas
-	local bananaCount = playerData.bananas
+	local bananaCount = playerState.bananas
 	-- warn("Bananas = " .. bananaCount)
 	pcall(function()
 		PlayersDb:SetAsync(userId .. "_bananas", bananaCount)
 	end)
 
 	-- Meta Upgrades
-	for upgradeType, level in pairs(playerData.metaUpgradesLevel) do
+	for upgradeType, level in pairs(playerState.metaUpgradesLevel) do
 		-- warn(upgradeType .. " Saving Level to DB : " .. level)
 		pcall(function()
 			PlayersDb:SetAsync(userId .. "_" .. upgradeType, level)
@@ -176,9 +176,7 @@ function PlayerService.SaveToDb(userId)
 end
 
 function PlayerService.IncrementDbBananas(userId, value)
-	if value <= 0 then
-		return
-	end
+	assert(value > 0, "IncrementDbBananas : Bananas Value need to be Greater than 0")
 
 	local success, newValue = pcall(function()
 		return PlayersDb:UpdateAsync(userId, function(oldValue)
@@ -218,6 +216,7 @@ function PlayerService.GetMetaUpgrades(player)
 	local state = Store:getState()
 	local playerState = state.players[userId]
 
+	-- foreach Meta Upgrade : Get
 	for upgradeType, _ in pairs(playerState.metaUpgrades) do
 		local level = 0
 
@@ -241,6 +240,25 @@ function PlayerService.GetMetaUpgrades(player)
 	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 
 	RpgService.CalculateAllStats(player)
+end
+
+--- Calculate Banana Delta and Increment the player's Bananas in DB by it
+function PlayerService.SaveBananaDelta(state, player)
+	-- Get State
+	local userId = player.UserId
+	local playerState = Selectors.PlayerState(state, userId)
+
+	-- Bananas Delta + DB Save
+	local bananasDelta = playerState.bananas - playerState.bananasSavedToDb
+
+	if bananasDelta >= 0 then
+		warn(player.Name .. " Save " .. bananasDelta .. " Bananas to DB")
+		PlayerService.IncrementDbBananas(userId, bananasDelta)
+	end
+
+	-- Dispatch
+	local patch = { bananasSavedToDb = bananasDelta }
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 end
 
 --- Debug func -> Delete Player's DB

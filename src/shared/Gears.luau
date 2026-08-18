@@ -279,7 +279,7 @@ function Gears.Dismember(character)
 	rightLeg.CanCollide = true
 end
 
---- Reset a Dismenbered Character
+--- Reset a Dismembered Character
 ---@param character Model
 function Gears.ResetCharacter(character)
 	-- Get Body Parts
@@ -290,27 +290,27 @@ function Gears.ResetCharacter(character)
 	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = Gears.GetJoints(character)
 
 	-- Enable Joints
-	rootJoint.Enabled = true
-	neck.Enabled = true
-	leftShoulder.Enabled = true
-	leftHip.Enabled = true
-	rightShoulder.Enabled = true
-	rightHip.Enabled = true
+	-- rootJoint.Enabled = true
+	-- neck.Enabled = true
+	-- leftShoulder.Enabled = true
+	-- leftHip.Enabled = true
+	-- rightShoulder.Enabled = true
+	-- rightHip.Enabled = true
 
 	-- Reset Pos
 	-- local localOffset = CFrame.new(0, 0, 0)
 	-- torso.CFrame = character:GetPivot() * localOffset
 	-- HumanoidRootPart.CFrame = character:GetPivot() * localOffset
 
-	-- Gears.EnableJointInstantly(rootJoint)
-	-- Gears.EnableJointInstantly(neck)
-	-- Gears.EnableJointInstantly(leftShoulder)
-	-- Gears.EnableJointInstantly(leftHip)
-	-- Gears.EnableJointInstantly(rightShoulder)
-	-- Gears.EnableJointInstantly(rightHip)
+	Gears.EnableJointInstantly(rootJoint)
+	Gears.EnableJointInstantly(neck)
+	Gears.EnableJointInstantly(leftShoulder)
+	Gears.EnableJointInstantly(leftHip)
+	Gears.EnableJointInstantly(rightShoulder)
+	Gears.EnableJointInstantly(rightHip)
 
 	-- Enable Collisions
-	character.HumanoidRootPart.Anchored = false
+	-- HumanoidRootPart.Anchored = false
 	-- HumanoidRootPart.CanCollide = true
 	torso.CanCollide = true
 	head.CanCollide = true

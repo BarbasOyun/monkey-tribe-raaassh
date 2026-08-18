@@ -35,6 +35,7 @@ local PlayerServiceState = {
 	buildingsDetections = {},
 }
 
+-- Level Service State
 local LevelState = {
 	buildingsDetectionParam = nil,
 	-- Map
@@ -44,6 +45,9 @@ local LevelState = {
 	stageRadius = 200,
 	-- Stage
 	stageProgress = 0,
+	stageCountDownTime = 0,
+	countdownHandle = nil,
+	stageCountDown = 0,
 	isWaitingForNextStage = false,
 	buildingsHealth = {}, -- TODO : Use ECS instead
 	buildingAmount = 3,

@@ -355,7 +355,7 @@ function EnemyService.EnableNextInPool(enemyId, position)
 	local hasReachedMax = pool.activeCount >= pool.size
 
 	if hasReachedMax then
-		warn(pool.name .. " Reached Limit of : " .. pool.count)
+		warn(pool.name .. " Reached Limit of : " .. pool.activeCount)
 		return
 	end
 
