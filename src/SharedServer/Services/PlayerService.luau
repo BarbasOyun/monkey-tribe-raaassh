@@ -124,20 +124,22 @@ function PlayerService.OnCharacterAdded(player, character)
 	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 end
 
-function PlayerService.RemovePlayer(player)
-	local userId = player.UserId
+function PlayerService.RemovePlayer(player, exitReason)
+	-- warn(player.Name .. " left - Reason: " .. tostring(exitReason))
 
-	Store:dispatch(StoreActions.RemovePlayer(userId))
+	local userId = player.UserId
 
 	-- Events
 	PlayerService.PlayerRemoved:Fire(player)
 	PlayerService.Client.PlayerRemoved:FireAll(player)
+
+	Store:dispatch(StoreActions.RemovePlayer(userId))
 end
 
 --- Add the Default sounds to a player
 function PlayerService.AddSounds(player)
 	local playerGui = player:WaitForChild("PlayerGui")
-	local soundFolder = playerGui.ClientSounds -- or Instance("Folder")
+	local soundFolder = playerGui:WaitForChild("ClientSounds") -- or Instance("Folder")
 
 	local mainSounds = MutState.mainSounds:clone()
 	mainSounds.Parent = soundFolder
@@ -175,18 +177,6 @@ function PlayerService.SaveToDb(userId)
 	end
 end
 
-function PlayerService.IncrementDbBananas(userId, value)
-	assert(value > 0, "IncrementDbBananas : Bananas Value need to be Greater than 0")
-
-	local success, newValue = pcall(function()
-		return PlayersDb:UpdateAsync(userId, function(oldValue)
-			local current = oldValue or 0
-			local nextValue = current + value
-			return math.clamp(nextValue, 0, CONSTANTS.MAX_CURRENCIES[CONSTANTS.CURRENCIES.bananas])
-		end)
-	end)
-end
-
 function PlayerService.GetBananasDb(player)
 	local userId = player.UserId
 	local bananaCount = 0
@@ -203,6 +193,19 @@ function PlayerService.GetBananasDb(player)
 
 	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 	PlayerService.Client.PatchPlayer:Fire(player, patch)
+end
+
+function PlayerService.IncrementDbBananas(userId, value)
+	assert(value > 0, "IncrementDbBananas : Bananas Value need to be Greater than 0")
+	local key = userId .. "_bananas"
+
+	local success, newValue = pcall(function()
+		return PlayersDb:UpdateAsync(key, function(oldValue)
+			local current = oldValue or 0
+			local nextValue = current + value
+			return math.clamp(nextValue, 0, CONSTANTS.MAX_CURRENCIES[CONSTANTS.CURRENCIES.bananas])
+		end)
+	end)
 end
 
 --- Get Meta Upgrades Levels from DB or 0
@@ -242,25 +245,6 @@ function PlayerService.GetMetaUpgrades(player)
 	RpgService.CalculateAllStats(player)
 end
 
---- Calculate Banana Delta and Increment the player's Bananas in DB by it
-function PlayerService.SaveBananaDelta(state, player)
-	-- Get State
-	local userId = player.UserId
-	local playerState = Selectors.PlayerState(state, userId)
-
-	-- Bananas Delta + DB Save
-	local bananasDelta = playerState.bananas - playerState.bananasSavedToDb
-
-	if bananasDelta >= 0 then
-		warn(player.Name .. " Save " .. bananasDelta .. " Bananas to DB")
-		PlayerService.IncrementDbBananas(userId, bananasDelta)
-	end
-
-	-- Dispatch
-	local patch = { bananasSavedToDb = bananasDelta }
-	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
-end
-
 --- Debug func -> Delete Player's DB
 local function ResetPlayer(player)
 	local state = Store:getState()
@@ -289,29 +273,43 @@ function PlayerService.GameOver()
 	print("Game Over -> Saving Bananas & Going back to Hub")
 	local players = Players:GetPlayers()
 
-	PlayerService.SaveAllBananasDelta()
+	PlayerService.SaveAllBananaDelta()
 
 	pcall(function()
 		return TeleportService:TeleportAsync(CONSTANTS.HUB_PLACE_ID, players)
 	end)
 end
 
---- Calculate Bananas Delta for a player and Increment the DB Value by it
-function PlayerService.SaveBananasDelta(player)
-	-- TODO
-	local bananasDelta = 0
-	PlayerService.IncrementDbBananas(player.UserId, bananasDelta)
+function PlayerService.SaveAllBananaDelta()
+	local state = Store:getState()
+
+	for _, player in pairs(Players:GetPlayers()) do
+		PlayerService.SaveBananaDelta(state, player)
+	end
 end
 
-function PlayerService.SaveAllBananasDelta()
-	for _, player in pairs(Players:GetPlayers()) do
-		PlayerService.SaveBananasDelta(player)
+--- Calculate Banana Delta and Increment the player's Bananas in DB by it
+function PlayerService.SaveBananaDelta(state, player)
+	-- Get State
+	local userId = player.UserId
+	local playerState = Selectors.PlayerState(state, userId)
+
+	-- Bananas Delta + DB Save
+	local bananasDelta = playerState.bananas - playerState.bananasSavedToDb
+
+	if bananasDelta > 0 then
+		warn(player.Name .. " Save " .. bananasDelta .. " Bananas to DB")
+		PlayerService.IncrementDbBananas(userId, bananasDelta)
 	end
+
+	-- Dispatch
+	local patch = { bananasSavedToDb = bananasDelta }
+	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 end
 
 --- CheckGameOver on player Death
 function PlayerService.SetupGameOver(player)
-	Players.CharacterAutoLoads = false
+	-- Players.CharacterAutoLoads = false
 
 	local function onCharacterAdded(character)
 		local humanoid = character:WaitForChild("Humanoid")

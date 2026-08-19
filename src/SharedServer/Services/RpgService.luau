@@ -538,32 +538,35 @@ function RpgService.StartLifeRegen(userId, lifeRegen)
 	-- Validation
 	local state = Store:getState()
 	local playerState = Selectors.PlayerState(state, userId)
+	local playersLife = RpgState.playersLife
 
-	local isValid = playerState.state == CONSTANTS.PLAYER_STATES.playing and RpgState.lifeRegenUpdates[userId] == nil
+	local isValid = lifeRegen > 0
+		and playerState.state == CONSTANTS.PLAYER_STATES.playing
+		and RpgState.lifeRegenUpdates[userId] == nil
+		and playersLife[userId]
 
-	if isValid then
+	if not isValid then
+		warn(playerState.username .. " Not Valid for Life Regen")
 		return
 	end
 
-	local playersLife = RpgState.playersLife
+	-- warn("Start Life Regen")
 
-	if lifeRegen > 0 and RpgState.playersLife[userId] then
-		local lifeRegenUpdate = PlayerService.StateUpdate:Connect(function(state, dt)
-			local playerState = Selectors.PlayerState(state, userId)
+	local lifeRegenUpdate = PlayerService.StateUpdate:Connect(function(state, dt)
+		local playerState = Selectors.PlayerState(state, userId)
 
-			if not playerState then
-				RpgService.StopLifeRegen(userId)
-			end
+		if not playerState then
+			RpgService.StopLifeRegen(userId)
+		end
 
-			local maxLife = playerState.stats.maxLife
-			local lifeDelta = lifeRegen * dt -- lifeRegen / 60 -- 60 FPS
-			local lifeUpdate = playersLife[userId] + lifeDelta
+		local maxLife = playerState.stats.maxLife
+		local lifeDelta = lifeRegen * dt -- lifeRegen / 60 -- 60 FPS
+		local lifeUpdate = playersLife[userId] + lifeDelta
 
-			playersLife[userId] = math.min(lifeUpdate, maxLife)
-		end)
+		playersLife[userId] = math.min(lifeUpdate, maxLife)
+	end)
 
-		RpgState.lifeRegenUpdates[userId] = lifeRegenUpdate
-	end
+	RpgState.lifeRegenUpdates[userId] = lifeRegenUpdate
 end
 
 function RpgService.StopLifeRegen(userId)

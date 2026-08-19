@@ -10,6 +10,7 @@ return function(props)
 	local textScaled = props.textScaled or true
 	local textColor = props.textColor or Color3.new(1, 1, 1)
 	local textXAlign = props.textXAlign or "Center"
+	local textTransparency = props.textTransparency or 0
 
 	-- Style
 	local transparency = props.transparency or 1
@@ -25,6 +26,7 @@ return function(props)
 		TextScaled = textScaled,
 		TextColor3 = textColor,
 		TextXAlignment = textXAlign,
+		TextTransparency = textTransparency,
 		-- Style
 		BackgroundTransparency = transparency,
 		BackgroundColor3 = backgroundColor,

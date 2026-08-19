@@ -216,6 +216,15 @@ function ItemService.RemoveGroundItem(itemModel, instanceId)
 	itemModel:Destroy()
 end
 
+function ItemService.ClearGroundItems()
+	-- FIXME : List all ground Items
+
+	for _, child in pairs(CONSTANTS.AUTOPICKUP_FOLDER:GetChildren()) do
+		child:Destroy()
+		-- ItemService.RemoveGroundItem(child)
+	end
+end
+
 --- Make a Part (Item Model) move along a Parabola
 function ItemService.LootMovement(part, startPos)
 	part.CFrame = CFrame.new(startPos)
@@ -268,7 +277,7 @@ function ItemService.LootMovementUpdate()
 		-- End Movement
 		if progress >= 1 then
 			-- warn("End Movement")
-			movementCtx.part.Parent = workspace.AutoPickup -- Enable Pickup
+			movementCtx.part.Parent = CONSTANTS.AUTOPICKUP_FOLDER -- Enable Pickup
 			table.remove(ItemServiceState.itemsMovement, i)
 		end
 	end
@@ -341,8 +350,14 @@ local function addSounds(player, weapon)
 	local crit = soundsPrefab.CriticalSlash:clone()
 	crit.Parent = playerGUi
 
-	local buildingHit = soundsPrefab.BuildingHit:clone()
-	buildingHit.Parent = playerGUi
+	-- Try to get Building Hit Sound
+	local buildingHitSound = soundsPrefab:FindFirstChild("BuildingHit")
+	local buildingHit
+
+	if buildingHitSound then
+		buildingHit = soundsPrefab.BuildingHit:clone()
+		buildingHit.Parent = playerGUi
+	end
 
 	weapon.sounds = {
 		unsheath = unsheath,

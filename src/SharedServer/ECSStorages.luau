@@ -190,7 +190,8 @@ function GameObjectStorage.OnDisable(entityId)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 
 	Gears.ResetCharacter(gameObject)
-	Gears.AnchorModel(gameObject, true)
+	-- Gears.AnchorModel(gameObject, true)
+	gameObject.HumanoidRootPart.Anchored = true
 
 	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
 	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER

@@ -155,7 +155,8 @@ function LevelService.LoadLevelDefinitions()
 
 	-- Save Bananas when Player Leave
 	PlayerService.PlayerRemoved:Connect(function(player)
-		PlayerService.SaveBananaDelta(player)
+		local state = Store:getState()
+		PlayerService.SaveBananaDelta(state, player)
 	end)
 end
 
@@ -170,8 +171,8 @@ function LevelService.StartStage()
 	PlayerService.ResurrectAll()
 
 	-- Generate Map
-	-- local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
-	local buildingsAmount = 6
+	local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
+	-- local buildingsAmount = 6
 	LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
 
 	-- Additional Setup
@@ -216,10 +217,12 @@ end
 
 --- Start Next Stage Countdown -> Trigger Next Stage
 function LevelService.StartStageCountdown()
+	local countdown = 10
+
 	LevelState.isWaitingForNextStage = true
 
 	LevelState.stageCountDownTime = 0
-	LevelState.stageCountDown = 10
+	LevelState.stageCountDown = countdown
 
 	-- Refresh Client UI
 	LevelService.Client.StageCountDownUpdate:FireAll(LevelState.stageCountDown)
@@ -228,6 +231,7 @@ function LevelService.StartStageCountdown()
 	local handle = PlayerService.StateUpdate:Connect(function(state, dt)
 		LevelState.stageCountDownTime += dt -- TODO : Second Global Timer (PlayerService)
 
+		-- Second Passed
 		if LevelState.stageCountDownTime >= 1 then
 			LevelState.stageCountDownTime -= 1 -- Reset + Keep Overtime
 
@@ -235,9 +239,12 @@ function LevelService.StartStageCountdown()
 			-- Refresh Client UI
 			LevelService.Client.StageCountDownUpdate:FireAll(LevelState.stageCountDown)
 
-			if LevelState.stageCountDownTime <= 0 then
-				LevelState.countdownHandle:Disconnect()
+			local isCountdownComplete = LevelState.stageCountDown <= 0
+
+			if isCountdownComplete then
+				LevelState.stageCountDown = countdown
 				LevelService.FinishStage()
+				-- LevelState.countdownHandle:Disconnect()
 			end
 		end
 	end)
@@ -246,18 +253,20 @@ function LevelService.StartStageCountdown()
 end
 
 function LevelService.FinishStage()
+	warn("Finish Stage")
+	LevelState.countdownHandle:Disconnect()
+	LevelState.countdownHandle = nil
+
 	-- Map Increments
 	local newBuildingAmount = LevelState.buildingAmount + LevelDefinitions.BUILDINGS_INCREMENT
 	LevelState.buildingAmount = math.min(newBuildingAmount, LevelDefinitions.BUILDING_LIMIT)
 
-	local state = Store:getState()
-
 	-- Save Bananas
-	for _, player in pairs(Players:GetPlayers()) do
-		PlayerService.SaveBananaDelta(state, player)
-	end
+	PlayerService.SaveAllBananaDelta()
 
 	-- Patch Game State
+	local state = Store:getState()
+
 	local currentStage = state.gameState.currentStage + 1
 	local patch = { currentStage = currentStage }
 
@@ -315,6 +324,8 @@ function LevelService.DamageBuilding(building: Part, damage: number)
 
 	-- Destroy Building
 	if damagedHealth <= 0 then
+		LevelState.buildingsHealth[building] = nil
+
 		-- Spawn Bananas
 		local chance = 30
 		local roll = math.random(0, 100)
@@ -473,7 +484,7 @@ function LevelService.GenerateMap(mapId, stageRadius, buildingsAmount)
 	local circularNodes, prefabs = LevelService.GenerateNodes(buildings, stageRadius, buildingsAmount, constraints)
 
 	-- 2] Collisions Detection + Solver
-	LevelService.SeparateCircles(circularNodes, constraints)
+	circularNodes = LevelService.SeparateCircles(circularNodes, constraints)
 
 	-- 3] Spawn Buildings
 	LevelService.SpawnBuildings(circularNodes, prefabs)
@@ -606,20 +617,24 @@ type CollisionsData = {
 
 --- Use Collisions Detection + Solving to Separate Circles
 function LevelService.SeparateCircles(circularNodes, constraints)
+	local nodes = circularNodes
+
 	for i = 1, LevelConst.COLLISIONS_DETECTIONS_ITERATIONS do
-		local collisionsData = LevelService.CollisionsDetection(circularNodes)
-		warn(#collisionsData.object1 .. " Collisions Detected")
-		warn(collisionsData)
+		local collisionsData = LevelService.CollisionsDetection(nodes)
+		-- warn(#collisionsData.object1 .. " Collisions Detected")
+		-- warn(collisionsData)
 
 		if #collisionsData.object1 == 0 then
 			break
 		end
 
-		warn("Circles Solving : ")
-		warn(circularNodes)
-		circularNodes = LevelService.Solver(circularNodes, collisionsData, constraints)
-		warn(circularNodes)
+		-- warn("Circles Solving : ")
+		-- warn(nodes)
+		nodes = LevelService.Solver(nodes, collisionsData, constraints)
+		-- warn(nodes)
 	end
+
+	return nodes
 end
 
 --- Detect the Collisions between (Circular) Nodes
@@ -683,16 +698,18 @@ end
 
 --- Detect Collision between 2 Circles,
 --- Return normal, penetrationDepth or nil
-function LevelService.RadiusRadiusCol(pos1, radius1, pos2, radius2)
-	local distance_threshold = radius1 + radius2
-	local direction = pos2 - pos1
+function LevelService.RadiusRadiusCol(circle1: Circle, circle2: Circle)
+	local distance_threshold = circle1.radius + circle2.radius
+	local direction = circle2.position - circle1.position
 	local distance = direction.Magnitude
 
 	local isColliding = distance <= distance_threshold
 
 	if isColliding then
 		local normal = Gears.NormalizeOrZero(direction)
-		local penetrationDepth = distance - radius1
+		-- local penetrationDepth = distance - circle1.radius
+		local penetrationDepth = distance_threshold - distance
+		-- warn("Distance = " .. distance .. " Radius1 = " .. circle1.radius .. " Pen = " .. penetrationDepth)
 
 		return normal, penetrationDepth
 	end
@@ -718,11 +735,12 @@ function LevelService.RadiusRadiusesCol(
 		end
 
 		-- Check Collision
-		local normal, penetrationDepth =
-			LevelService.RadiusRadiusCol(circle.position, circle.radius, otherCircle.position, otherCircle.radius)
+		local normal, penetrationDepth = LevelService.RadiusRadiusCol(circle, otherCircle)
 
-		-- If not colliding -> Skip
-		if not normal or not penetrationDepth then
+		-- Not colliding = Skip
+		local isColliding = normal and penetrationDepth
+
+		if not isColliding then
 			continue
 		end
 
@@ -762,11 +780,15 @@ function LevelService.Solver(circularNodes, collisionsData: CollisionsData, cons
 			local normal = collisionsData.normals[j]
 			local penetrationDepth = collisionsData.penetrationDepth[j]
 
-			local newobject1, newobject2 =
-				LevelService.SolveCol(object1, object2, normal, penetrationDepth, constraints)
+			-- warn("Solve Circle Col")
+			-- warn(object1)
+			-- warn(object2)
+			local new1, new2 = LevelService.SolveCol(object1, object2, normal, penetrationDepth, constraints)
+			-- warn(new1)
+			-- warn(new2)
 
-			circularNodes[object1Index] = newobject1
-			circularNodes[object2Index] = newobject2
+			circularNodes[object1Index] = new1
+			circularNodes[object2Index] = new2
 		end
 	end
 
@@ -775,8 +797,8 @@ end
 
 --- Solve a Collision Between 2 Circles
 function LevelService.SolveCol(
-	object1: Circle,
-	object2: Circle,
+	circle1: Circle,
+	circle2: Circle,
 	normal: Vector2,
 	penetrationDepth: number,
 	constraints: {}
@@ -793,8 +815,8 @@ function LevelService.SolveCol(
 	local correctionVector = normal * correctionMagnitude
 
 	-- Separation
-	object1.position -= correctionVector -- * invMass1
-	object2.position += correctionVector -- * invMass2
+	circle1.position -= correctionVector -- * invMass1
+	circle2.position += correctionVector -- * invMass2
 
 	-- Apply Constraints
 	if not constraints then
@@ -802,11 +824,11 @@ function LevelService.SolveCol(
 	end
 
 	for i = 1, #constraints do
-		object1.position = constraints[i](object1.position)
-		object2.position = constraints[i](object2.position)
+		circle1.position = constraints[i](circle1.position)
+		circle2.position = constraints[i](circle2.position)
 	end
 
-	return object1, object2
+	return circle1, circle2
 end
 
 -- #endregion

@@ -44,9 +44,7 @@ local function setupPlayers()
 		PlayerService.SetupGameOver(player)
 	end)
 
-	Players.PlayerRemoving:Connect(function(player)
-		PlayerService.RemovePlayer(player)
-	end)
+	Players.PlayerRemoving:Connect(PlayerService.RemovePlayer)
 end
 
 local function setupLevel()
@@ -66,6 +64,8 @@ local function setupLevel()
 end
 
 local function setupEnemies()
+	EnemyService.StartUnitUpdate()
+
 	-- Load Enemies
 	EnemyService.CreatePool(Enemies.Robot)
 

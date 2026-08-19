@@ -201,13 +201,15 @@ end
 local function setupPlayerService()
 	Players.PlayerAdded:Connect(function(player)
 		PlayerService.AddPlayer(player)
+
+		RpgService.RegisterLife(player)
 		PlayerService.GetMetaUpgrades(player)
 		AugmentsService.GenerateAugments(player)
-
 		PlayerService.GetBananasDb(player)
 
 		-- Start Hub Music
-		local music = player.PlayerGui.ClientSounds:FindFirstChild("Music")
+		local music = CONSTANTS.PREFABS_FOLDER.Sounds.Music:clone()
+		music.Parent = player.PlayerGui.ClientSounds
 		music:Play()
 
 		-- Manual Tests
@@ -217,7 +219,6 @@ local function setupPlayerService()
 		-- RPGService Test
 		AugmentsService.AddAugmentStat(userId, ModStatsStore.increasedAttackSpeed, 100)
 		RpgService.AddXpToAllPlayers(225)
-		RpgService.RegisterLife(player)
 		RpgService.DamagePlayer(player, 50)
 	end)
 
@@ -255,6 +256,8 @@ local function setupLevel()
 end
 
 local function setupEnemies()
+	EnemyService.StartUnitUpdate()
+
 	-- Spawn Dummies
 	EnemyService.CreatePool(Enemies.Dummy)
 
@@ -263,22 +266,6 @@ local function setupEnemies()
 
 	EnemyService.EnableNextInPool(Enemies.Dummy, pos1)
 	EnemyService.EnableNextInPool(Enemies.Dummy, pos2)
-
-	-- Spawn Test Robots
-	-- EnemyService.CreatePool(Enemies.Robot)
-
-	-- local pos3 = Vector3.new(-3.15, 4.5, 50)
-	-- local pos4 = Vector3.new(5.85, 4.5, 50)
-
-	-- EnemyService.EnableNextInPool(Enemies.Robot, pos3)
-	-- EnemyService.EnableNextInPool(Enemies.Robot, pos4)
-
-	-- EnemyService.StartStreamSpawn()
-	-- EnemyService.StartSwarmSpawn()
-	-- EnemyService.StartMobBehavior()
-
-	-- Start Stage
-	-- LevelService.StartStage()
 end
 
 -- Setup Services
@@ -290,6 +277,7 @@ setupRpgService()
 setupPlatforms()
 setupEnemies()
 
+-- Test Spawn XP
 -- local pos3 = Vector3.new(-3.15, 4.5, 50)
 -- ItemService.SpawnManyItem(itemStore.SmallXPOrb, pos3, 1)
 

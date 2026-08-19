@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local PREFABS_FOLDER = ReplicatedStorage.Shared.Prefabs
 local WEAPON_HIT_FOLDER = workspace.WeaponHit
 local DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities
+local AUTOPICKUP_FOLDER = workspace.AutoPickup
 
 -- #region PlayerService
 
@@ -56,7 +57,7 @@ local RpgConst = {
 
 local LevelConst = {
 	COLLISIONS_DETECTIONS_ITERATIONS = 15,
-	SOLVER_ITERATIONS = 15,
+	SOLVER_ITERATIONS = 10,
 }
 
 -- EnemyService
@@ -131,6 +132,7 @@ local CONSTANTS = {
 	PREFABS_FOLDER = PREFABS_FOLDER,
 	WEAPON_HIT_FOLDER = WEAPON_HIT_FOLDER,
 	DISABLED_ENTITIES_FOLDER = DISABLED_ENTITIES_FOLDER,
+	AUTOPICKUP_FOLDER = AUTOPICKUP_FOLDER,
 	-- Players
 	ENEMIES_DETECTION_RADIUS = ENEMIES_DETECTION_RADIUS,
 	PLAYER_STATES = PLAYER_STATES,

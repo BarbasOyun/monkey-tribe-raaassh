@@ -245,19 +245,30 @@ function Gears.DisableJoints(character)
 	end
 end
 
-function Gears.EnableJointInstantly(joint: Motor6D)
-	joint.Enabled = true
+function Gears.EnableJointInstantly(joint: Motor6D, d)
+	-- joint.Enabled = true
 
 	local parentPart = joint.Part0
 	local childPart = joint.Part1
 
-	if not parentPart or childPart then
+	if not parentPart or not childPart then
+		warn("Enable Joint Instantly : Missing Parent or Child Part")
 		return
 	end
 
 	-- Reset Child Pos
-	local targetCFrame = parentPart.CFrame * joint.C0 * joint.C1:Inverse()
+	-- local targetCFrame = parentPart.CFrame * joint.C0 * joint.C1:Inverse()
+	local targetCFrame = parentPart:GetPivot() * joint.C1
+	-- local targetCFrame = parentPart.CFrame * joint.C1
 	childPart.CFrame = targetCFrame
+
+	if d then
+		warn(childPart.Name .. " Target Position = ")
+		warn(targetCFrame.Position)
+
+		-- warn(childPart.Name .. " Target Rotation = ")
+		-- warn(targetCFrame.Rotation)
+	end
 
 	-- Reset Physics
 	childPart.AssemblyLinearVelocity = Vector3.zero
@@ -289,28 +300,29 @@ function Gears.ResetCharacter(character)
 	-- Get Joints
 	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = Gears.GetJoints(character)
 
+	HumanoidRootPart.Anchored = false
+
 	-- Enable Joints
-	-- rootJoint.Enabled = true
-	-- neck.Enabled = true
-	-- leftShoulder.Enabled = true
-	-- leftHip.Enabled = true
-	-- rightShoulder.Enabled = true
-	-- rightHip.Enabled = true
+	rootJoint.Enabled = true
+	neck.Enabled = true
+	leftShoulder.Enabled = true
+	leftHip.Enabled = true
+	rightShoulder.Enabled = true
+	rightHip.Enabled = true
 
 	-- Reset Pos
 	-- local localOffset = CFrame.new(0, 0, 0)
 	-- torso.CFrame = character:GetPivot() * localOffset
 	-- HumanoidRootPart.CFrame = character:GetPivot() * localOffset
 
-	Gears.EnableJointInstantly(rootJoint)
-	Gears.EnableJointInstantly(neck)
-	Gears.EnableJointInstantly(leftShoulder)
-	Gears.EnableJointInstantly(leftHip)
-	Gears.EnableJointInstantly(rightShoulder)
-	Gears.EnableJointInstantly(rightHip)
+	-- Gears.EnableJointInstantly(rootJoint, d)
+	-- Gears.EnableJointInstantly(neck, d)
+	-- Gears.EnableJointInstantly(leftShoulder, d)
+	-- Gears.EnableJointInstantly(leftHip, d)
+	-- Gears.EnableJointInstantly(rightShoulder, d)
+	-- Gears.EnableJointInstantly(rightHip, d)
 
 	-- Enable Collisions
-	-- HumanoidRootPart.Anchored = false
 	-- HumanoidRootPart.CanCollide = true
 	torso.CanCollide = true
 	head.CanCollide = true

@@ -46,8 +46,8 @@ local LevelState = {
 	-- Stage
 	stageProgress = 0,
 	stageCountDownTime = 0,
-	countdownHandle = nil,
 	stageCountDown = 0,
+	countdownHandle = nil,
 	isWaitingForNextStage = false,
 	buildingsHealth = {}, -- TODO : Use ECS instead
 	buildingAmount = 3,

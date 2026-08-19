@@ -77,10 +77,10 @@ end)(textLabel)
 
 -- Stage Countdown
 local stageCountdownProps = {
-	position = UDim2.fromScale(0.45, 0.2),
+	position = UDim2.fromScale(0.45, 0.175),
 	size = UDim2.fromScale(0.1, 0.1),
 	text = "10",
-	-- textStrokeTransparency = 1,
+	textTransparency = 1,
 }
 
 -- GameTimer
@@ -295,7 +295,12 @@ local function generateUi()
 	local stageCountdown = mainGuiRef.StageCountdown
 
 	LevelService.StageCountDownUpdate:Connect(function(countDown)
-		stageCountdown.TextStrokeTransparency = 0
+		if countDown <= -1 then
+			stageCountdown.TextTransparency = 1
+			return
+		end
+
+		stageCountdown.TextTransparency = 0
 		stageCountdown.Text = countDown
 	end)
 
