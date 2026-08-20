@@ -59,6 +59,12 @@ end
 -- TODO : Set Circular Limits
 
 function LevelService.IsOob(state, point: Vector3)
+	local yLimit = 100
+
+	if point.Y <= -yLimit or yLimit <= point.Y then
+		return true
+	end
+
 	local minLimit = state.gameState.minLimit
 	local maxLimit = state.gameState.maxLimit
 
@@ -105,12 +111,10 @@ end
 
 --- Reset Player Position + Momentum
 function LevelService.ResetPlayerPos(character)
-	local root = character.HumanoidRootPart
-
 	local respawnPos = workspace.Main.SpawnLocation.CFrame.Position + Vector3.new(0, 5, 0)
 	character:PivotTo(CFrame.new(respawnPos))
-	-- local respawn = workspace.Main.SpawnLocation.CFrame
-	-- character:PivotTo(respawn)
+
+	local root = character.HumanoidRootPart
 	root.AssemblyLinearVelocity = Vector3.zero
 end
 
@@ -162,18 +166,14 @@ end
 
 --- Start a New Stage
 function LevelService.StartStage()
-	LevelState.stageProgress = 0
-	LevelState.isWaitingForNextStage = false
-
 	LevelState.currentMapId = math.random(1, #MapsBuildings)
 	warn("Start Stage MapID = " .. LevelState.currentMapId)
 
-	PlayerService.ResurrectAll()
-
 	-- Generate Map
 	local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
-	-- local buildingsAmount = 6
 	LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
+
+	LevelState.totalParts *= 0.5 -- Require 50% of the stage to be completed
 
 	-- Additional Setup
 	LevelService.SetMusic(LevelState.currentMapId)
@@ -185,6 +185,16 @@ function LevelService.StartStage()
 end
 
 function LevelService.ResetLevel()
+	LevelState.isWaitingForNextStage = false
+
+	-- Reset Progress
+	LevelState.partsCount = 0
+	LevelState.totalParts = 0
+	LevelState.stageProgress = 0
+	LevelService.Client.ProgressUpdate:FireAll(0)
+
+	PlayerService.ResurrectAll()
+
 	LevelService.ClearBuildings()
 
 	ItemService.ClearGroundItems()
@@ -231,7 +241,7 @@ function LevelService.StartStageCountdown()
 	local handle = PlayerService.StateUpdate:Connect(function(state, dt)
 		LevelState.stageCountDownTime += dt -- TODO : Second Global Timer (PlayerService)
 
-		-- Second Passed
+		-- 1sec Passed
 		if LevelState.stageCountDownTime >= 1 then
 			LevelState.stageCountDownTime -= 1 -- Reset + Keep Overtime
 
@@ -244,7 +254,6 @@ function LevelService.StartStageCountdown()
 			if isCountdownComplete then
 				LevelState.stageCountDown = countdown
 				LevelService.FinishStage()
-				-- LevelState.countdownHandle:Disconnect()
 			end
 		end
 	end)
@@ -254,6 +263,8 @@ end
 
 function LevelService.FinishStage()
 	warn("Finish Stage")
+	-- Disable Countdown
+	LevelService.Client.StageCountDownUpdate:FireAll(-1)
 	LevelState.countdownHandle:Disconnect()
 	LevelState.countdownHandle = nil
 
@@ -264,7 +275,7 @@ function LevelService.FinishStage()
 	-- Save Bananas
 	PlayerService.SaveAllBananaDelta()
 
-	-- Patch Game State
+	-- Update Game State
 	local state = Store:getState()
 
 	local currentStage = state.gameState.currentStage + 1
@@ -273,6 +284,7 @@ function LevelService.FinishStage()
 	Store:dispatch(StoreActions.PatchGameState(patch))
 	PlayerService.Client.PatchGameState:FireAll(patch)
 
+	-- Reset + Next Stage
 	LevelService.ResetLevel()
 	LevelService.StartStage()
 end
@@ -396,7 +408,7 @@ function LevelService.SetMusic(mapId)
 	local state = Store:getState()
 
 	for _, player in pairs(Players:GetPlayers()) do
-		LevelService.SetPlayerMusic(state, mapId, player)
+		LevelService.SetPlayerMusic(state, player, mapId)
 		LevelService.SetPlayerMusicChar(player, mapId)
 	end
 
@@ -466,7 +478,7 @@ end
 function LevelService.GenerateMap(mapId, stageRadius, buildingsAmount)
 	local buildings = MapsBuildings[mapId]
 
-	LevelService.DebugDraw(stageRadius)
+	-- LevelService.DebugDraw(stageRadius)
 
 	local constraints = {
 		-- TODO : Spawn Constraint -> Send to Center
@@ -488,8 +500,6 @@ function LevelService.GenerateMap(mapId, stageRadius, buildingsAmount)
 
 	-- 3] Spawn Buildings
 	LevelService.SpawnBuildings(circularNodes, prefabs)
-
-	LevelState.totalParts *= 0.5 -- Require 50% of the stage to be completed
 end
 
 --- DEBUG : Draw Stage Radius + Minimum Radius
@@ -536,18 +546,22 @@ function LevelService.GenerateNodes(buildings, stageRadius, amount, constraints)
 	return circularNodes, prefabs
 end
 
+--- Draw a Building Node
+function LevelService.DebugBuilding(node)
+	PlayerService.StateUpdate:Connect(function(state, dt)
+		local pos = Vector3.new(node.position.X, 3, node.position.Y)
+		local outerRadiusPoints = Gears.CirclePoints(node.radius, 20)
+		Gears.DrawCircle(pos, outerRadiusPoints)
+	end)
+end
+
 --- Spawn Buildings based on Node Locations
 function LevelService.SpawnBuildings(buildingNodes, prefabs)
 	for i = 1, #buildingNodes do
 		local node = buildingNodes[i]
 		local prefab = prefabs[i]
 
-		-- DEBUG : Draw Nodes Radius
-		PlayerService.StateUpdate:Connect(function(state, dt)
-			local pos = Vector3.new(node.position.X, 3, node.position.Y)
-			local outerRadiusPoints = Gears.CirclePoints(node.radius, 20)
-			Gears.DrawCircle(pos, outerRadiusPoints)
-		end)
+		-- LevelService.DebugBuilding(node)
 
 		-- Building OnSpawn
 		local building = prefab:clone()

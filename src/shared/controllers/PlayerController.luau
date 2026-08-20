@@ -1,4 +1,3 @@
-local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,46 +10,18 @@ local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
 local StoreActions = RoduxStore.Actions
 
+-- Get MutState
+local MutState = require(ReplicatedStorage.Shared.ClientMutState)
+
 -- Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
 local PlayerService, RpgService, AugmentsService, CombatService, ItemService
 
--- TODO : Client Side Mutable State
-local player = Players.LocalPlayer
--- local camera = workspace.CurrentCamera
-local PlayerScripts = game.Players.LocalPlayer:WaitForChild("PlayerScripts")
-local Controls = require(PlayerScripts:WaitForChild("PlayerModule")):GetControls() -- Rojo error
-
--- Character
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
-local animator = humanoid:WaitForChild("Animator")
-local animationTracks = {}
-
--- UI
-local playerGui = player:WaitForChild("PlayerGui")
-local blur = nil
-local visualLife = 0
-local serverLife = 0
-
--- Sounds
-local soundFolder -- TODO : Shared CONSTANTS
-local mainSounds
-
-local getOrbSound
-local levelUpSound
-local augmentPanelSound
-local playerDamagedSfx
-
--- Controls
--- TODO : StateMachine -> States define controls
-local isLClickDown = false
-
 local PlayerController = Knit.CreateController({
 	Name = "PlayerController",
-	SoundFolder = soundFolder,
+	SoundFolder = MutState.soundFolder,
 	StateUpdate = Signal.new(),
 	LifeUpdate = Signal.new(),
 	-- Stores
@@ -63,13 +34,14 @@ local PlayerController = Knit.CreateController({
 })
 
 function PlayerController.GetSounds()
-	soundFolder = playerGui.ClientSounds
-	mainSounds = soundFolder:WaitForChild("MainSounds")
+	MutState.playerGui = MutState.player:WaitForChild("PlayerGui")
+	MutState.soundFolder = MutState.playerGui:WaitForChild("ClientSounds")
+	MutState.mainSounds = MutState.soundFolder:WaitForChild("MainSounds")
 
-	getOrbSound = mainSounds.GetOrb
-	levelUpSound = mainSounds.LevelUp
-	augmentPanelSound = mainSounds.AugmentMenu
-	playerDamagedSfx = mainSounds.PlayerDamaged
+	MutState.getOrbSound = MutState.mainSounds.GetOrb
+	MutState.levelUpSound = MutState.mainSounds.LevelUp
+	MutState.augmentPanelSound = MutState.mainSounds.AugmentMenu
+	MutState.playerDamagedSfx = MutState.mainSounds.PlayerDamaged
 end
 
 -- #region ANIMATIONS
@@ -78,7 +50,7 @@ local function loadAnimation(animationId)
 	local anim = Instance.new("Animation")
 	anim.AnimationId = animationId
 
-	local animationTrack = animator:LoadAnimation(anim)
+	local animationTrack = MutState.animator:LoadAnimation(anim)
 	animationTrack.Priority = Enum.AnimationPriority.Action
 
 	animationTrack:GetMarkerReachedSignal("AttackHit"):Connect(function()
@@ -93,22 +65,22 @@ local function loadAllAnimations()
 	local horizontalSlash = loadAnimation("rbxassetid://88145589618998") -- Combo 1
 	local verticalSlash = loadAnimation("rbxassetid://119339188916178") -- Combo 2
 
-	table.insert(animationTracks, horizontalSlash)
-	table.insert(animationTracks, verticalSlash)
+	table.insert(MutState.animationTracks, horizontalSlash)
+	table.insert(MutState.animationTracks, verticalSlash)
 end
 
 -- On Respawn
 local function onCharacterAdded(newCharacter)
 	-- print("Character Added for player: " .. player.Name)
-	animator = newCharacter:WaitForChild("Humanoid"):WaitForChild("Animator")
-	table.clear(animationTracks)
+	MutState.animator = newCharacter:WaitForChild("Humanoid"):WaitForChild("Animator")
+	table.clear(MutState.animationTracks)
 	loadAllAnimations()
 end
 
 local function playAttackAnim(animationId, animationSpeed)
 	-- print(localPlayer.Name .. " Combo: " .. animationId .. " Animation Speed: " .. animationSpeed)
-	animationTracks[animationId]:Play()
-	animationTracks[animationId]:AdjustSpeed(animationSpeed)
+	MutState.animationTracks[animationId]:Play()
+	MutState.animationTracks[animationId]:AdjustSpeed(animationSpeed)
 end
 
 -- #endregion
@@ -116,7 +88,7 @@ end
 -- #region CONTROLS
 
 local function toggleMusic(isEnabled)
-	local music = soundFolder:FindFirstChild("Music")
+	local music = MutState.soundFolder:FindFirstChild("Music")
 
 	if not music then
 		warn("Music not found")
@@ -130,7 +102,7 @@ local function toggleMusic(isEnabled)
 	end
 
 	local patch = { isMusicEnabled = isEnabled }
-	Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
+	Store:dispatch(StoreActions.PatchPlayer(MutState.player.UserId, patch))
 	PlayerService:ToggleMusic(isEnabled)
 end
 
@@ -154,7 +126,7 @@ local function setupControls()
 
 		if input.KeyCode == Enum.KeyCode.T then
 			local state = Store:getState()
-			local playerState = state.players[player.UserId]
+			local playerState = state.players[MutState.player.UserId]
 			local isEnabled = not playerState.isMusicEnabled
 			toggleMusic(isEnabled)
 		end
@@ -196,8 +168,6 @@ function PlayerController:BuyUpgrade(upgradeType)
 end
 
 local function setupPlayerService()
-	-- Players Join/Leave
-
 	-- On joining game -> Replicate Server Game State
 	PlayerService.ReplicateStore:Connect(function(worldState)
 		-- Convert string UserIds back to number
@@ -210,9 +180,7 @@ local function setupPlayerService()
 
 		worldState.players = players
 
-		-- print("Replicating worldState from Server :")
-		-- print(worldState)
-		Store:dispatch(StoreActions.SetWorldState(player.UserId, worldState))
+		Store:dispatch(StoreActions.SetWorldState(MutState.player.UserId, worldState))
 	end)
 
 	-- Players Added & Removed
@@ -237,7 +205,7 @@ local function setupPlayerService()
 	-- Self Data
 
 	PlayerService.PatchPlayer:Connect(function(patch)
-		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
+		Store:dispatch(StoreActions.PatchPlayer(MutState.player.UserId, patch))
 	end)
 
 	PlayerService.PatchGameState:Connect(function(patch)
@@ -246,35 +214,35 @@ local function setupPlayerService()
 
 	PlayerService.EnteringGame:Connect(function()
 		-- enteringGameSound:Play()
-		levelUpSound:Play()
+		MutState.levelUpSound:Play()
 	end)
 end
 
 local function setupRpgService()
 	-- StatsPatch
 	RpgService.PatchStats:Connect(function(patch)
-		Store:dispatch(StoreActions.PatchStat(player.UserId, patch))
+		Store:dispatch(StoreActions.PatchStat(MutState.player.UserId, patch))
 	end)
 
 	-- Damage
 	RpgService.PlayerDamaged:Connect(function()
-		playerDamagedSfx:Play()
+		MutState.playerDamagedSfx:Play()
 	end)
 
 	-- Resource Bars
 	RpgService.LifeUpdate:Connect(function(life)
-		serverLife = life
+		MutState.serverLife = life
 	end)
 
 	-- Level Up
 	RpgService.LevelUp:Connect(function(patch)
-		levelUpSound:Play()
-		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
+		MutState.levelUpSound:Play()
+		Store:dispatch(StoreActions.PatchPlayer(MutState.player.UserId, patch))
 	end)
 
 	-- Meta Upgrades
 	RpgService.MetaUpgradesChanged:Connect(function(upgradeType, newUpgrade)
-		Store:dispatch(StoreActions.SetMetaUpgrade(player.UserId, upgradeType, newUpgrade))
+		Store:dispatch(StoreActions.SetMetaUpgrade(MutState.player.UserId, upgradeType, newUpgrade))
 	end)
 end
 
@@ -283,34 +251,34 @@ local function setupAugmentsService()
 		-- warn(augmentChoices)
 
 		local patch = { state = "PickingAugment", currentAugments = augmentChoices }
-		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
+		Store:dispatch(StoreActions.PatchPlayer(MutState.player.UserId, patch))
 
 		-- Picking Augment State
-		if not blur then
+		if not MutState.blur then
 			local lighting = game.Lighting
-			blur = Instance.new("BlurEffect")
-			blur.Size = 10
-			blur.Parent = lighting
+			MutState.blur = Instance.new("BlurEffect")
+			MutState.blur.Size = 10
+			MutState.blur.Parent = lighting
 		end
 
-		augmentPanelSound:Play()
-		Controls:Disable()
+		MutState.augmentPanelSound:Play()
+		MutState.controls:Disable()
 	end)
 
 	AugmentsService.FinishPickingAugments:Connect(function()
 		-- Playing State
-		blur:Destroy()
-		Controls:Enable()
+		MutState.blur:Destroy()
+		MutState.controls:Enable()
 
 		local patch = { state = "Playing", currentAugments = nil }
-		Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
+		Store:dispatch(StoreActions.PatchPlayer(MutState.player.UserId, patch))
 	end)
 end
 
 local function setupItemService()
 	-- Orb Pickup Feedback
 	ItemService.GetOrb:Connect(function()
-		getOrbSound:Play()
+		MutState.getOrbSound:Play()
 	end)
 end
 
@@ -326,10 +294,10 @@ local function stateUpdate()
 end
 
 function PlayerController.UpdateLife(state)
-	visualLife = math.lerp(visualLife, serverLife, 0.1)
+	MutState.visualLife = math.lerp(MutState.visualLife, MutState.serverLife, 0.1)
 
 	-- Apply to UI
-	PlayerController.LifeUpdate:Fire(state, visualLife)
+	PlayerController.LifeUpdate:Fire(state, MutState.visualLife)
 end
 
 -- #endregion
@@ -339,7 +307,7 @@ function PlayerController:KnitInit()
 	print("PlayerController Init")
 
 	loadAllAnimations()
-	player.CharacterAdded:Connect(onCharacterAdded)
+	MutState.player.CharacterAdded:Connect(onCharacterAdded)
 end
 
 function PlayerController:KnitStart()

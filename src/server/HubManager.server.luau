@@ -15,8 +15,7 @@ local Enemies = enemyDef.Enemies
 local StatsDefinitions = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 local ModStatsStore = StatsDefinitions.MOD_STATS_STORE
 
-local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-local itemStore = itemDef.itemStore
+-- local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
 
 -- Get Services
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -28,9 +27,9 @@ local LevelService = Knit.GetService("LevelService")
 local RpgService = Knit.GetService("RpgService")
 local AugmentsService = Knit.GetService("AugmentsService")
 
-local EcsService = Knit.GetService("EcsService")
 local EnemyService = Knit.GetService("EnemyService")
-local ItemService = Knit.GetService("ItemService")
+-- local EcsService = Knit.GetService("EcsService")
+-- local ItemService = Knit.GetService("ItemService")
 
 -- Platforms tp
 local GAME_PLACE_ID = 109804031798809
@@ -276,9 +275,5 @@ setupRpgService()
 -- Hub Setup
 setupPlatforms()
 setupEnemies()
-
--- Test Spawn XP
--- local pos3 = Vector3.new(-3.15, 4.5, 50)
--- ItemService.SpawnManyItem(itemStore.SmallXPOrb, pos3, 1)
 
 -- #endregion

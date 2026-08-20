@@ -218,12 +218,12 @@ local function finishAugmentPick(player)
 	player.Character:MoveTo(RpgState.positionStart[userId])
 	RpgState.positionStart[userId] = nil
 
-	RpgService.StartLifeRegen(userId, playerState.stats.lifeRegen)
-
+	-- Update PlayerState
 	local patch = { state = CONSTANTS.PLAYER_STATES.playing }
-
 	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 	AugmentsService.Client.FinishPickingAugments:Fire(player)
+
+	RpgService.StartLifeRegen(userId, playerState.stats.lifeRegen)
 end
 
 -- Player start choosing Augment

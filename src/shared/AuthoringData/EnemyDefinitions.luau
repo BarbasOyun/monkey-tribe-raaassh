@@ -59,7 +59,7 @@ local EnemiesPool = {
 	{
 		name = "Robot",
 		definitionId = 2,
-		size = 100,
+		size = 200,
 		startIndex = 0,
 		endIndex = 0,
 		activeCount = 0,

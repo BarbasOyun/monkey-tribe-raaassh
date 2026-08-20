@@ -551,9 +551,17 @@ end
 
 --- Unit + MobBehavior System
 function EnemyService.EnemyAttack(entityId, enemy, player)
-	local robotStats = EnemiesStats[Enemies.Robot]
+	local isValid = player.Character.Humanoid.Health > 0
 
-	enemy.Humanoid:MoveTo(enemy.HumanoidRootPart.Position) -- Stop
+	if not isValid then
+		return
+	end
+
+	-- Stop
+	enemy.Humanoid:MoveTo(enemy.HumanoidRootPart.Position)
+
+	-- Check CD
+	local robotStats = EnemiesStats[Enemies.Robot]
 
 	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local UnitStorageState = UnitStorage.GetState()
@@ -664,6 +672,17 @@ end
 
 --- MobBehavior System : Seek & Attack Players
 function EnemyService.MobBehavior(state, entityId, character, robotStats)
+	-- Keep In Bounds
+	local pos = character:GetPivot()
+	local isOob = LevelService.IsOob(state, pos)
+
+	if isOob then
+		warn("Entity " .. entityId .. " Is OOB")
+		warn(character:GetPivot().Position)
+		Gears.AnchorModel(character, true)
+		LevelService.ResetPlayerPos(character)
+	end
+
 	-- Get Nearest Player
 	local targetPlayer, distance = EnemyService.GetNearestPlayer(state, character)
 	local humanoid = character.Humanoid
@@ -674,6 +693,7 @@ function EnemyService.MobBehavior(state, entityId, character, robotStats)
 
 		if not t then
 			warn("Entity " .. entityId .. " " .. character.Name .. " No HumanoidRootPart")
+			warn(character:GetPivot().Position)
 		end
 
 		humanoid:MoveTo(character.HumanoidRootPart.Position)

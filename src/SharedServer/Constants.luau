@@ -46,7 +46,7 @@ local MAX_CURRENCIES = {
 	10_000,
 }
 
-local ENEMIES_DETECTION_RADIUS = 100
+local ENEMIES_DETECTION_RADIUS = 200
 
 -- #endregion
 
@@ -67,8 +67,8 @@ local EnemyConst = {
 	ENEMY_LVL_UP_BREAKPOINT = 30,
 
 	-- Spawn
-	SPAWN_RADIUS = 20,
-	SPAWN_RADIUS_RANGE = 20,
+	SPAWN_RADIUS = 40,
+	SPAWN_RADIUS_RANGE = 30,
 
 	-- Stream Spawn
 	STREAM_SPAWN_INITIAL_TIME = 7,

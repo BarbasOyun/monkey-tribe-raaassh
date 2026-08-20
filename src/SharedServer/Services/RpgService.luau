@@ -546,7 +546,7 @@ function RpgService.StartLifeRegen(userId, lifeRegen)
 		and playersLife[userId]
 
 	if not isValid then
-		warn(playerState.username .. " Not Valid for Life Regen")
+		-- warn(playerState.username .. " Not Valid for Life Regen")
 		return
 	end
 

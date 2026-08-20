@@ -298,7 +298,7 @@ function PlayerService.SaveBananaDelta(state, player)
 	local bananasDelta = playerState.bananas - playerState.bananasSavedToDb
 
 	if bananasDelta > 0 then
-		warn(player.Name .. " Save " .. bananasDelta .. " Bananas to DB")
+		warn(player.Name .. " Increment " .. bananasDelta .. " Bananas on DB")
 		PlayerService.IncrementDbBananas(userId, bananasDelta)
 	end
 
@@ -471,6 +471,7 @@ local function enemiesDetection(state, player)
 	end
 end
 
+-- TODO : DRY
 --- Detect Buildings around player -> Calculate Distance + Normals
 function PlayerService.BuildingsDetection(state, player)
 	local userId = player.UserId
@@ -508,7 +509,8 @@ end
 
 --- Lerp Item Pos to Player
 local function autoPickup(player, itemModel)
-	if not itemModel.Parent or itemModel.Parent ~= workspace.AutoPickup then
+	local isValid = itemModel.Parent and itemModel.Parent == workspace.AutoPickup
+	if not isValid then
 		return
 	end
 
@@ -533,7 +535,7 @@ local function autoPickup(player, itemModel)
 		end
 
 		itemModel.CFrame = startPos:Lerp(character:GetPivot(), progress)
-		RunService.Heartbeat:Wait()
+		RunService.Heartbeat:Wait() -- FIXME : Performance
 	end
 
 	ItemService.PickupItem(player, itemModel)

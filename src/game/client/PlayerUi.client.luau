@@ -2,8 +2,6 @@
 -- TODO : Use UiAspectRatioConstraint
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local PlayerGui = Players.LocalPlayer.PlayerGui
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
@@ -14,10 +12,13 @@ local Roact = require(ReplicatedStorage.Shared.Roact)
 local LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
 local EventsIcons = LevelDefinitions.EventsIcons
 
--- Get Store
+-- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
 -- local Selectors = RoduxStore.Selectors
+
+-- Get MutState
+local MutState = require(ReplicatedStorage.Shared.ClientMutState)
 
 -- Get Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -25,10 +26,6 @@ Knit.OnStart():await()
 
 local PlayerController = Knit.GetController("PlayerController")
 local LevelService = Knit.GetService("LevelService")
-
--- TODO : Client MutState
-local player = Players.LocalPlayer
-local playerGui = Players.LocalPlayer.PlayerGui
 
 -- #region ROACT COMPONENTS
 
@@ -75,6 +72,27 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 	}
 end)(textLabel)
 
+sticksImageProps = {
+	position = UDim2.fromScale(0.75, 0.2),
+	size = UDim2.fromScale(0.05, 0.09),
+	imageLink = "rbxassetid://109738929660031",
+}
+
+sticksTextProps = RoactRodux.connect(function(state, props)
+	local sticks = 0
+	local playerState = state.players[MutState.player.UserId]
+
+	if playerState then
+		sticks = playerState.sticks
+	end
+
+	return {
+		position = UDim2.fromScale(0.7, 0.2),
+		size = UDim2.fromScale(0.1, 0.1),
+		text = sticks,
+	}
+end)(textLabel)
+
 -- Stage Countdown
 local stageCountdownProps = {
 	position = UDim2.fromScale(0.45, 0.175),
@@ -118,9 +136,9 @@ PlayerScoreMain = RoactRodux.connect(function(state, props)
 	local score = 0
 	local username = ""
 
-	if state.players[player.UserId] then
-		score = state.players[player.UserId].score
-		username = state.players[player.UserId].username
+	if state.players[MutState.player.UserId] then
+		score = state.players[MutState.player.UserId].score
+		username = state.players[MutState.player.UserId].username
 	end
 
 	return {
@@ -245,6 +263,7 @@ end)(frameGridLayout)
 
 local function mainGui()
 	return Roact.createElement("ScreenGui", {}, {
+		ScoreBoard = Roact.createElement(ScoreBoard),
 		-- Top Left
 		RobotImage = image(robotImageProps),
 		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
@@ -257,6 +276,8 @@ local function mainGui()
 		-- Top Right
 		BananaIcon = BananaIcon,
 		BananasText = BananasText,
+		SticksImage = image(sticksImageProps),
+		SticksText = Roact.createElement(sticksTextProps),
 		-- TODO : Sticks, Rocks
 		-- Bot Mid
 		LvlText = Roact.createElement(LvlText),
@@ -277,12 +298,12 @@ local app = Roact.createElement(RoactRodux.StoreProvider, {
 })
 
 local function generateUi()
-	Roact.mount(app, PlayerGui)
+	Roact.mount(app, MutState.playerGui)
 
 	-- After UI Creation
 	updateLifeBar()
 
-	local mainGuiRef = playerGui.RoactTree.MainGui
+	local mainGuiRef = MutState.playerGui.RoactTree.MainGui
 
 	-- ProgressBar
 	local progressBarRef = mainGuiRef.ProgressBar[2]
@@ -315,7 +336,7 @@ end
 generateUi()
 
 -- Generate UI on Character Spawn
-player.CharacterAdded:Connect(function(character)
+MutState.player.CharacterAdded:Connect(function(character)
 	PlayerController.GetSounds()
 	generateUi()
 end)

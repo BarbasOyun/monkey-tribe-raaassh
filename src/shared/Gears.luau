@@ -200,6 +200,18 @@ function Gears.GetBodyParts(character)
 	return torso, head, leftArm, leftLeg, rightArm, rightLeg
 end
 
+--- Set the Collisions of the Body Parts of a R6 Model
+function Gears.SetCharCollisions(character: Model, isEnabled)
+	local torso, head, leftArm, leftLeg, rightArm, rightLeg = Gears.GetBodyParts(character)
+
+	torso.CanCollide = isEnabled
+	head.CanCollide = isEnabled
+	leftArm.CanCollide = isEnabled
+	leftLeg.CanCollide = isEnabled
+	rightArm.CanCollide = isEnabled
+	rightLeg.CanCollide = isEnabled
+end
+
 --- Get the Limbs Joints of a R6 Model
 function Gears.GetJoints(character)
 	local torso = character.Torso
@@ -228,9 +240,9 @@ function Gears.GetJoints(character)
 	return rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip
 end
 
---- TODO : Enable param
-function Gears.DisableJoints(character)
-	-- Disable Joints
+-- TODO : Enable param
+--- Disable the Joints of a R6 Model
+function Gears.DisableJoints(character: Model)
 	for Index, Child in pairs(character:GetChildren()) do
 		local isInBanList = Child.Name == "Neck" -- TODO : BanList
 
@@ -245,62 +257,23 @@ function Gears.DisableJoints(character)
 	end
 end
 
-function Gears.EnableJointInstantly(joint: Motor6D, d)
-	-- joint.Enabled = true
-
-	local parentPart = joint.Part0
-	local childPart = joint.Part1
-
-	if not parentPart or not childPart then
-		warn("Enable Joint Instantly : Missing Parent or Child Part")
-		return
-	end
-
-	-- Reset Child Pos
-	-- local targetCFrame = parentPart.CFrame * joint.C0 * joint.C1:Inverse()
-	local targetCFrame = parentPart:GetPivot() * joint.C1
-	-- local targetCFrame = parentPart.CFrame * joint.C1
-	childPart.CFrame = targetCFrame
-
-	if d then
-		warn(childPart.Name .. " Target Position = ")
-		warn(targetCFrame.Position)
-
-		-- warn(childPart.Name .. " Target Rotation = ")
-		-- warn(targetCFrame.Rotation)
-	end
-
-	-- Reset Physics
-	childPart.AssemblyLinearVelocity = Vector3.zero
-	childPart.AssemblyAngularVelocity = Vector3.zero
-end
-
 ---@param character Model
 function Gears.Dismember(character)
 	Gears.DisableJoints(character)
 
-	local torso, head, leftArm, leftLeg, rightArm, rightLeg = Gears.GetBodyParts(character)
-
 	character.HumanoidRootPart.Anchored = true
-	torso.CanCollide = true
-	head.CanCollide = true
-	leftArm.CanCollide = true
-	leftLeg.CanCollide = true
-	rightArm.CanCollide = true
-	rightLeg.CanCollide = true
+	character.HumanoidRootPart.CanCollide = true
+
+	Gears.SetCharCollisions(character, true)
 end
 
 --- Reset a Dismembered Character
 ---@param character Model
 function Gears.ResetCharacter(character)
-	-- Get Body Parts
-	local torso, head, leftArm, leftLeg, rightArm, rightLeg = Gears.GetBodyParts(character)
-	local HumanoidRootPart = character.HumanoidRootPart
+	character.HumanoidRootPart.Anchored = false
 
 	-- Get Joints
 	local rootJoint, neck, leftShoulder, leftHip, rightShoulder, rightHip = Gears.GetJoints(character)
-
-	HumanoidRootPart.Anchored = false
 
 	-- Enable Joints
 	rootJoint.Enabled = true
@@ -310,26 +283,8 @@ function Gears.ResetCharacter(character)
 	rightShoulder.Enabled = true
 	rightHip.Enabled = true
 
-	-- Reset Pos
-	-- local localOffset = CFrame.new(0, 0, 0)
-	-- torso.CFrame = character:GetPivot() * localOffset
-	-- HumanoidRootPart.CFrame = character:GetPivot() * localOffset
-
-	-- Gears.EnableJointInstantly(rootJoint, d)
-	-- Gears.EnableJointInstantly(neck, d)
-	-- Gears.EnableJointInstantly(leftShoulder, d)
-	-- Gears.EnableJointInstantly(leftHip, d)
-	-- Gears.EnableJointInstantly(rightShoulder, d)
-	-- Gears.EnableJointInstantly(rightHip, d)
-
 	-- Enable Collisions
-	-- HumanoidRootPart.CanCollide = true
-	torso.CanCollide = true
-	head.CanCollide = true
-	leftArm.CanCollide = true
-	leftLeg.CanCollide = true
-	rightArm.CanCollide = true
-	rightLeg.CanCollide = true
+	Gears.SetCharCollisions(character, true)
 end
 
 -- #endregion

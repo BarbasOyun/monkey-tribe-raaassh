@@ -26,7 +26,7 @@ enemiesDetectionParam.MaxParts = 500
 local autoPickupParam = OverlapParams.new()
 autoPickupParam.FilterType = Enum.RaycastFilterType.Include
 autoPickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
-autoPickupParam.MaxParts = 50
+autoPickupParam.MaxParts = 100
 
 local PlayerServiceState = {
 	enemiesDetectionParam = enemiesDetectionParam,

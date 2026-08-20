@@ -150,25 +150,27 @@ end
 
 --- Spawn Item Model at Position,
 --- eg : ItemService.SpawnItem(ItemRegistries[CategoryStore.Weapons].WoodenClub, Vector3.zero)
-function ItemService.SpawnItem(item, position)
+function ItemService.SpawnItem(item, position: Vector3)
 	local usePos = position or Vector3.zero
 	local itemDefinition = item.definition
 
 	-- Spawn Model
 	local newModel = item.prefab:Clone()
 
-	local partToMove = newModel
-
-	-- Weapon Setup
-	if itemDefinition.itemType == itemTypes.weapon then
-		partToMove = newModel.Handle
-	end
-
-	-- Set Item
-	partToMove.CFrame = CFrame.new(usePos)
+	-- Set Item Model
 	-- newModel.Name = itemDefinition.name
 	newModel:SetAttribute("DefinitionId", item.id)
 	newModel.Parent = workspace
+
+	-- Set Position
+	local partToMove = newModel
+
+	if itemDefinition.itemType == itemTypes.weapon then
+		newModel:PivotTo(CFrame.new(position))
+		return
+	end
+
+	partToMove.CFrame = CFrame.new(usePos)
 
 	return newModel
 end
@@ -370,6 +372,11 @@ end
 local function onEquipped(weaponModel, weaponData)
 	local character = weaponModel.Parent
 	local player = Players:GetPlayerFromCharacter(character)
+
+	if not player then
+		return
+	end
+
 	print("Equip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
 
 	-- TODO : Check if sounds are available -> Spawn & Delete sounds
@@ -403,19 +410,23 @@ local function onUnequipped(weaponModel)
 		return
 	end
 
-	local weaponData = playerState.weaponData
-
-	-- Remove Sounds
-	for _, sound in pairs(weaponData.sounds) do
-		sound:Destroy()
-	end
-
 	-- Reset WeaponState
 	ItemService.SetWeapon(player, {})
 
 	-- Events
 	ItemService.UnequipWeapon:Fire(player)
 	ItemService.Client.UnequipWeapon:Fire(player)
+
+	-- Remove Sounds
+	local weaponData = playerState.weaponData
+
+	if not weaponData.sounds then
+		return
+	end
+
+	for _, sound in pairs(weaponData.sounds) do
+		sound:Destroy()
+	end
 end
 
 local function SetupWeaponType(weaponType)
