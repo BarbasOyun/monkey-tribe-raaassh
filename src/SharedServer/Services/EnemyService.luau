@@ -147,10 +147,6 @@ local unitOnEnabled = function(entityId, character, position)
 	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local UnitStorageState = UnitStorage.GetState()
 
-	-- Disable Respawn CD
-	-- local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
-	-- UnitStorageState.dispawnCd[unitId] = 0
-
 	-- Movement Speed
 	local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
 	local humanoid = character.Humanoid :: Humanoid
@@ -168,11 +164,7 @@ local lifeBarOnEnabled = function(entityId, character, position)
 	Gears.UpdateBar(lifeBar, 1)
 
 	-- Force Re render of lifebar
-	billboardGui.Enabled = false
-	task.spawn(function()
-		task.wait()
-		billboardGui.Enabled = true
-	end)
+	billboardGui.Enabled = true
 end
 
 local respawnOnEnabled = function(entityId, character, position)
@@ -316,6 +308,15 @@ end
 -- #region POOLS
 -- TODO : PoolService
 
+export type Pool = {
+	name: string,
+	definitionId: number,
+	size: number,
+	startIndex: number,
+	endIndex: number,
+	activeCount: number,
+}
+
 --- Register and Create a Pool of Enemy
 function EnemyService.CreatePool(enemyId)
 	local pool = EnemyDefinitions.EnemiesPool[enemyId]
@@ -354,13 +355,14 @@ function EnemyService.GetPool(entityId)
 
 	for i = 1, #pools do
 		local pool = pools[i]
-		local threshold = pool.endIndex
+		local threshold = pool.endIndex + 1
 
 		if entityId <= threshold then
 			return pool
 		end
 	end
 
+	warn("EntityId = " .. entityId .. " No Pool found")
 	return nil
 end
 
@@ -400,7 +402,7 @@ function EnemyService.EnableNextInPool(enemyId, position)
 	return entityId, character
 end
 
---- Disable an Object
+--- Disable a GameObject in Pool
 function EnemyService.DisableEntity(entityId)
 	if not EcsService.HasComponent(entityId, 1) then
 		warn(entityId .. " Doesn't have Gameobject Component")
@@ -408,6 +410,10 @@ function EnemyService.DisableEntity(entityId)
 	end
 
 	local pool = EnemyService.GetPool(entityId)
+
+	if not pool then
+		return
+	end
 
 	-- warn("Disable .. " .. pool.name)
 
@@ -431,8 +437,52 @@ function EnemyService.DisableEntity(entityId)
 	-- Swap Entities
 	local index = table.find(EnemyServiceState.entitiesPool, entityId) -- TODO : replace with : entityId index array
 
+	if not index then
+		warn("EntityId = " .. entityId .. " Not Found in entitiesPool")
+		return
+	end
+
 	EnemyServiceState.entitiesPool[index] = lastEntityId
 	EnemyServiceState.entitiesPool[lastIndex] = entityId
+end
+
+--- Disable every GameObjects in a Pool
+function EnemyService.ClearPool(pool)
+	for i = 1, pool.activeCount do
+		local index = pool.startIndex + i
+		local entityId = EnemyServiceState.entitiesPool[index]
+		EnemyService.DisableEntity(entityId)
+	end
+end
+
+--- Disable every GameObjects in Pools
+function EnemyService.ClearEnemies()
+	for i = 1, #EnemyServiceState.pools do
+		local pool = EnemyServiceState.pools[i]
+		EnemyService.ClearPool(pool)
+	end
+end
+
+-- TODO : DefinitionId param
+--- Call when a GameObject got OOB and Destroyed by Roblox
+function EnemyService.ResetGameObject(entityId, character)
+	-- Replace GameObject
+	character:Destroy()
+
+	-- Create new model
+	local enemy = EnemiesPrefabs[Enemies.Robot]:Clone() -- TODO : Per DefinitionId
+	enemy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
+	enemy.Name = enemy.Name .. entityId
+	enemy:SetAttribute("EntityId", entityId)
+
+	-- Replace old model
+	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
+	local GameObjectStorageState = GameObjectStorage.GetState()
+	local gameObjectId = GameObjectStorage.GetComponentId(GameObjectStorageState, entityId)
+	GameObjectStorageState.gameObjects[gameObjectId] = enemy
+
+	-- Disable
+	GameObjectStorage.OnDisable(entityId)
 end
 
 -- #endregion
@@ -671,44 +721,40 @@ function EnemyService.StartUnitUpdate()
 end
 
 --- MobBehavior System : Seek & Attack Players
+--- Using Components : MobBehavior, GameObject, Unit
 function EnemyService.MobBehavior(state, entityId, character, robotStats)
-	-- Keep In Bounds
-	local pos = character:GetPivot()
-	local isOob = LevelService.IsOob(state, pos)
-
-	if isOob then
-		warn("Entity " .. entityId .. " Is OOB")
-		warn(character:GetPivot().Position)
-		Gears.AnchorModel(character, true)
-		LevelService.ResetPlayerPos(character)
-	end
-
 	-- Get Nearest Player
 	local targetPlayer, distance = EnemyService.GetNearestPlayer(state, character)
 	local humanoid = character.Humanoid
 
+	-- Check GameObject
+	local root = character:FindFirstChild("HumanoidRootPart")
+
+	if not root then
+		-- warn("Entity " .. entityId .. " " .. character.Name .. " No HumanoidRootPart")
+		EnemyService.ResetGameObject(entityId, character)
+		return
+	end
+
 	-- Stop if no target found
 	if not targetPlayer then
-		local t = character:FindFirstChild("HumanoidRootPart")
-
-		if not t then
-			warn("Entity " .. entityId .. " " .. character.Name .. " No HumanoidRootPart")
-			warn(character:GetPivot().Position)
-		end
-
+		-- TODO : Respawn to Random Player
 		humanoid:MoveTo(character.HumanoidRootPart.Position)
 		return
 	end
 
-	-- Target found : Attack or Move to
+	-- Target found
 	local isWithinRange = distance <= robotStats.Range
 
+	-- Attack
 	if isWithinRange then
 		EnemyService.EnemyAttack(entityId, character, targetPlayer)
 		return
 	end
 
-	humanoid:MoveTo(targetPlayer.character:GetPivot().Position)
+	-- Move to player
+	local playerPos = targetPlayer.character:GetPivot().Position
+	humanoid:MoveTo(playerPos)
 end
 
 --- Start MobBehavior in Throttled update
@@ -719,24 +765,27 @@ function EnemyService.StartMobBehavior()
 
 		local isDeltaReached = EcsState.MobBehaviorStorageState.timer >= EcsState.MobBehaviorStorageState.timerDelta
 
-		if isDeltaReached then
-			-- Reset Timer
-			EcsState.MobBehaviorStorageState.timer = 0
+		if not isDeltaReached then
+			return
+		end
 
-			local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
-			local robotStats = EnemiesStats[Enemies.Robot]
+		-- Reset Timer
+		EcsState.MobBehaviorStorageState.timer = 0
 
-			-- TODO : Archetype loops
-			for _, entityId in pairs(EcsState.MobBehaviorStorageState.entities) do
-				local enemyCharacter = GameObjectStorage.GetGameObject(entityId)
-				local isDisabled = enemyCharacter.Parent == CONSTANTS.DISABLED_ENTITIES_FOLDER
+		local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
+		-- TODO : UnitStorage get DefinitionId
+		local robotStats = EnemiesStats[Enemies.Robot]
 
-				if isDisabled then
-					continue
-				end
+		-- TODO : Archetype loops
+		for _, entityId in pairs(EcsState.MobBehaviorStorageState.entities) do
+			local enemyCharacter = GameObjectStorage.GetGameObject(entityId)
+			local isDisabled = enemyCharacter.Parent == CONSTANTS.DISABLED_ENTITIES_FOLDER
 
-				EnemyService.MobBehavior(state, entityId, enemyCharacter, robotStats)
+			if isDisabled then
+				continue
 			end
+
+			EnemyService.MobBehavior(state, entityId, enemyCharacter, robotStats)
 		end
 	end)
 end

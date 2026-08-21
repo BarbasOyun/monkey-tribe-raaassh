@@ -21,7 +21,7 @@ local mainSounds = CONSTANTS.PREFABS_FOLDER.Sounds.MainSounds
 local enemiesDetectionParam = OverlapParams.new()
 enemiesDetectionParam.FilterType = Enum.RaycastFilterType.Include
 enemiesDetectionParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER }
-enemiesDetectionParam.MaxParts = 500
+enemiesDetectionParam.MaxParts = 1200 -- MaxEnemies * averagePartsCount
 
 local autoPickupParam = OverlapParams.new()
 autoPickupParam.FilterType = Enum.RaycastFilterType.Include
@@ -33,6 +33,7 @@ local PlayerServiceState = {
 	autoPickupParam = autoPickupParam,
 	playersDetections = {},
 	buildingsDetections = {},
+	autoPickups = {},
 }
 
 -- Level Service State

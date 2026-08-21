@@ -38,15 +38,6 @@ local EnemiesPrefabs = {
 
 -- POOLS
 
-export type Pool = {
-	name: string,
-	definitionId: number,
-	size: number,
-	startIndex: number,
-	endIndex: number,
-	activeCount: number,
-}
-
 local EnemiesPool = {
 	{
 		name = "Dummy",

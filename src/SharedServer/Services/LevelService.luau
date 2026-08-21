@@ -138,6 +138,7 @@ function LevelService.LoadLevelDefinitions()
 	-- Buildings Setup
 	BUILDING_FOLDER = workspace.Buildings
 
+	-- Buildings Detection
 	local buildingsDetectionParam = OverlapParams.new()
 	buildingsDetectionParam.FilterType = Enum.RaycastFilterType.Include
 	buildingsDetectionParam.FilterDescendantsInstances = { BUILDING_FOLDER }
@@ -193,13 +194,13 @@ function LevelService.ResetLevel()
 	LevelState.stageProgress = 0
 	LevelService.Client.ProgressUpdate:FireAll(0)
 
-	PlayerService.ResurrectAll()
-
+	-- Clear Objects
 	LevelService.ClearBuildings()
-
+	EnemyService.ClearEnemies()
 	ItemService.ClearGroundItems()
 
-	-- Reset every players Pos
+	-- Reset Players
+	PlayerService.ResurrectAll()
 	for _, player in pairs(Players:GetPlayers()) do
 		LevelService.ResetPlayerPos(player.character)
 	end

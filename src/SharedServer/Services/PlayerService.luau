@@ -319,10 +319,8 @@ function PlayerService.SetupGameOver(player)
 	player.CharacterAdded:Connect(onCharacterAdded)
 end
 
-function PlayerService.CheckGameOver()
-	local state = Store:getState()
-	local players = state.players
-
+--- return the amount of dead players
+function PlayerService.CountDeadPlayers()
 	local deadPlayersCount = 0
 
 	-- Count using custom isDead
@@ -338,6 +336,15 @@ function PlayerService.CheckGameOver()
 			deadPlayersCount += 1
 		end
 	end
+
+	return deadPlayersCount
+end
+
+function PlayerService.CheckGameOver()
+	local state = Store:getState()
+	local players = state.players
+
+	local deadPlayersCount = PlayerService.CountDeadPlayers()
 
 	if deadPlayersCount >= #players then
 		PlayerService.GameOver()
@@ -380,6 +387,12 @@ end
 
 local function updateCurrency(state, player, currencyId, value)
 	local userId = player.UserId
+
+	local playerState = Selectors.PlayerState(state, userId)
+
+	if not playerState then
+		return
+	end
 
 	local currency = PlayerService.GetCurrency(state, userId, currencyId)
 	local newValue = math.clamp(currency + value, 0, CONSTANTS.MAX_CURRENCIES[currencyId])
@@ -507,7 +520,7 @@ function PlayerService.BuildingsDetection(state, player)
 	end
 end
 
---- Lerp Item Pos to Player
+--- Start Autopickup Item
 local function autoPickup(player, itemModel)
 	local isValid = itemModel.Parent and itemModel.Parent == workspace.AutoPickup
 	if not isValid then
@@ -517,7 +530,7 @@ local function autoPickup(player, itemModel)
 	itemModel.Parent = game.Workspace
 	itemModel.CanCollide = false
 
-	-- Lerp itemModel
+	-- Build Context
 	local startPos = itemModel.CFrame
 
 	local steps = 20
@@ -525,23 +538,20 @@ local function autoPickup(player, itemModel)
 	local speed = 1 / steps / 4
 	local acceleration = (1 / steps - speed) / (steps / 2)
 
-	for _ = 1, steps do
-		progress += speed
-		speed += acceleration
-		local character = player.character
+	local movementCtx = {
+		player = player,
+		itemModel = itemModel,
+		startPos = startPos,
+		steps = steps,
+		progress = progress,
+		speed = speed,
+		acceleration = acceleration,
+	}
 
-		if not character then
-			return
-		end
-
-		itemModel.CFrame = startPos:Lerp(character:GetPivot(), progress)
-		RunService.Heartbeat:Wait() -- FIXME : Performance
-	end
-
-	ItemService.PickupItem(player, itemModel)
+	table.insert(PlayerServiceState.autoPickups, movementCtx)
 end
 
---- Player Autopickup Ground Items
+--- Detect Items around a Player and Start Autopickup
 local function autoPickupRange(state, player)
 	local userId = player.UserId
 	local playerState = state.players[userId]
@@ -564,10 +574,36 @@ local function autoPickupRange(state, player)
 	end
 end
 
+-- TODO : Client Side Prediction
+function PlayerService.AutoPickupUpdate()
+	for i = #PlayerServiceState.autoPickups, 1, -1 do
+		local movementCtx = PlayerServiceState.autoPickups[i]
+
+		movementCtx.progress += movementCtx.speed
+		movementCtx.speed += movementCtx.acceleration
+		local character = movementCtx.player.character
+
+		if not character then
+			return
+		end
+
+		movementCtx.itemModel.CFrame = movementCtx.startPos:Lerp(character:GetPivot(), movementCtx.progress)
+
+		-- End Movement
+		if movementCtx.progress >= 1 then
+			ItemService.PickupItem(movementCtx.player, movementCtx.itemModel)
+			table.remove(PlayerServiceState.autoPickups, i)
+		end
+	end
+end
+
 local function stateUpdate(dt: number)
 	local state = Store:getState() -- Get state once every frame
 
+	-- Trigger Event for other Services
 	PlayerService.StateUpdate:Fire(state, dt)
+
+	PlayerService.AutoPickupUpdate()
 
 	-- Throttled Update
 	MutState.frameCount += 1

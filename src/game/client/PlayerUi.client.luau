@@ -72,8 +72,9 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 	}
 end)(textLabel)
 
+-- Sticks Display
 sticksImageProps = {
-	position = UDim2.fromScale(0.75, 0.2),
+	position = UDim2.fromScale(0.77, 0.175),
 	size = UDim2.fromScale(0.05, 0.09),
 	imageLink = "rbxassetid://109738929660031",
 }
@@ -87,7 +88,7 @@ sticksTextProps = RoactRodux.connect(function(state, props)
 	end
 
 	return {
-		position = UDim2.fromScale(0.7, 0.2),
+		position = UDim2.fromScale(0.7, 0.175),
 		size = UDim2.fromScale(0.1, 0.1),
 		text = sticks,
 	}
@@ -263,8 +264,8 @@ end)(frameGridLayout)
 
 local function mainGui()
 	return Roact.createElement("ScreenGui", {}, {
-		ScoreBoard = Roact.createElement(ScoreBoard),
 		-- Top Left
+		-- ScoreBoard = Roact.createElement(ScoreBoard),
 		RobotImage = image(robotImageProps),
 		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
 		GameTimer = textLabel(gameTimerProps),

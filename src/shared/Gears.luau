@@ -244,7 +244,7 @@ end
 --- Disable the Joints of a R6 Model
 function Gears.DisableJoints(character: Model)
 	for Index, Child in pairs(character:GetChildren()) do
-		local isInBanList = Child.Name == "Neck" -- TODO : BanList
+		local isInBanList = Child.Name == "Neck" -- TODO : Param BanList
 
 		if Child:IsA("Motor6D") and not isInBanList then
 			Child.Enabled = false
@@ -259,10 +259,10 @@ end
 
 ---@param character Model
 function Gears.Dismember(character)
-	Gears.DisableJoints(character)
-
 	character.HumanoidRootPart.Anchored = true
 	character.HumanoidRootPart.CanCollide = true
+
+	Gears.DisableJoints(character)
 
 	Gears.SetCharCollisions(character, true)
 end
