@@ -20,6 +20,7 @@ local LevelService = Knit.GetService("LevelService")
 local RpgService = Knit.GetService("RpgService")
 local AugmentsService = Knit.GetService("AugmentsService")
 
+local PoolService = Knit.GetService("PoolService")
 local EnemyService = Knit.GetService("EnemyService")
 local ItemService = Knit.GetService("ItemService")
 
@@ -67,7 +68,7 @@ local function setupEnemies()
 	EnemyService.StartUnitUpdate()
 
 	-- Load Enemies
-	EnemyService.CreatePool(Enemies.Robot)
+	PoolService.CreatePool(Enemies.Robot)
 
 	-- Start Spawning Mobs
 	EnemyService.StartStreamSpawn()

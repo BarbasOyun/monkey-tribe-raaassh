@@ -29,12 +29,25 @@ local PlayerServiceState = MutState.PlayerServiceState
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local PlayerService, LevelService, RpgService, EcsService, ItemService
+local PoolService, PlayerService, LevelService, RpgService, EcsService, ItemService
 
 local EnemyService = Knit.CreateService({
 	Name = "EnemyService",
 	-- Client = {},
 })
+
+function EnemyService:KnitInit()
+	print("EnemyService Init")
+end
+
+function EnemyService:KnitStart()
+	PoolService = Knit.GetService("PoolService")
+	PlayerService = Knit.GetService("PlayerService")
+	LevelService = Knit.GetService("LevelService")
+	RpgService = Knit.GetService("RpgService")
+	EcsService = Knit.GetService("EcsService")
+	ItemService = Knit.GetService("ItemService")
+end
 
 -- TODO : EnemyContext struct : entityId, character, position
 
@@ -56,7 +69,7 @@ end
 
 local defaultOnDisabled = function(entityId)
 	-- warn("Default On Disabled")
-	EnemyService.DisableEntity(entityId)
+	PoolService.DisableEntity(entityId)
 end
 
 -- #endregion
@@ -182,7 +195,7 @@ local dummyOnDisabled = function(entityId)
 	-- Respawn -> Get Back respawnPos
 	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
 	local respawnPos = CustomStorage.GetCustomProperties(entityId).respawnPos
-	EnemyService.EnableNextInPool(Enemies.Dummy, respawnPos)
+	PoolService.EnableNextInPool(Enemies.Dummy, respawnPos)
 
 	defaultOnDisabled(entityId)
 end
@@ -303,199 +316,29 @@ function EnemyService.CEnemy(enemyId, position)
 	return entityId
 end
 
--- #endregion
+--- Respawn an Enemy around a Random player
+function EnemyService.RespawnEnemy(character)
+	local randomPlayer = PlayerService.GetRandomPlayer()
 
--- #region POOLS
--- TODO : PoolService
+	local playerpos = randomPlayer.character:GetPivot()
+	local respawnPos = EnemyService.GetSpawnPosition(playerpos)
 
-export type Pool = {
-	name: string,
-	definitionId: number,
-	size: number,
-	startIndex: number,
-	endIndex: number,
-	activeCount: number,
-}
-
---- Register and Create a Pool of Enemy
-function EnemyService.CreatePool(enemyId)
-	local pool = EnemyDefinitions.EnemiesPool[enemyId]
-
-	-- TODO : Prevent Creating the same Pool
-
-	local startIndex = #EnemyServiceState.entitiesPool
-	local endIndex = startIndex + pool.size
-
-	-- Update Pool
-	pool.startIndex = startIndex
-	pool.endIndex = endIndex
-
-	-- Register Pool
-	table.insert(EnemyServiceState.pools, pool)
-	EnemyServiceState.poolsLookups[enemyId] = #EnemyServiceState.pools
-
-	-- Create Entities
-	warn("Create Pool : " .. pool.name .. ", StartIndex = " .. startIndex .. ", EndIndex = " .. endIndex)
-	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-
-	for _ = 1, pool.size do
-		local entityId = EnemyService.CEnemy(pool.definitionId, Vector3.zero)
-		table.insert(EnemyServiceState.entitiesPool, entityId)
-
-		-- Disable
-		GameObjectStorage.OnDisable(entityId)
-	end
-end
-
---- return the pool of an Entity
-function EnemyService.GetPool(entityId)
-	-- warn("Get Pool of EntityId = " .. entityId)
-
-	local pools = EnemyServiceState.pools
-
-	for i = 1, #pools do
-		local pool = pools[i]
-		local threshold = pool.endIndex + 1
-
-		if entityId <= threshold then
-			return pool
-		end
-	end
-
-	warn("EntityId = " .. entityId .. " No Pool found")
-	return nil
-end
-
-function EnemyService.EnableNextInPool(enemyId, position)
-	-- Validation
-	local poolIndex = EnemyServiceState.poolsLookups[enemyId]
-	local pool = EnemyServiceState.pools[poolIndex]
-
-	local hasReachedMax = pool.activeCount >= pool.size - 1
-
-	if hasReachedMax then
-		warn(pool.name .. " Reached Limit of : " .. pool.size)
-		return
-	end
-
-	pool.activeCount += 1
-
-	-- Get State
-	local index = pool.startIndex + pool.activeCount
-	local entityId = EnemyServiceState.entitiesPool[index]
-
-	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-	local character = GameObjectStorage.GetGameObject(entityId)
-
-	-- warn("Enable Object in Pool = " .. pool.name .. ", Entity ID = " .. entityId)
-
-	-- Per Type OnEnabled
-	local componentsOnEnabled = EnemyService.enemiesOnEnabled[enemyId]
-	for i = 1, #componentsOnEnabled do
-		local onEnabled = componentsOnEnabled[i]
-
-		if onEnabled then
-			onEnabled(entityId, character, position)
-		end
-	end
-
-	return entityId, character
-end
-
---- Disable a GameObject in Pool
-function EnemyService.DisableEntity(entityId)
-	if not EcsService.HasComponent(entityId, 1) then
-		warn(entityId .. " Doesn't have Gameobject Component")
-		return
-	end
-
-	local pool = EnemyService.GetPool(entityId)
-
-	if not pool then
-		return
-	end
-
-	-- warn("Disable .. " .. pool.name)
-
-	local lastIndex = pool.startIndex + pool.activeCount
-	local lastEntityId = EnemyServiceState.entitiesPool[lastIndex]
-
-	-- Update Pool
-	pool.activeCount -= 1
-
-	-- Update Components
-	-- TODO : Per Archetype's Component
-
-	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-	GameObjectStorage.OnDisable(entityId)
-
-	-- If entityId not last Entity : Swap Last
-	if entityId == lastEntityId then
-		return
-	end
-
-	-- Swap Entities
-	local index = table.find(EnemyServiceState.entitiesPool, entityId) -- TODO : replace with : entityId index array
-
-	if not index then
-		warn("EntityId = " .. entityId .. " Not Found in entitiesPool")
-		return
-	end
-
-	EnemyServiceState.entitiesPool[index] = lastEntityId
-	EnemyServiceState.entitiesPool[lastIndex] = entityId
-end
-
---- Disable every GameObjects in a Pool
-function EnemyService.ClearPool(pool)
-	for i = 1, pool.activeCount do
-		local index = pool.startIndex + i
-		local entityId = EnemyServiceState.entitiesPool[index]
-		EnemyService.DisableEntity(entityId)
-	end
-end
-
---- Disable every GameObjects in Pools
-function EnemyService.ClearEnemies()
-	for i = 1, #EnemyServiceState.pools do
-		local pool = EnemyServiceState.pools[i]
-		EnemyService.ClearPool(pool)
-	end
-end
-
--- TODO : DefinitionId param
---- Call when a GameObject got OOB and Destroyed by Roblox
-function EnemyService.ResetGameObject(entityId, character)
-	-- Replace GameObject
-	character:Destroy()
-
-	-- Create new model
-	local enemy = EnemiesPrefabs[Enemies.Robot]:Clone() -- TODO : Per DefinitionId
-	enemy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
-	enemy.Name = enemy.Name .. entityId
-	enemy:SetAttribute("EntityId", entityId)
-
-	-- Replace old model
-	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-	local GameObjectStorageState = GameObjectStorage.GetState()
-	local gameObjectId = GameObjectStorage.GetComponentId(GameObjectStorageState, entityId)
-	GameObjectStorageState.gameObjects[gameObjectId] = enemy
-
-	-- Disable
-	GameObjectStorage.OnDisable(entityId)
+	character:PivotTo(CFrame.new(respawnPos))
 end
 
 -- #endregion
 
 -- #region UTILS
 
+--- Get a Random Position in a Circle around input Pos
 --- Keep the Input Position in the Level Range (Prevent OOB)
 function EnemyService.GetSpawnPosition(position)
+	-- Get Random Circle Pos
 	local radius = Gears.RandomRange(EnemyConst.SPAWN_RADIUS, EnemyConst.SPAWN_RADIUS_RANGE)
 	local progress = math.random(0, CONSTANTS.MAX_RADIANT)
 	local circlePos = Gears.CirclePos(radius, progress)
-
 	local pos = position + Vector3.new(circlePos.X, 0, circlePos.Y) -- Circle around Pos
+
 	local usePos = LevelService.KeepPointInLimits(pos)
 
 	return usePos
@@ -732,14 +575,14 @@ function EnemyService.MobBehavior(state, entityId, character, robotStats)
 
 	if not root then
 		-- warn("Entity " .. entityId .. " " .. character.Name .. " No HumanoidRootPart")
-		EnemyService.ResetGameObject(entityId, character)
+		PoolService.ResetGameObject(entityId, character)
 		return
 	end
 
 	-- Stop if no target found
 	if not targetPlayer then
-		-- TODO : Respawn to Random Player
 		humanoid:MoveTo(character.HumanoidRootPart.Position)
+		EnemyService.RespawnEnemy(character)
 		return
 	end
 
@@ -808,7 +651,7 @@ function EnemyService.StreamSpawn(state, player)
 	-- Spawn X Mobs
 	for _ = 1, enemyNbr do
 		local spawnPos = EnemyService.GetSpawnPosition(playerPos)
-		EnemyService.EnableNextInPool(Enemies.Robot, spawnPos)
+		PoolService.EnableNextInPool(Enemies.Robot, spawnPos)
 	end
 end
 
@@ -853,7 +696,7 @@ function EnemyService.SwarmSpawn()
 		local spawnPos = EnemyService.GetSpawnPosition(playerPos)
 
 		for _ = 1, enemyNbr, 1 do
-			EnemyService.EnableNextInPool(Enemies.Robot, spawnPos)
+			PoolService.EnableNextInPool(Enemies.Robot, spawnPos)
 		end
 	end
 end
@@ -884,19 +727,5 @@ function EnemyService.StartSwarmSpawn()
 end
 
 -- #endregion
-
--- SERVICE
-
-function EnemyService:KnitInit()
-	print("EnemyService Init")
-end
-
-function EnemyService:KnitStart()
-	PlayerService = Knit.GetService("PlayerService")
-	LevelService = Knit.GetService("LevelService")
-	RpgService = Knit.GetService("RpgService")
-	EcsService = Knit.GetService("EcsService")
-	ItemService = Knit.GetService("ItemService")
-end
 
 return EnemyService

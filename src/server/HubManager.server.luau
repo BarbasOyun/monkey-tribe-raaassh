@@ -27,9 +27,8 @@ local LevelService = Knit.GetService("LevelService")
 local RpgService = Knit.GetService("RpgService")
 local AugmentsService = Knit.GetService("AugmentsService")
 
+local PoolService = Knit.GetService("PoolService")
 local EnemyService = Knit.GetService("EnemyService")
--- local EcsService = Knit.GetService("EcsService")
--- local ItemService = Knit.GetService("ItemService")
 
 -- Platforms tp
 local GAME_PLACE_ID = 109804031798809
@@ -258,7 +257,7 @@ local function setupEnemies()
 	EnemyService.StartUnitUpdate()
 
 	-- Spawn Dummies
-	EnemyService.CreatePool(Enemies.Dummy)
+	PoolService.CreatePool(Enemies.Dummy)
 
 	local pos1 = Vector3.new(-3.15, 4.5, 70)
 	local pos2 = Vector3.new(5.85, 4.5, 70)

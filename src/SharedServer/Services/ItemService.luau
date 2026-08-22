@@ -154,8 +154,12 @@ function ItemService.SpawnItem(item, position: Vector3)
 	local usePos = position or Vector3.zero
 	local itemDefinition = item.definition
 
+	-- TODO : Create Entity
+
 	-- Spawn Model
 	local newModel = item.prefab:Clone()
+
+	-- TODO : Add GameObject Component
 
 	-- Set Item Model
 	-- newModel.Name = itemDefinition.name

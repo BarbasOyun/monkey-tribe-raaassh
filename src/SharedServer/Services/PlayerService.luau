@@ -24,7 +24,7 @@ local PlayerServiceState = MutState.PlayerServiceState
 -- Get DataStore
 local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
 
--- Get Knit
+-- Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
@@ -48,6 +48,19 @@ local PlayerService = Knit.CreateService({
 		EnteringGame = Knit.CreateSignal(),
 	},
 })
+
+function PlayerService:KnitInit()
+	print("PlayerService Initialized")
+end
+
+function PlayerService:KnitStart()
+	RpgService = Knit.GetService("RpgService")
+	ItemService = Knit.GetService("ItemService")
+
+	RunService.Heartbeat:Connect(function(dt: number)
+		PlayerService.StateUpdate(dt)
+	end)
+end
 
 -- #region PLAYERS
 
@@ -134,6 +147,19 @@ function PlayerService.RemovePlayer(player, exitReason)
 	PlayerService.Client.PlayerRemoved:FireAll(player)
 
 	Store:dispatch(StoreActions.RemovePlayer(userId))
+end
+
+--- Return a random player
+function PlayerService.GetRandomPlayer()
+	local playerCount = #Players:GetPlayers()
+
+	if playerCount == 0 then
+		return nil
+	end
+
+	local randomIndex = math.random(1, playerCount)
+
+	return Players:GetPlayers()[randomIndex]
 end
 
 --- Add the Default sounds to a player
@@ -597,7 +623,7 @@ function PlayerService.AutoPickupUpdate()
 	end
 end
 
-local function stateUpdate(dt: number)
+function PlayerService.StateUpdate(dt: number)
 	local state = Store:getState() -- Get state once every frame
 
 	-- Trigger Event for other Services
@@ -621,19 +647,5 @@ local function stateUpdate(dt: number)
 end
 
 -- #endregion
-
--- Start Service
-function PlayerService:KnitInit()
-	print("PlayerService Initialized")
-end
-
-function PlayerService:KnitStart()
-	RpgService = Knit.GetService("RpgService")
-	ItemService = Knit.GetService("ItemService")
-
-	RunService.Heartbeat:Connect(function(dt: number)
-		stateUpdate(dt)
-	end)
-end
 
 return PlayerService

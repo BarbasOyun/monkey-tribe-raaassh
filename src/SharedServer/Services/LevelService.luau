@@ -27,11 +27,11 @@ local StoreActions = RoduxStore.Actions
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local LevelState = MutState.LevelState
 
--- Get Knit
+-- Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local PlayerService, EnemyService, ItemService, CombatService
+local PlayerService, EnemyService, ItemService, CombatService, PoolService
 
 local LevelService = Knit.CreateService({
 	Name = "LevelService",
@@ -41,6 +41,18 @@ local LevelService = Knit.CreateService({
 		ProgressUpdate = Knit.CreateSignal(),
 	},
 })
+
+function LevelService:KnitInit()
+	print("LevelService Initialized")
+end
+
+function LevelService:KnitStart()
+	PlayerService = Knit.GetService("PlayerService")
+	EnemyService = Knit.GetService("EnemyService")
+	ItemService = Knit.GetService("ItemService")
+	CombatService = Knit.GetService("CombatService")
+	PoolService = Knit.GetService("PoolService")
+end
 
 -- #region Bounds
 
@@ -196,7 +208,7 @@ function LevelService.ResetLevel()
 
 	-- Clear Objects
 	LevelService.ClearBuildings()
-	EnemyService.ClearEnemies()
+	PoolService.ClearPools()
 	ItemService.ClearGroundItems()
 
 	-- Reset Players
@@ -847,17 +859,5 @@ function LevelService.SolveCol(
 end
 
 -- #endregion
-
--- Start Service
-function LevelService:KnitInit()
-	print("LevelService Initialized")
-end
-
-function LevelService:KnitStart()
-	PlayerService = Knit.GetService("PlayerService")
-	EnemyService = Knit.GetService("EnemyService")
-	ItemService = Knit.GetService("ItemService")
-	CombatService = Knit.GetService("CombatService")
-end
 
 return LevelService

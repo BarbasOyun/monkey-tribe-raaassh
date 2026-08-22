@@ -36,32 +36,21 @@ local PlayerServiceState = {
 	autoPickups = {},
 }
 
--- Level Service State
-local LevelState = {
-	buildingsDetectionParam = nil,
-	-- Map
-	currentMapId = 1,
-	addMusicHandle = nil,
-	addMusicHandles = {},
-	stageRadius = 200,
-	-- Stage
-	stageProgress = 0,
-	stageCountDownTime = 0,
-	stageCountDown = 0,
-	countdownHandle = nil,
-	isWaitingForNextStage = false,
-	buildingsHealth = {}, -- TODO : Use ECS instead
-	buildingAmount = 3,
-	currentBuildings = {},
-	totalParts = 0,
-	partsCount = 0,
-	-- Events
-	maxEvents = 0,
-	currentEventIndex = 1,
-}
+-- Combat State
+local weaponHitParam = OverlapParams.new()
+weaponHitParam.FilterType = Enum.RaycastFilterType.Include
+weaponHitParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER }
+weaponHitParam.MaxParts = 100
 
-local ItemServiceState = {
-	itemsMovement = {},
+local CombatState = {
+	weaponHitParam = weaponHitParam,
+	playersClosestEnemy = {},
+	playersClosestBuilding = {},
+	expectingAttack = {},
+	attackBuffer = {},
+	lastAttacks = {},
+	comboIndexes = {}, -- For Weapon Animation
+	comboReset = {},
 }
 
 local RpgState = {
@@ -71,9 +60,42 @@ local RpgState = {
 	lifeRegenUpdates = {},
 }
 
+-- Level Service State
+local LevelState = {
+	-- Map
+	currentMapId = 1,
+	addMusicHandle = nil,
+	addMusicHandles = {},
+	stageRadius = 200,
+
+	-- Stage
+	stageProgress = 0,
+	stageCountDownTime = 0,
+	stageCountDown = 0,
+	countdownHandle = nil,
+	isWaitingForNextStage = false,
+
+	-- Buildings
+	buildingsDetectionParam = nil,
+	buildingsHealth = {}, -- TODO : Use ECS instead
+	buildingAmount = 3,
+	currentBuildings = {},
+	totalParts = 0,
+	partsCount = 0,
+
+	-- Events
+	maxEvents = 0,
+	currentEventIndex = 1,
+}
+
+local ItemServiceState = {
+	itemsMovement = {},
+}
+
 local EnemyServiceState = {
 	enemiesDeathCount = 0,
 	currentRobotStats = Gears.DeepCopy(EnemiesStats[Enemies.Robot]),
+
 	-- Stream Spawn
 	streamSpawnNbr = 2,
 	streamSpawnNbrRange = 1,
@@ -85,7 +107,9 @@ local EnemyServiceState = {
 	-- SwarmSpawn
 	swarmWaves = 0,
 	swarmSpawnTimer = 0,
-	-- Pool,
+}
+
+local PoolServiceState = {
 	pools = {},
 	entitiesPool = {},
 	poolsLookups = {},
@@ -156,34 +180,18 @@ local EcsState = {
 
 -- #endregion
 
--- Combat State
-local weaponHitParam = OverlapParams.new()
-weaponHitParam.FilterType = Enum.RaycastFilterType.Include
-weaponHitParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER }
-weaponHitParam.MaxParts = 100
-
-local CombatState = {
-	weaponHitParam = weaponHitParam,
-	playersClosestEnemy = {},
-	playersClosestBuilding = {},
-	expectingAttack = {},
-	attackBuffer = {},
-	lastAttacks = {},
-	comboIndexes = {}, -- For Weapon Animation
-	comboReset = {},
-}
-
 local MutState = {
 	gameTimer = 0,
 	gameTimerCount = 0,
 	frameCount = 0,
 	mainSounds = mainSounds,
 	PlayerServiceState = PlayerServiceState,
-	LevelState = LevelState,
-	ItemServiceState = ItemServiceState,
 	CombatState = CombatState,
 	RpgState = RpgState,
+	LevelState = LevelState,
+	ItemServiceState = ItemServiceState,
 	EnemyServiceState = EnemyServiceState,
+	PoolServiceState = PoolServiceState,
 	EcsState = EcsState,
 	-- TODO : Current Place State (Hub or Level)
 }
