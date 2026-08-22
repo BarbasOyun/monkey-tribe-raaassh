@@ -25,7 +25,7 @@ local prefabs = ReplicatedStorage.Shared.Prefabs
 
 -- ITEMS TYPES
 
-local itemTypes = {
+local ItemTypes = {
 	orb = "Orb",
 	weapon = "Weapon",
 	-- equipment
@@ -51,48 +51,42 @@ local itemTypeDefinition = {
 
 local Usables = {
 	{
-		-- id = 1,
 		name = "SmallXpOrb",
-		itemType = "Orb",
+		itemType = ItemTypes.orb,
 		xp = 10,
 	},
 	{
-		-- id = 2,
 		name = "Banana",
-		itemType = "Orb",
+		itemType = ItemTypes.orb,
 		banana = 1,
 	},
 	{
-		-- id = 3,
 		name = "Stick",
-		itemType = "Orb",
+		itemType = ItemTypes.orb,
 		stick = 1,
 	},
 	{
-		-- id = 4,
 		name = "Stone",
-		itemType = "Orb",
+		itemType = ItemTypes.orb,
 		stone = 1,
 	},
 }
 
 local Weapons = {
 	{
-		-- id = 5,
 		name = "WoodenClub",
 		displayName = "Wooden Club",
-		itemType = "Weapon",
-		equipmentType = "Mace",
+		itemType = ItemTypes.weapon,
+		weaponType = "Mace",
 		damage = 25,
 		attackSpeed = 0.75,
 		range = 6,
 		maxCombo = 2,
 	},
 	{
-		-- id = 6,
 		name = "IronMace",
 		displayName = "Iron Mace",
-		itemType = "Weapon",
+		itemType = ItemTypes.weapon,
 		weaponType = "Mace",
 		damage = 35,
 		attackSpeed = 0.8,
@@ -100,10 +94,9 @@ local Weapons = {
 		maxCombo = 2,
 	},
 	{
-		-- id = 7,
 		name = "IronAxe",
 		displayName = "Iron Axe",
-		itemType = "Weapon",
+		itemType = ItemTypes.weapon,
 		weaponType = "Axe",
 		damage = 30,
 		attackSpeed = 1,
@@ -133,6 +126,8 @@ local globalIdCount = 0
 local function buildRegistry(baseDefinitions)
 	local registry = {}
 
+	-- start & end Index?
+
 	for i = 1, #baseDefinitions do
 		local definition = baseDefinitions[i]
 
@@ -142,7 +137,7 @@ local function buildRegistry(baseDefinitions)
 			prefab = prefabs:FindFirstChild(definition.name),
 		}
 
-		registry[definition.name] = item
+		registry[definition.name] = item -- TODO : Build Registry + Registry Lookup
 	end
 
 	globalIdCount += #baseDefinitions
@@ -163,9 +158,29 @@ local CategoryStore = {
 	Weapons = 2,
 }
 
+local ItemPools = {
+	{
+		name = "SmallXpOrb",
+		-- definitionId = 1,
+		size = 200,
+		startIndex = 0,
+		endIndex = 0,
+		activeCount = 0,
+	},
+	{
+		name = "Banana",
+		-- definitionId = 2,
+		size = 200,
+		startIndex = 0,
+		endIndex = 0,
+		activeCount = 0,
+	},
+}
+
 return {
-	itemTypes = itemTypes,
+	itemTypes = ItemTypes,
 	CategoryStore = CategoryStore,
 	CategoryDefinitions = CategoryDefinitions,
 	CategoryRegistries = CategoryRegistries,
+	ItemPools = ItemPools,
 }

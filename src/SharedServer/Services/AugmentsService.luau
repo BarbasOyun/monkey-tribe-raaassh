@@ -20,12 +20,11 @@ local StoreActions = RoduxStore.Actions
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local RpgState = MutState.RpgState
 
--- Get Knit
+-- Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local RpgService
-local PlayerService
+local RpgService, PlayerService
 
 local AugmentsService = Knit.CreateService({
 	Name = "AugmentsService",
@@ -34,6 +33,15 @@ local AugmentsService = Knit.CreateService({
 		FinishPickingAugments = Knit.CreateSignal(),
 	},
 })
+
+function AugmentsService:KnitInit()
+	print("AugmentsService Initialized")
+end
+
+function AugmentsService:KnitStart()
+	RpgService = Knit.GetService("RpgService")
+	PlayerService = Knit.GetService("PlayerService")
+end
 
 -- #region UTILS
 
@@ -316,15 +324,5 @@ function AugmentsService.Client:PickAugment(player, index)
 end
 
 -- #endregion
-
--- Start Service
-function AugmentsService:KnitInit()
-	print("AugmentsService Initialized")
-end
-
-function AugmentsService:KnitStart()
-	RpgService = Knit.GetService("RpgService")
-	PlayerService = Knit.GetService("PlayerService")
-end
 
 return AugmentsService

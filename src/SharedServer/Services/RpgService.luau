@@ -1,3 +1,19 @@
+-- StatsSystem :
+-- Power Systems = ModStats -> Mutated by other Systems
+-- TotalStats = Calc Power Systems
+
+-- ModStats :
+-- 1] FlatStat eg maxLife, crit
+-- 2] IncreaseStat
+
+-- TotalStats :
+-- 1] SumStat eg maxLife, crit
+-- 2] MultStat eg attackDamage
+
+-- MultStat :
+-- baseX * increasedX = x
+-- some baseX come from weaponData eg baseAttackSpeed
+
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
@@ -29,26 +45,10 @@ local StoreActions = RoduxStore.Actions
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local RpgState = MutState.RpgState
 
--- Get Knit
+-- Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 local PlayerService
-
--- StatsSystem :
--- Power Systems = ModStats -> Mutated by other Systems
--- TotalStats = Calc Power Systems
-
--- ModStats :
--- 1] FlatStat eg maxLife, crit
--- 2] IncreaseStat
-
--- TotalStats :
--- 1] SumStat eg maxLife, crit
--- 2] MultStat eg attackDamage
-
--- MultStat :
--- baseX * increasedX = x
--- some baseX come from weaponData eg baseAttackSpeed
 
 local RpgService = Knit.CreateService({
 	Name = "RpgService",
@@ -62,6 +62,52 @@ local RpgService = Knit.CreateService({
 		PlayerDamaged = Knit.CreateSignal(),
 	},
 })
+
+-- #region START SERVICE
+
+function RpgService:KnitInit()
+	print("RpgService Initialized")
+end
+
+function RpgService:KnitStart()
+	PlayerService = Knit.GetService("PlayerService")
+
+	RpgService.SetupPlayerService()
+end
+
+function RpgService.SetupPlayerService()
+	PlayerService.ThrottledUpdate:Connect(function(state)
+		-- LifeRegen Update -> UI
+		for _, player in pairs(Players:GetPlayers()) do
+			local playerLife = RpgState.playersLife[player.UserId]
+
+			if playerLife then
+				RpgService.Client.LifeUpdate:Fire(player, playerLife)
+			end
+		end
+	end)
+
+	PlayerService.PlayerAdded:Connect(function(player)
+		local userId = player.UserId
+
+		-- Reset Player on Respawn
+		player.CharacterAdded:Connect(function(character)
+			-- Get Max Life
+			local state = Store:getState()
+			local playerState = Selectors.PlayerState(state, userId)
+			local maxLife = playerState.stats.maxLife
+
+			RpgState.playersLife[userId] = maxLife
+		end)
+	end)
+
+	PlayerService.PlayerRemoved:Connect(function(player)
+		local userId = player.UserId
+		RpgService.StopLifeRegen(userId)
+	end)
+end
+
+-- #endregion
 
 -- #region LIFE
 -- TODO = Fuse RpgService + Enemy takeDamage function
@@ -577,49 +623,5 @@ function RpgService.StopLifeRegen(userId)
 end
 
 -- #endregion
-
--- Start Service
-
-local function setupPlayerService()
-	PlayerService.ThrottledUpdate:Connect(function(state)
-		-- LifeRegen Update -> UI
-		for _, player in pairs(Players:GetPlayers()) do
-			local playerLife = RpgState.playersLife[player.UserId]
-
-			if playerLife then
-				RpgService.Client.LifeUpdate:Fire(player, playerLife)
-			end
-		end
-	end)
-
-	PlayerService.PlayerAdded:Connect(function(player)
-		local userId = player.UserId
-
-		-- Reset Player on Respawn
-		player.CharacterAdded:Connect(function(character)
-			-- Get Max Life
-			local state = Store:getState()
-			local playerState = Selectors.PlayerState(state, userId)
-			local maxLife = playerState.stats.maxLife
-
-			RpgState.playersLife[userId] = maxLife
-		end)
-	end)
-
-	PlayerService.PlayerRemoved:Connect(function(player)
-		local userId = player.UserId
-		RpgService.StopLifeRegen(userId)
-	end)
-end
-
-function RpgService:KnitInit()
-	print("RpgService Initialized")
-end
-
-function RpgService:KnitStart()
-	PlayerService = Knit.GetService("PlayerService")
-
-	setupPlayerService()
-end
 
 return RpgService

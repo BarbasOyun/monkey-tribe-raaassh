@@ -58,7 +58,7 @@ function PlayerService:KnitStart()
 	ItemService = Knit.GetService("ItemService")
 
 	RunService.Heartbeat:Connect(function(dt: number)
-		PlayerService.StateUpdate(dt)
+		PlayerService.RoduxStateUpdate(dt)
 	end)
 end
 
@@ -468,8 +468,8 @@ end
 
 -- #region UPDATES
 
---- Detect Enemies around player -> Calculate Distance + Normals
-local function enemiesDetection(state, player)
+--- Detect Enemies around Player -> Calculate Distance + Normals
+function PlayerService.EnemiesDetection(state, player)
 	local userId = player.UserId
 	local playerState = state.players[userId]
 
@@ -546,8 +546,8 @@ function PlayerService.BuildingsDetection(state, player)
 	end
 end
 
---- Start Autopickup Item
-local function autoPickup(player, itemModel)
+--- Player : Start Autopickup Item
+function PlayerService.AutoPickup(player, itemModel)
 	local isValid = itemModel.Parent and itemModel.Parent == workspace.AutoPickup
 	if not isValid then
 		return
@@ -578,7 +578,7 @@ local function autoPickup(player, itemModel)
 end
 
 --- Detect Items around a Player and Start Autopickup
-local function autoPickupRange(state, player)
+function PlayerService.AutoPickupRange(state, player)
 	local userId = player.UserId
 	local playerState = state.players[userId]
 
@@ -596,7 +596,7 @@ local function autoPickupRange(state, player)
 	local autoPickupItems = workspace:GetPartBoundsInRadius(playerPos, pickupRange, PlayerServiceState.autoPickupParam)
 
 	for _, itemModel in ipairs(autoPickupItems) do
-		autoPickup(player, itemModel)
+		PlayerService.AutoPickup(player, itemModel)
 	end
 end
 
@@ -623,7 +623,7 @@ function PlayerService.AutoPickupUpdate()
 	end
 end
 
-function PlayerService.StateUpdate(dt: number)
+function PlayerService.RoduxStateUpdate(dt: number)
 	local state = Store:getState() -- Get state once every frame
 
 	-- Trigger Event for other Services
@@ -638,8 +638,8 @@ function PlayerService.StateUpdate(dt: number)
 		PlayerService.ThrottledUpdate:Fire(state, dt)
 
 		for _, player in pairs(Players:GetPlayers()) do
-			autoPickupRange(state, player)
-			enemiesDetection(state, player)
+			PlayerService.AutoPickupRange(state, player)
+			PlayerService.EnemiesDetection(state, player)
 		end
 
 		MutState.frameCount = 0

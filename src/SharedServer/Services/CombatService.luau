@@ -18,7 +18,7 @@ local MutState = require(ServerScriptService.SharedServer.MutableState)
 local CombatState = MutState.CombatState
 local PlayerServiceState = MutState.PlayerServiceState
 
--- Get Knit
+-- Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 
 local PlayerService, EnemyService, LevelService, ItemService
@@ -29,6 +29,60 @@ local CombatService = Knit.CreateService({
 		startAttack = Knit.CreateSignal(),
 	},
 })
+
+-- #region COMBAT SERVICE
+
+function CombatService:KnitInit()
+	print("CombatService Init")
+end
+
+function CombatService:KnitStart()
+	PlayerService = Knit.GetService("PlayerService")
+	EnemyService = Knit.GetService("EnemyService")
+	LevelService = Knit.GetService("LevelService")
+	ItemService = Knit.GetService("ItemService")
+
+	CombatService.SetupPlayerService()
+
+	ItemService.UnequipWeapon:Connect(function(player)
+		local userId = player.UserId
+
+		CombatState.expectingAttack[userId] = nil
+		CombatState.comboIndexes[userId] = 0
+		CombatState.comboReset[userId] = nil
+	end)
+
+	PlayerService.StateUpdate:Connect(CombatService.CombatServiceUpdate)
+end
+
+function CombatService.CombatServiceUpdate(state, dt)
+	for _, player in pairs(Players:GetPlayers()) do
+		CombatService.FindClosestEnemy(player)
+		CombatService.AutoTarget(state, player)
+	end
+end
+
+function CombatService.SetupPlayerService()
+	PlayerService.PlayerAdded:Connect(function(player)
+		local userId = player.UserId
+
+		CombatState.lastAttacks[userId] = 0
+		CombatState.comboIndexes[userId] = 0
+	end)
+
+	PlayerService.PlayerRemoved:Connect(function(player)
+		local userId = player.UserId
+
+		-- Cleanup
+		CombatState.lastAttacks[userId] = nil
+		CombatState.comboIndexes[userId] = nil
+		CombatState.expectingAttack[userId] = nil
+		CombatState.attackBuffer[userId] = nil
+		CombatState.comboReset[userId] = nil
+	end)
+end
+
+-- #endregion
 
 -- #region HIT DETECTION + DMG
 
@@ -413,60 +467,6 @@ function CombatService.FindClosestBuilding(player)
 	end
 
 	CombatState.playersClosestBuilding[userId] = closestBuilding
-end
-
--- #endregion
-
--- #region COMBAT SERVICE
-
-local function combatServiceUpdate(state, dt)
-	for _, player in pairs(Players:GetPlayers()) do
-		CombatService.FindClosestEnemy(player)
-		CombatService.AutoTarget(state, player)
-	end
-end
-
-local function setupPlayerService()
-	PlayerService.PlayerAdded:Connect(function(player)
-		local userId = player.UserId
-
-		CombatState.lastAttacks[userId] = 0
-		CombatState.comboIndexes[userId] = 0
-	end)
-
-	PlayerService.PlayerRemoved:Connect(function(player)
-		local userId = player.UserId
-
-		-- Cleanup
-		CombatState.lastAttacks[userId] = nil
-		CombatState.comboIndexes[userId] = nil
-		CombatState.expectingAttack[userId] = nil
-		CombatState.attackBuffer[userId] = nil
-		CombatState.comboReset[userId] = nil
-	end)
-end
-
-function CombatService:KnitInit()
-	print("CombatService Init")
-end
-
-function CombatService:KnitStart()
-	PlayerService = Knit.GetService("PlayerService")
-	EnemyService = Knit.GetService("EnemyService")
-	LevelService = Knit.GetService("LevelService")
-	ItemService = Knit.GetService("ItemService")
-
-	setupPlayerService()
-
-	ItemService.UnequipWeapon:Connect(function(player)
-		local userId = player.UserId
-
-		CombatState.expectingAttack[userId] = nil
-		CombatState.comboIndexes[userId] = 0
-		CombatState.comboReset[userId] = nil
-	end)
-
-	PlayerService.StateUpdate:Connect(combatServiceUpdate)
 end
 
 -- #endregion

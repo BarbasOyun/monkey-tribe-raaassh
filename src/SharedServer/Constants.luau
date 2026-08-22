@@ -61,7 +61,7 @@ local LevelConst = {
 }
 
 -- EnemyService
-local DISABLED_POSITION = Vector3.new(0, 20, 0) -- Vector3.new(0, 20, 0) Vector3.new(300, 0, 0)
+local DISABLED_POSITION = Vector3.new(300, 0, 0) -- Vector3.new(0, 20, 0) Vector3.new(300, 0, 0)
 
 local EnemyConst = {
 	ENEMY_LVL_UP_BREAKPOINT = 30,
@@ -89,6 +89,13 @@ local EcsStorages = {
 	lifeBar = 3,
 	custom = 4,
 	mobBehavior = 5,
+	definition = 6,
+}
+
+-- Types of GameObjects that have a Definition
+local DefinedTypes = {
+	Unit = 1,
+	Items = 2,
 }
 
 -- Constants struct -> Too hard to maintain
@@ -125,6 +132,7 @@ type Constants = {
 --]]
 
 local CONSTANTS = {
+	DefinedTypes = DefinedTypes,
 	MAX_RADIANT = math.pi * 2,
 	HUB_PLACE_ID = 95975992291805,
 	THROTTLED_UPDATE_FRAMES = 5,

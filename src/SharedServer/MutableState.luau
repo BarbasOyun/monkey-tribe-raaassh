@@ -163,6 +163,11 @@ MobBehaviorStorageState.target = {}
 -- MobBehaviorStorageState.damage = {}
 -- MobBehaviorStorageState.attackRange = {}
 
+-- Definition
+local DefinitionStorageState = StorageState.new(6, "DefinitionStorageState")
+DefinitionStorageState.types = {}
+DefinitionStorageState.definitionIDs = {}
+
 local EcsState = {
 	entitiesId = {},
 	entitiesBitmask = {},
@@ -174,6 +179,7 @@ local EcsState = {
 	LifeBarStorageState = LifeBarStorageState,
 	CustomStorageState = CustomStorageState,
 	MobBehaviorStorageState = MobBehaviorStorageState,
+	DefinitionStorageState = DefinitionStorageState,
 	-- Archetypes
 	-- archetypes = {},
 }

@@ -20,11 +20,11 @@ local EnemiesPrefabs = EnemyDefinitions.EnemiesPrefabs
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local PoolServiceState = MutState.PoolServiceState
 
--- Get Knit
+-- Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 -- local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local EnemyService, EcsService
+local EcsService -- , EnemyService
 
 local PoolService = Knit.CreateService({
 	Name = "PoolService",
@@ -36,13 +36,14 @@ function PoolService:KnitInit()
 end
 
 function PoolService:KnitStart()
-	EnemyService = Knit.GetService("EnemyService")
+	-- EnemyService = Knit.GetService("EnemyService")
 	EcsService = Knit.GetService("EcsService")
 end
 
 export type Pool = {
 	name: string,
-	definitionId: number,
+	-- definitionId: number,
+	-- prefab: Model,
 	size: number,
 	startIndex: number,
 	endIndex: number,
@@ -51,43 +52,78 @@ export type Pool = {
 
 -- #region POOLS
 
--- TODO : params = pool, additionalOnSpawn = table of functions
---- Register and Create a Pool of Enemy
-function PoolService.CreatePool(enemyId)
-	local pool = EnemyDefinitions.EnemiesPool[enemyId]
+-- spawnFunc
+--- Create, Register and Spawn a Pool of GameObject
+function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, size) -- enemyId
+	-- local pool = EnemyDefinitions.EnemiesPool[enemyId]
 
 	-- TODO : Prevent Creating the same Pool
 
-	local startIndex = #PoolServiceState.entitiesPool
-	local endIndex = startIndex + pool.size
-
+	-- Create Pool
 	-- Update Pool
-	pool.startIndex = startIndex
-	pool.endIndex = endIndex
+	local startIndex = #PoolServiceState.entitiesPool
+	-- local endIndex = startIndex + pool.size
+	local endIndex = startIndex + size
+
+	-- pool.startIndex = startIndex
+	-- pool.endIndex = endIndex
+
+	local pool = {
+		name = name,
+		size = size,
+		startIndex = startIndex,
+		endIndex = endIndex,
+		activeCount = 0,
+	}
 
 	-- Register Pool
 	table.insert(PoolServiceState.pools, pool)
+
 	local poolIndex = #PoolServiceState.pools
-	PoolServiceState.poolsLookups[enemyId] = poolIndex
 
-	-- table.insert(PoolServiceState.poolsLookups, poolIndex)
-	-- local lookupIndex = PoolServiceState.poolsLookups -- return -> Build EnemyTypeLookupIndex
+	-- Create Missing Table
+	local poolType = PoolServiceState.poolsLookups[typeID]
 
-	-- Create Entities
-	warn("Create Pool : " .. pool.name .. ", StartIndex = " .. startIndex .. ", EndIndex = " .. endIndex)
+	if not poolType then
+		PoolServiceState.poolsLookups[typeID] = {}
+	end
+
+	PoolServiceState.poolsLookups[typeID][definitionID] = poolIndex
+	-- PoolServiceState.poolsLookups[enemyId] = poolIndex
+
+	-- Spawn Pool
+	warn("Spawn Pool : " .. pool.name .. ", StartIndex = " .. startIndex .. ", EndIndex = " .. endIndex)
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
 
 	for _ = 1, pool.size do
-		local entityId = EnemyService.CEnemy(pool.definitionId, Vector3.zero)
+		-- local entityId = EnemyService.CEnemy(pool.definitionId, Vector3.zero)
 
-		-- local entityId = EcsService.CreateEntity()
+		local entityId = EcsService.CreateEntity()
+		-- local model = pool.prefab:Clone()
+		local model = prefab:Clone()
+
+		GameObjectStorage.AddComponentToEntity(entityId, model)
+
+		-- OnSpawn Functions
+		if onSpawn then
+			local onSpawnCtx = {
+				entityId = entityId,
+				definitionId = definitionID,
+				character = model,
+			}
+
+			for i = 1, #onSpawn do
+				onSpawn[i](onSpawnCtx)
+			end
+		end
+
 		table.insert(PoolServiceState.entitiesPool, entityId)
-
-		-- TODO : additionalOnSpawn
 
 		-- Disable
 		GameObjectStorage.OnDisable(entityId)
 	end
+
+	return pool
 end
 
 --- return the pool of an Entity
@@ -114,7 +150,7 @@ function PoolService.ClearPool(pool)
 	for i = 1, pool.activeCount do
 		local index = pool.startIndex + i
 		local entityId = PoolServiceState.entitiesPool[index]
-		EnemyService.DisableEntity(entityId)
+		PoolService.DisableEntity(entityId)
 	end
 end
 
@@ -122,7 +158,7 @@ end
 function PoolService.ClearPools()
 	for i = 1, #PoolServiceState.pools do
 		local pool = PoolServiceState.pools[i]
-		EnemyService.ClearPool(pool)
+		PoolService.ClearPool(pool)
 	end
 end
 
@@ -130,6 +166,38 @@ end
 
 -- #region ENTITIES
 
+--- Spawn a GameObject from a Pool
+function PoolService.EnableNextInPool(typeID, definitionID, parent, position)
+	-- Validation
+	local poolIndex = PoolServiceState.poolsLookups[typeID][definitionID]
+	local pool = PoolServiceState.pools[poolIndex]
+
+	local hasReachedMax = pool.activeCount >= pool.size - 1
+
+	if hasReachedMax then
+		warn(pool.name .. " Reached Limit of : " .. pool.size)
+		return
+	end
+
+	pool.activeCount += 1
+
+	-- Get State
+	local index = pool.startIndex + pool.activeCount
+	local entityId = PoolServiceState.entitiesPool[index]
+
+	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
+	local model = GameObjectStorage.GetGameObject(entityId)
+
+	-- warn("Enable Object in Pool = " .. pool.name .. ", Entity ID = " .. entityId)
+
+	-- Move
+	model:PivotTo(CFrame.new(position))
+	model.Parent = parent
+
+	return entityId, model
+end
+
+--[[
 function PoolService.EnableNextInPool(enemyId, position)
 	-- Validation
 	local poolIndex = PoolServiceState.poolsLookups[enemyId]
@@ -165,6 +233,7 @@ function PoolService.EnableNextInPool(enemyId, position)
 
 	return entityId, character
 end
+]]
 
 --- Disable a GameObject in Pool
 function PoolService.DisableEntity(entityId)
@@ -190,7 +259,11 @@ function PoolService.DisableEntity(entityId)
 	-- Update Components
 	-- TODO : Per Pool Components
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-	GameObjectStorage.OnDisable(entityId)
+	-- GameObjectStorage.OnDisable(entityId)
+	local gameObject = GameObjectStorage.GetGameObject(entityId)
+
+	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
+	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
 
 	-- If entityId not last Entity : Swap Last
 	if entityId == lastEntityId then

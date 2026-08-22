@@ -25,12 +25,13 @@ local StoreActions = RoduxStore.Actions
 -- Get MutState
 local MutState = require(ServerScriptService.SharedServer.MutableState)
 local ItemServiceState = MutState.ItemServiceState
+local EcsState = MutState.EcsState
 
--- Get Knit
+-- Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local PlayerService, RpgService
+local PlayerService, RpgService, EcsService, PoolService
 
 local ItemService = Knit.CreateService({
 	Name = "ItemService",
@@ -43,40 +44,79 @@ local ItemService = Knit.CreateService({
 	},
 })
 
+function ItemService:KnitInit()
+	print("ItemService Init")
+end
+
+function ItemService:KnitStart()
+	PlayerService = Knit.GetService("PlayerService")
+	RpgService = Knit.GetService("RpgService")
+	EcsService = Knit.GetService("EcsService")
+	PoolService = Knit.GetService("PoolService")
+
+	ItemService.SetupWeaponType("WoodenClub")
+	ItemService.SetupWeaponType("IronMace")
+	ItemService.SetupWeaponType("IronAxe")
+
+	PlayerService.StateUpdate:Connect(function(state, dt)
+		ItemService.LootMovementUpdate()
+	end)
+end
+
 -- #region ITEMS LOGIC
+
+local smallXpOrbOnUse = function(player, itemDefinition, itemModel)
+	-- print("Add Small XP Orb to : " .. player.Name)
+	RpgService.AddXpToAllPlayers(itemDefinition.xp)
+	ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
+	ItemService.RemoveGroundItem(itemModel)
+end
+
+local bananaOnUse = function(player, itemDefinition, itemModel)
+	local bananas = itemDefinition.banana
+	-- print("Add Banana to all players : " .. bananas)
+	PlayerService.AddCurrencyToAllPlayers(CONSTANTS.CURRENCIES.bananas, bananas)
+	ItemService.Client.GetOrb:Fire(player)
+	ItemService.RemoveGroundItem(itemModel)
+end
+
+local stickOnUse = function(player, itemDefinition, itemModel)
+	print("Add Stick to : " .. player.Name)
+	PlayerService.AddCurrencyToPlayer(player, CONSTANTS.CURRENCIES.sticks, itemDefinition.stick)
+	ItemService.Client.GetOrb:Fire(player)
+	ItemService.RemoveGroundItem(itemModel)
+end
+
+local stoneOnUse = function(player, itemDefinition, itemModel)
+	print("Add Stone to : " .. player.Name)
+	PlayerService.IncrementStone(player.UserId, itemDefinition.stone)
+	ItemService.Client.GetOrb:Fire(player)
+	ItemService.RemoveGroundItem(itemModel)
+end
 
 -- TODO : useItem(player)
 local usablesLogicDefinition = {
-	-- Small XP Orb
-	function(player, itemDefinition, itemModel)
-		-- print("Add Small XP Orb to : " .. player.Name)
-		RpgService.AddXpToAllPlayers(itemDefinition.xp)
-		ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
-		ItemService.RemoveGroundItem(itemModel)
-	end,
-	-- Banana
-	function(player, itemDefinition, itemModel)
-		local bananas = itemDefinition.banana
-		-- print("Add Banana to all players : " .. bananas)
-		PlayerService.AddCurrencyToAllPlayers(CONSTANTS.CURRENCIES.bananas, bananas)
-		ItemService.Client.GetOrb:Fire(player)
-		ItemService.RemoveGroundItem(itemModel)
-	end,
-	-- Stick
-	function(player, itemDefinition, itemModel)
-		print("Add Stick to : " .. player.Name)
-		PlayerService.AddCurrencyToPlayer(player, CONSTANTS.CURRENCIES.sticks, itemDefinition.stick)
-		ItemService.Client.GetOrb:Fire(player)
-		ItemService.RemoveGroundItem(itemModel)
-	end,
-	-- Stone : TODO
-	function(player, itemDefinition, itemModel)
-		print("Add Stone to : " .. player.Name)
-		PlayerService.IncrementStone(player.UserId, itemDefinition.stone)
-		ItemService.Client.GetOrb:Fire(player)
-		ItemService.RemoveGroundItem(itemModel)
-	end,
+	smallXpOrbOnUse,
+	bananaOnUse,
+	stickOnUse,
+	stoneOnUse,
 }
+
+function ItemService.ItemOnSpawn(spawnCtx)
+	local entityId = spawnCtx.entityId
+	local definitionId = spawnCtx.definitionId
+	local itemModel = spawnCtx.character
+
+	-- Add Components : GameObject, Definition
+	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
+	GameObjectStorage.AddComponentToEntity(entityId, itemModel)
+
+	local DefinitionStorage = EcsState.storages[CONSTANTS.EcsStorages.definition]
+	local type = CONSTANTS.DefinedTypes.Items
+	DefinitionStorage.AddComponentToEntity(entityId, type, definitionId)
+
+	itemModel:SetAttribute("EntityId", entityId)
+end
 
 -- #endregion
 
@@ -108,6 +148,15 @@ end
 --- Get an Item's GlobalId
 function ItemService.GetGlobalId(category, id)
 	-- TODO
+end
+
+function ItemService.GetModelDef(itemModel)
+	local entityId = itemModel:GetAttribute("EntityId")
+
+	local DefinitionStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.definition)
+	local typeID, definitionID = DefinitionStorage.GetDefinition(entityId)
+
+	return definitionID
 end
 
 -- #endregion
@@ -154,29 +203,50 @@ function ItemService.SpawnItem(item, position: Vector3)
 	local usePos = position or Vector3.zero
 	local itemDefinition = item.definition
 
-	-- TODO : Create Entity
-
 	-- Spawn Model
-	local newModel = item.prefab:Clone()
+	local itemModel = item.prefab:Clone()
 
-	-- TODO : Add GameObject Component
+	-- ECS Item Setup
+	local entityId = EcsService.CreateEntity()
+
+	local spawnCtx = {
+		entityId = entityId,
+		definitionId = item.id,
+		character = itemModel,
+	}
+
+	ItemService.ItemOnSpawn(spawnCtx)
 
 	-- Set Item Model
-	-- newModel.Name = itemDefinition.name
-	newModel:SetAttribute("DefinitionId", item.id)
-	newModel.Parent = workspace
+	-- itemModel.Name = itemDefinition.name
+	-- itemModel:SetAttribute("DefinitionId", item.id)
+	itemModel.Parent = workspace
 
 	-- Set Position
-	local partToMove = newModel
+	local partToMove = itemModel
 
-	if itemDefinition.itemType == itemTypes.weapon then
-		newModel:PivotTo(CFrame.new(position))
+	local isWeapon = itemDefinition.itemType == itemTypes.weapon
+	if isWeapon then
+		ItemService.SetupWeapon(itemModel)
+		itemModel:PivotTo(CFrame.new(position))
 		return
 	end
 
 	partToMove.CFrame = CFrame.new(usePos)
 
-	return newModel
+	return itemModel
+end
+
+function ItemService.CreatePool(item, size)
+	local prefab = item.prefab
+	local onSpawn = ItemService.ItemOnSpawn
+	PoolService.CreatePool("Robot", CONSTANTS.DefinedTypes.Items, item.id, prefab, onSpawn, size)
+end
+
+--- Use PoolService to Enable Item
+function ItemService.EnableItem(definitionID, position)
+	local parent = workspace
+	local entityId, model = PoolService.EnableNextInPool(CONSTANTS.DefinedTypes.Items, definitionID, parent, position)
 end
 
 --- SpawnItem + LootMovement
@@ -202,6 +272,7 @@ function ItemService.GenerateLoot(player, enemyHumanoid)
 	ItemService.SpawnManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)
 end
 
+--- Spawn a Random Item from a Category
 --- eg ItemService.SpawnRandomItem(ItemDefinitions.Weapons, ItemRegistries.Weapons)
 function ItemService.SpawnRandomItem(categoryId, position)
 	local defintions = CategoryDefinitions[categoryId]
@@ -230,6 +301,10 @@ function ItemService.ClearGroundItems()
 		-- ItemService.RemoveGroundItem(child)
 	end
 end
+
+-- #endregion
+
+-- #region MOVEMENTS
 
 --- Make a Part (Item Model) move along a Parabola
 function ItemService.LootMovement(part, startPos)
@@ -293,12 +368,25 @@ end
 
 -- #region ITEM PICKUP
 
+type ItemUseCtx = {
+	player: Player,
+	itemDefinition: any,
+	itemModel: Model,
+	ItemService: any,
+	RpgService: any,
+	PlayerService: any,
+}
+
 function ItemService.PickupItem(player, itemModel)
 	-- TODO : Validations :
 	-- itemModel parent = ManualPickup or AutoPickup -> Only Pickup & Unowned item
 	-- Distance item / player
 
-	local definitionId = itemModel:GetAttribute("DefinitionId")
+	-- TODO : Get DefID from Model
+
+	local definitionId = ItemService.GetModelDef(itemModel)
+	-- local definitionId = itemModel:GetAttribute("DefinitionId")
+
 	local itemDefinition = ItemService.GetItemDefinition(definitionId)
 
 	if not itemDefinition then
@@ -307,6 +395,15 @@ function ItemService.PickupItem(player, itemModel)
 	end
 
 	-- print(player.Name .. " Pickup Item : " .. itemDefinition.name)
+
+	-- local useCtx = {
+	-- 	player = player,
+	-- 	itemDefinition = itemDefinition,
+	-- 	itemModel = itemModel,
+	-- 	ItemService = ItemService,
+	-- 	RpgService = RpgService,
+	-- 	PlayerService = PlayerService,
+	-- }
 
 	-- Use Item on Pickup
 	usablesLogicDefinition[definitionId](player, itemDefinition, itemModel)
@@ -331,6 +428,7 @@ function ItemService.EquipDefaultWeapon(player)
 	end
 end
 
+--- Set a Player's Weapon State
 function ItemService.SetWeapon(player, weapon)
 	-- warn(player.Name .. " new Weapon Data")
 
@@ -342,7 +440,7 @@ function ItemService.SetWeapon(player, weapon)
 	RpgService.CalculateAllStats(player) -- TODO : Calculate only Weapon Stats
 end
 
-local function addSounds(player, weapon)
+function ItemService.AddWeaponSounds(player, weapon)
 	local playerGUi = player.PlayerGui
 	local soundsPrefab = ReplicatedStorage.Shared.Prefabs.Sounds
 
@@ -373,7 +471,7 @@ local function addSounds(player, weapon)
 	}
 end
 
-local function onEquipped(weaponModel, weaponData)
+function ItemService.OnEquipped(weaponModel, weaponData)
 	local character = weaponModel.Parent
 	local player = Players:GetPlayerFromCharacter(character)
 
@@ -381,10 +479,10 @@ local function onEquipped(weaponModel, weaponData)
 		return
 	end
 
-	print("Equip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
+	warn("Equip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
 
 	-- TODO : Check if sounds are available -> Spawn & Delete sounds
-	addSounds(player, weaponData)
+	ItemService.AddWeaponSounds(player, weaponData)
 	ItemService.SetWeapon(player, weaponData)
 
 	weaponData.sounds.unsheath:Play()
@@ -394,7 +492,7 @@ local function onEquipped(weaponModel, weaponData)
 	ItemService.Client.EquipWeapon:Fire(player, true) -- pass weapon?
 end
 
-local function onUnequipped(weaponModel)
+function ItemService.OnUnequipped(weaponModel)
 	if not weaponModel or not weaponModel.Parent then
 		return
 	end
@@ -433,60 +531,43 @@ local function onUnequipped(weaponModel)
 	end
 end
 
-local function SetupWeaponType(weaponType)
-	local function setupWeapon(weaponModel)
-		-- Avoid setuping prefabs
-		if not weaponModel:IsDescendantOf(workspace) and not weaponModel:IsDescendantOf(Players) then
-			return
-		end
-
-		-- print("Setup weapon model : " .. weaponModel.Name)
-
-		local definitionId = weaponModel:GetAttribute("DefinitionId")
-		local itemDefinition = ItemService.GetItemDefinition(definitionId)
-
-		local weaponData = createWeapon(itemDefinition, weaponModel)
-
-		-- TODO : Use custom tool system
-		weaponModel.Equipped:Connect(function()
-			onEquipped(weaponModel, weaponData)
-		end)
-
-		weaponModel.Unequipped:Connect(function()
-			onUnequipped(weaponModel)
-		end)
+function ItemService.SetupWeapon(weaponModel)
+	-- Avoid setting up prefabs
+	local isValid = weaponModel:IsDescendantOf(workspace) or weaponModel:IsDescendantOf(Players)
+	if not isValid then
+		return
 	end
 
+	-- print("Setup weapon model : " .. weaponModel.Name)
+
+	local definitionId = ItemService.GetModelDef(weaponModel)
+	-- local definitionId = weaponModel:GetAttribute("DefinitionId")
+
+	local itemDefinition = ItemService.GetItemDefinition(definitionId)
+
+	local weaponData = createWeapon(itemDefinition, weaponModel)
+
+	weaponModel.Equipped:Connect(function()
+		ItemService.OnEquipped(weaponModel, weaponData)
+	end)
+
+	weaponModel.Unequipped:Connect(function()
+		ItemService.OnUnequipped(weaponModel)
+	end)
+end
+
+function ItemService.SetupWeaponType(weaponType)
 	-- Setup Existing Weapons
 	for _, weaponModel in pairs(CollectionService:GetTagged(weaponType)) do
-		setupWeapon(weaponModel)
+		ItemService.SetupWeapon(weaponModel)
 	end
 
 	-- Setup Future Weapons
-	CollectionService:GetInstanceAddedSignal(weaponType):Connect(function(weaponModel)
-		setupWeapon(weaponModel)
-	end)
+	-- CollectionService:GetInstanceAddedSignal(weaponType):Connect(function(weaponModel)
+	-- 	ItemService.SetupWeapon(weaponModel)
+	-- end)
 end
 
 -- #endregion
-
--- KNIT SERVICE
-
-function ItemService:KnitInit()
-	print("ItemService Init")
-end
-
-function ItemService:KnitStart()
-	PlayerService = Knit.GetService("PlayerService")
-	RpgService = Knit.GetService("RpgService")
-
-	SetupWeaponType("WoodenClub")
-	SetupWeaponType("IronMace")
-	SetupWeaponType("IronAxe")
-
-	PlayerService.StateUpdate:Connect(function(state, dt)
-		ItemService.LootMovementUpdate()
-	end)
-end
 
 return ItemService

@@ -1,14 +1,21 @@
 local Players = game:GetService("Players")
--- local ServerScriptService = game:GetService("ServerScriptService")
+local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TeleportService = game:GetService("TeleportService")
 
 -- local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
--- local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 local Enemies = enemyDef.Enemies
+
+local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
+local itemTypes = itemDef.itemTypes
+
+local CategoryStore = itemDef.CategoryStore
+local CategoryDefinitions = itemDef.CategoryDefinitions
+local CategoryRegistries = itemDef.CategoryRegistries
 
 -- Get Services
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -24,14 +31,6 @@ local PoolService = Knit.GetService("PoolService")
 local EnemyService = Knit.GetService("EnemyService")
 local ItemService = Knit.GetService("ItemService")
 
--- TODO : PlayerService:AddPlayer
--- On Player Death
--- player:LoadCharacterAsync()
--- local character = player.Character
--- character.Humanoid.Died:Connect(function()
--- 	self:OnPlayerDeath(player)
--- end)
-
 local function setupPlayers()
 	Players.PlayerAdded:Connect(function(player)
 		PlayerService.AddPlayer(player)
@@ -39,7 +38,7 @@ local function setupPlayers()
 		PlayerService.GetMetaUpgrades(player)
 		AugmentsService.GenerateAugments(player)
 
-		ItemService.EquipDefaultWeapon(player)
+		-- ItemService.EquipDefaultWeapon(player)
 
 		RpgService.RegisterLife(player)
 		PlayerService.SetupGameOver(player)
@@ -50,6 +49,10 @@ end
 
 local function setupLevel()
 	LevelService.LoadLevelDefinitions()
+
+	-- Create ItemsPools : SmallXpOrb + Banana
+	-- ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, 500)
+	-- ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].Banana, 500)
 
 	-- Set Map Limits
 	local minLimitPart = workspace.Map.Limits.MinLimit
@@ -68,7 +71,8 @@ local function setupEnemies()
 	EnemyService.StartUnitUpdate()
 
 	-- Load Enemies
-	PoolService.CreatePool(Enemies.Robot)
+	-- PoolService.CreatePool(Enemies.Robot)
+	EnemyService.CreatePool(Enemies.Robot, 200)
 
 	-- Start Spawning Mobs
 	EnemyService.StartStreamSpawn()

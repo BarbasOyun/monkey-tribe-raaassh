@@ -1,8 +1,7 @@
--- ECS Components Storages Implementation / Logic
+-- ECS Components Storages Logic
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 local Gears = require(ReplicatedStorage.Shared.Gears)
@@ -38,11 +37,13 @@ function Storage.GetComponentId(storageState, entityId)
 	local componentId = storageState.sparse[entityId]
 
 	if not componentId then
-		warn("EntityId = " .. entityId .. " Is out of Sparse Range of : " .. storageState.name)
+		warn("EntityId = " .. entityId)
+		warn(" Is out of Sparse Range of : " .. storageState.name)
 	end
 
 	if componentId == 0 then
-		warn("EntityId = " .. entityId .. " Doesn't have Component " .. storageState.name)
+		warn("EntityId = " .. entityId)
+		warn(" Doesn't have Component " .. storageState.name)
 	end
 
 	return componentId
@@ -52,13 +53,17 @@ function Storage.UpdateComponent(storageState, entityId)
 	-- implement in child tables
 end
 
+-- TODO : Remake Remove Component + Remove Entity
+
 --- @param storageState any
 --- @param entityId any
 function Storage.RemoveComponent(storageState, entityId)
 	local componentId = Storage.GetComponentId(storageState, entityId)
 
-	-- Update ECS : Entities + Sparse
+	-- Update Entities
 	table.remove(storageState.entities, componentId)
+
+	-- Update Sparse
 	storageState.sparse[entityId] = 0
 
 	-- Update Entity Bitmask
@@ -136,7 +141,9 @@ function GameObjectStorage.RemoveComponent(storageState, entityId)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 	gameObject:Destroy()
 
-	Storage.RemoveComponent(storageState, entityId)
+	local componentID = Storage.RemoveComponent(storageState, entityId)
+
+	table.remove(storageState.gameObjects, componentID)
 end
 
 --- Remove Entity : Swap Last
@@ -398,9 +405,77 @@ end
 
 -- #endregion
 
--- TODO : Component SKILLS ID = 6
+-- TODO : Item Components : InstanceItem, AutoPickup + ManualPickup
 
--- TODO : Component AutoPickup
+-- #region DEFINITION ID = 6
+
+local DefinitionStorage = Storage.new()
+
+function DefinitionStorage.GetState()
+	return EcsState.DefinitionStorageState
+end
+
+function DefinitionStorage.AddComponentToEntity(entityId, type, definitionId)
+	local storageState = DefinitionStorage.GetState()
+	local componentID = Storage.AddComponentToEntity(storageState, entityId)
+
+	table.insert(storageState.types, type)
+	table.insert(storageState.definitionIDs, definitionId)
+
+	return componentID
+end
+
+--- Update storageEntities + Update Sparse
+function DefinitionStorage.RemoveComponent(storageState, entityId)
+	local componentID = Storage.RemoveComponent(storageState, entityId)
+
+	table.remove(storageState.types, componentID)
+	table.remove(storageState.definitionIDs, componentID)
+end
+
+--- Update storageEntities + Delete in Sparse
+function DefinitionStorage.RemoveEntity(storageState, entityId)
+	local componentId, lastCompId, hasComp = Storage.RemoveEntity(storageState, entityId)
+	local gameObjects = storageState.gameObjects
+
+	-- warn("Delete GameObject Component : EntityId = " .. entityId .. " componentId = " .. componentId)
+
+	gameObjects[componentId]:Destroy()
+
+	if not hasComp then
+		-- Delete at compId
+		table.remove(gameObjects, componentId)
+		return
+	end
+
+	-- Swap Values + Delete Last
+	local lastGameObject = table.remove(gameObjects, lastCompId)
+	gameObjects[componentId] = lastGameObject
+
+	-- Update GameObject EntityId
+	lastGameObject:SetAttribute("EntityId", entityId)
+end
+
+function DefinitionStorage.ClearComponents(storageState)
+	Storage.ClearComponents(storageState)
+
+	table.clear(storageState.types)
+	table.clear(storageState.definitionIDs)
+end
+
+function DefinitionStorage.GetDefinition(entityId)
+	local DefinitionStorageState = DefinitionStorage.GetState()
+	local componentID = DefinitionStorage.GetComponentId(DefinitionStorageState, entityId)
+
+	local type = DefinitionStorageState.types[componentID]
+	local definitionID = DefinitionStorageState.definitionIDs[componentID]
+
+	return type, definitionID
+end
+
+-- #endregion
+
+-- TODO : Component SKILLS ID = 7
 
 -- TODO : Archetypes = table key = bitmask, value = table of EntityId
 
@@ -410,6 +485,7 @@ local EcsStorages = {
 	LifeBarStorage,
 	CustomStorage,
 	MobBehaviorStorage,
+	DefinitionStorage,
 }
 
 return EcsStorages
