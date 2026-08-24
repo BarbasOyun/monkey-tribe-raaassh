@@ -6,12 +6,10 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
-
-local LevelConst = CONSTANTS.LevelConst
+-- local LevelConst = CONSTANTS.LevelConst
 
 local LevelDefinitions
 local Events, EventsSounds, Maps, MapsMusics, MapsBuildings
-local BUILDING_FOLDER
 
 local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
 local CategoryStore = itemDef.CategoryStore
@@ -54,7 +52,7 @@ function LevelService:KnitStart()
 	PoolService = Knit.GetService("PoolService")
 end
 
--- #region Bounds
+-- #region BOUNDS
 
 --- Set Quadrilateral limits of the Level
 function LevelService.SetLimits(minLimit: Vector2, maxLimit: Vector2)
@@ -134,9 +132,9 @@ end
 
 -- #region STAGE
 
---- Load Authoring data required for Stages
+--- Load Authoring data required for Stages / Game Place
 function LevelService.LoadLevelDefinitions()
-	-- warn("Load Level Definitions")
+	-- warn("Set Game Place")
 	-- Get Consts
 	LevelDefinitions = require(ReplicatedStorage.Shared.AuthoringData.LevelDefinitions)
 
@@ -148,18 +146,19 @@ function LevelService.LoadLevelDefinitions()
 	EventsSounds = LevelDefinitions.EventsSounds
 
 	-- Buildings Setup
-	BUILDING_FOLDER = workspace.Buildings
+	LevelState.buildingFolder = workspace.Buildings
 
 	-- Buildings Detection
 	local buildingsDetectionParam = OverlapParams.new()
 	buildingsDetectionParam.FilterType = Enum.RaycastFilterType.Include
-	buildingsDetectionParam.FilterDescendantsInstances = { BUILDING_FOLDER }
+	buildingsDetectionParam.FilterDescendantsInstances = { LevelState.buildingFolder }
 	buildingsDetectionParam.MaxParts = 10
 
 	LevelState.buildingsDetectionParam = buildingsDetectionParam
 
 	-- Add Buildings Folder to weapon Detection
-	MutState.CombatState.weaponHitParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER, BUILDING_FOLDER }
+	MutState.CombatState.weaponHitParam.FilterDescendantsInstances =
+		{ CONSTANTS.WEAPON_HIT_FOLDER, LevelState.buildingFolder }
 
 	-- Start Buildings Detection + AutoTarget
 	PlayerService.StateUpdate:Connect(function(state, dt)
@@ -179,6 +178,11 @@ end
 
 --- Start a New Stage
 function LevelService.StartStage()
+	if not LevelDefinitions then
+		warn("Level Definition not loaded -> Call LevelService.LoadLevelDefinitions()")
+		return
+	end
+
 	LevelState.currentMapId = math.random(1, #MapsBuildings)
 	warn("Start Stage MapID = " .. LevelState.currentMapId)
 
@@ -325,6 +329,11 @@ function LevelService.StartGameTimer()
 	end)
 end
 
+-- #endregion
+
+-- #region BUILDINGS
+
+--- Associate Health to a Building
 function LevelService.GenerateBuildingHealth(building: Part)
 	local health = math.random(100, 200)
 
@@ -349,22 +358,25 @@ function LevelService.DamageBuilding(building: Part, damage: number)
 
 	-- Destroy Building
 	if damagedHealth <= 0 then
-		LevelState.buildingsHealth[building] = nil
-
-		-- Spawn Bananas
-		local chance = 30
-		local roll = math.random(0, 100)
-
-		if roll <= chance then
-			local pos = building.CFrame.Position
-			local amount = math.random(1, 3)
-			ItemService.SpawnManyItem(CategoryRegistries[CategoryStore.Usable].Banana, pos, amount)
-			-- ItemService.SpawnLoot(CategoryRegistries[CategoryStore.Usable].Banana, pos)
-		end
-
-		building:Destroy()
-		LevelService.ProgressStage()
+		LevelService.DestroyBuilding(building)
 	end
+end
+
+function LevelService.DestroyBuilding(building: Part)
+	LevelState.buildingsHealth[building] = nil
+
+	-- Spawn Bananas
+	local chance = 30
+	local roll = math.random(0, 100)
+
+	if roll <= chance then
+		local pos = building.CFrame.Position
+		local amount = math.random(1, 3)
+		ItemService.EnableManyItem(CategoryRegistries[CategoryStore.Usable].Banana, pos, amount)
+	end
+
+	building:Destroy()
+	LevelService.ProgressStage()
 end
 
 -- #endregion
@@ -578,7 +590,7 @@ function LevelService.SpawnBuildings(buildingNodes, prefabs)
 
 		-- Building OnSpawn
 		local building = prefab:clone()
-		building.Parent = BUILDING_FOLDER
+		building.Parent = LevelState.buildingFolder
 
 		-- Set Position
 		-- TODO : Raycast to find Y (height) value -> Allow Different Terrain Heights
@@ -627,7 +639,7 @@ end
 
 -- #endregion
 
--- #region COLLISIONS
+-- #region NODE COLLISIONS
 
 type Circle = {
 	position: Vector2,
@@ -646,7 +658,7 @@ type CollisionsData = {
 function LevelService.SeparateCircles(circularNodes, constraints)
 	local nodes = circularNodes
 
-	for i = 1, LevelConst.COLLISIONS_DETECTIONS_ITERATIONS do
+	for _ = 1, LevelDefinitions.COLLISIONS_DETECTIONS_ITERATIONS do
 		local collisionsData = LevelService.CollisionsDetection(nodes)
 		-- warn(#collisionsData.object1 .. " Collisions Detected")
 		-- warn(collisionsData)
@@ -655,10 +667,7 @@ function LevelService.SeparateCircles(circularNodes, constraints)
 			break
 		end
 
-		-- warn("Circles Solving : ")
-		-- warn(nodes)
 		nodes = LevelService.Solver(nodes, collisionsData, constraints)
-		-- warn(nodes)
 	end
 
 	return nodes
@@ -734,7 +743,6 @@ function LevelService.RadiusRadiusCol(circle1: Circle, circle2: Circle)
 
 	if isColliding then
 		local normal = Gears.NormalizeOrZero(direction)
-		-- local penetrationDepth = distance - circle1.radius
 		local penetrationDepth = distance_threshold - distance
 		-- warn("Distance = " .. distance .. " Radius1 = " .. circle1.radius .. " Pen = " .. penetrationDepth)
 
@@ -797,7 +805,7 @@ end
 
 --- Solve collisions between Circles
 function LevelService.Solver(circularNodes, collisionsData: CollisionsData, constraints: {})
-	for i = 1, LevelConst.SOLVER_ITERATIONS do
+	for i = 1, LevelDefinitions.SOLVER_ITERATIONS do
 		for j = 1, #collisionsData.object1 do
 			local object1Index = collisionsData.object1[j]
 			local object2Index = collisionsData.object2[j]
@@ -807,12 +815,7 @@ function LevelService.Solver(circularNodes, collisionsData: CollisionsData, cons
 			local normal = collisionsData.normals[j]
 			local penetrationDepth = collisionsData.penetrationDepth[j]
 
-			-- warn("Solve Circle Col")
-			-- warn(object1)
-			-- warn(object2)
 			local new1, new2 = LevelService.SolveCol(object1, object2, normal, penetrationDepth, constraints)
-			-- warn(new1)
-			-- warn(new2)
 
 			circularNodes[object1Index] = new1
 			circularNodes[object2Index] = new2

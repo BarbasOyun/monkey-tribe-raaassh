@@ -311,8 +311,8 @@ local function generateUi()
 	local progressBarRef = mainGuiRef.ProgressBar[2]
 
 	LevelService.ProgressUpdate:Connect(function(progress)
-		local useProgress = math.floor(progress)
-		progressText.Text = useProgress .. " / 100" -- TODO : string table
+		local useProgress = math.floor(progress * 100)
+		progressText.Text = "Stage Progress " .. useProgress .. " / 100" -- TODO : string table
 		progressBarRef.Size = UDim2.fromScale(progress, 1)
 	end)
 

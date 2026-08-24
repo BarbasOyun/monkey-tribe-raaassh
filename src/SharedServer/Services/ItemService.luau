@@ -79,16 +79,15 @@ local smallXpOrbOnUse = function(player, itemDefinition, itemModel, entityID)
 	-- print("Add Small XP Orb to : " .. player.Name)
 	RpgService.AddXpToAllPlayers(itemDefinition.xp)
 	ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
-	-- ItemService.RemoveGroundItem(itemModel)
 	PoolService.Disable(entityID)
 end
 
-local bananaOnUse = function(player, itemDefinition, itemModel)
+local bananaOnUse = function(player, itemDefinition, itemModel, entityID)
 	local bananas = itemDefinition.banana
 	-- print("Add Banana to all players : " .. bananas)
 	PlayerService.AddCurrencyToAllPlayers(CONSTANTS.CURRENCIES.bananas, bananas)
 	ItemService.Client.GetOrb:Fire(player)
-	ItemService.RemoveGroundItem(itemModel)
+	PoolService.Disable(entityID)
 end
 
 local stickOnUse = function(player, itemDefinition, itemModel)
@@ -168,7 +167,7 @@ function ItemService.CreateItem(definitionID, itemModel)
 		model = itemModel,
 	}
 
-	ItemService.ItemOnSpawn(spawnCtx)
+	ItemService.SetupItemModel(spawnCtx)
 end
 
 --- Setup an item and its model
@@ -177,15 +176,24 @@ function ItemService.ItemOnSpawn(spawnCtx)
 	local definitionId = spawnCtx.definitionId
 	local itemModel = spawnCtx.model
 
-	-- Add Components : GameObject, Definition
-	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
-	GameObjectStorage.AddComponentToEntity(entityId, itemModel)
-
+	-- Add Definition Component
 	local DefinitionStorage = EcsState.storages[CONSTANTS.EcsStorages.definition]
 	local type = CONSTANTS.DefinedTypes.Items
 	DefinitionStorage.AddComponentToEntity(entityId, type, definitionId)
 
 	itemModel:SetAttribute("EntityId", entityId)
+end
+
+--- Model + OnSpawn
+function ItemService.SetupItemModel(spawnCtx)
+	local entityId = spawnCtx.entityId
+	local itemModel = spawnCtx.model
+
+	-- Add GameObject Component
+	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
+	GameObjectStorage.AddComponentToEntity(entityId, itemModel)
+
+	ItemService.ItemOnSpawn(spawnCtx)
 end
 
 --- Create an Instance of statsDefinition.WeaponData struct using WeaponDefinition
@@ -299,7 +307,7 @@ end
 
 --- Enable + Loot Movement
 function ItemService.EnableLoot(definitionID, position)
-	local entityId, model = ItemService.EnableItem(definitionID, position)
+	local _entityId, model = ItemService.EnableItem(definitionID, position)
 	ItemService.LootMovement(model, position)
 end
 
@@ -383,7 +391,6 @@ function ItemService.GenerateLoot(player, enemyHumanoid)
 	local pos = enemyHumanoid.Parent:GetPivot().Position
 	local orbsRng = math.random(1, 3)
 
-	-- ItemService.SpawnManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)
 	ItemService.EnableManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)
 end
 
@@ -421,7 +428,7 @@ function ItemService.PickupItem(player, itemModel)
 	-- Distance item / player
 
 	-- Get State
-	local entityID, definitionID = ItemService.GetModelDef(itemModel)
+	local entityID, definitionID = ItemService.GetModelInfo(itemModel)
 	local itemDefinition = ItemService.GetItemDefinition(definitionID)
 
 	if not itemDefinition then
@@ -465,12 +472,6 @@ function ItemService.SetupWeapon(weaponModel)
 	-- print("Setup weapon model : " .. weaponModel.Name)
 
 	local entityID, definitionID = ItemService.GetModelInfo(weaponModel)
-
-	-- Item not Created -> Create
-	-- if not definitionId then
-	-- 	definitionId = CategoryRegistries[CategoryStore.Weapons].WoodenClub.id
-	-- 	ItemService.CreateItem(definitionId, weaponModel)
-	-- end
 
 	local itemDefinition = ItemService.GetItemDefinition(definitionID)
 
@@ -540,7 +541,7 @@ function ItemService.OnEquipped(weaponModel, weaponData)
 		return
 	end
 
-	warn("Equip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
+	-- warn("Equip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
 
 	-- TODO : Check if sounds are available -> Spawn & Delete sounds
 	ItemService.AddWeaponSounds(player, weaponData)
@@ -564,7 +565,7 @@ function ItemService.OnUnequipped(weaponModel)
 		return
 	end
 
-	warn("Unequip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
+	-- warn("Unequip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
 
 	local state = Store:getState()
 	local playerState = state.players[player.UserId]

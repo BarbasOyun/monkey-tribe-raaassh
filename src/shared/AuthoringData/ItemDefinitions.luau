@@ -119,6 +119,7 @@ local CategoryDefinitions = {
 }
 
 -- ITEMS REGISTRIES
+-- TODO : Move to ItemService
 
 local globalIdCount = 0
 
@@ -158,29 +159,9 @@ local CategoryStore = {
 	Weapons = 2,
 }
 
-local ItemPools = {
-	{
-		name = "SmallXpOrb",
-		-- definitionId = 1,
-		size = 200,
-		startIndex = 0,
-		endIndex = 0,
-		activeCount = 0,
-	},
-	{
-		name = "Banana",
-		-- definitionId = 2,
-		size = 200,
-		startIndex = 0,
-		endIndex = 0,
-		activeCount = 0,
-	},
-}
-
 return {
 	itemTypes = ItemTypes,
 	CategoryStore = CategoryStore,
 	CategoryDefinitions = CategoryDefinitions,
 	CategoryRegistries = CategoryRegistries,
-	ItemPools = ItemPools,
 }

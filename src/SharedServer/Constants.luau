@@ -1,19 +1,28 @@
--- Shared Server Side Game Constants
--- eg Authoring Data
+-- Shared Server Side Game Constants + enums
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
--- local ServerStorage = game:GetService("ServerStorage")
 
--- Get Authoring Data
--- local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
+-- Load Authoring Data
+local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 
--- Folders
+-- #region GLOBAL
+
+local MAX_RADIANT = math.pi * 2
+
 local PREFABS_FOLDER = ReplicatedStorage.Shared.Prefabs
-local WEAPON_HIT_FOLDER = workspace.WeaponHit
-local DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities
-local AUTOPICKUP_FOLDER = workspace.AutoPickup
+local HUB_PLACE_ID = 95975992291805
 
--- #region PlayerService
+-- Types of GameObjects with a Definition
+local DefinedTypes = {
+	Unit = 1,
+	Items = 2,
+}
+
+local THROTTLED_UPDATE_FRAMES = 5
+
+-- #endregion
+
+-- #region PLAYER SERVICE
 
 -- TODO : Rename (enum)
 local PLAYER_STATES = {
@@ -23,10 +32,12 @@ local PLAYER_STATES = {
 }
 
 -- TODO : Prevent Weapon Swap when Player is Attacking
-local UNIT_STATES = {
-	Idle = 1,
-	PerformingAction = 2,
-}
+-- local UNIT_STATES = {
+-- 	Idle = 1,
+-- 	PerformingAction = 2,
+-- }
+
+-- TODO : Object Currency
 
 local CURRENCIES = {
 	bananas = 1,
@@ -48,23 +59,49 @@ local MAX_CURRENCIES = {
 
 local ENEMIES_DETECTION_RADIUS = 200
 
+-- local PlayerConsts = {
+-- 	ENEMIES_DETECTION_RADIUS = ENEMIES_DETECTION_RADIUS,
+-- 	PLAYER_STATES = PLAYER_STATES,
+-- 	CURRENCIES = CURRENCIES,
+-- 	CURRENCIES_NAMES = CURRENCIES_NAMES,
+-- 	MAX_CURRENCIES = MAX_CURRENCIES,
+-- }
+
 -- #endregion
+
+-- local LevelConst = {}
+
+-- ECS
+local EcsStorages = {
+	gameObject = 1,
+	unit = 2,
+	lifeBar = 3,
+	custom = 4,
+	mobBehavior = 5,
+	definition = 6,
+}
+
+-- PoolService
+local DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities
+local DISABLED_POSITION = Vector3.new(400, 0, 0) -- Test Pos = Vector3.new(0, 20, 0)
+
+-- Item Service
+local AUTOPICKUP_FOLDER = workspace.AutoPickup
 
 local RpgConst = {
 	ADDITIONAL_XP = 20,
 	MULTIPLIER_XP = 1.2,
 }
 
-local LevelConst = {
-	COLLISIONS_DETECTIONS_ITERATIONS = 15,
-	SOLVER_ITERATIONS = 10,
-}
-
--- EnemyService
-local DISABLED_POSITION = Vector3.new(400, 0, 0) -- Vector3.new(0, 20, 0) Vector3.new(300, 0, 0)
+-- #region ENEMY SERVICE CONST
 
 local EnemyConst = {
-	ENEMY_LVL_UP_BREAKPOINT = 30,
+	Enemies = EnemyDefinitions.Enemies,
+	EnemiesStats = EnemyDefinitions.EnemiesStats,
+	EnemiesPrefabs = {
+		PREFABS_FOLDER.Enemies:FindFirstChild("Dummy"),
+		PREFABS_FOLDER.Enemies:FindFirstChild("Mobot"),
+	},
 
 	-- Spawn
 	SPAWN_RADIUS = 40,
@@ -80,80 +117,54 @@ local EnemyConst = {
 	SWARM_WAVES = 4,
 	SWARM_NBR = 4,
 	SWARM_NBR_RANGE = 2,
+
+	-- Cap
+	MAX_MOVEMENT_SPEED = 16,
+
+	-- Stats Scaling
+	ENEMY_LVL_UP_BREAKPOINT = 30,
+	DAMAGE_MULTIPLIER = 1.2,
+	LIFE_MULTIPLIER = 1.2,
+	MOVEMENT_SPEED_INCREMENT = 0.2,
 }
 
--- ECS
-local EcsStorages = {
-	gameObject = 1,
-	unit = 2,
-	lifeBar = 3,
-	custom = 4,
-	mobBehavior = 5,
-	definition = 6,
-}
+-- #endregion
 
--- Types of GameObjects that have a Definition
-local DefinedTypes = {
-	Unit = 1,
-	Items = 2,
-}
+-- Augment Const
 
--- Constants struct -> Too hard to maintain
---[[
-type Constants = {
-	HUB_PLACE_ID: number,
-	THROTTLED_UPDATE_FRAMES: number,
-	MAX_DISTANCE: number,
-	-- Folders
-	PREFABS_FOLDER: any, -- Folder -> any = prevent errors
-	WEAPON_HIT_FOLDER: Folder,
-	DISABLED_ENTITIES_FOLDER: Folder,
-	-- Overlap Param
-	AUTO_PICKUP_PARAM: OverlapParams,
-	DETECTION_PARAM: OverlapParams,
-	WEAPON_HIT_PARAM: OverlapParams,
-	-- Enums
-	PLAYER_STATES: {},
-	CURRENCIES: { bananas: number, sticks: number, stones: number },
-	CURRENCIES_NAMES: { string },
-	MAX_CURRENCIES: { number },
-	-- Services
-	-- Enemy
-	STREAM_SPAWN_DELTA_TIME: number,
-	STREAM_SPAWN_DELTA_TIME_RANGE: number,
-	STREAM_SPAWN_NBR: number,
-	STREAM_SPAWN_NBR_RANGE: number,
-	SWARM_WAVES: number,
-	SWARM_NBR: number,
-	-- Ecs
-	DISABLED_POSITION: Vector3,
-	EcsStorages: any,
-}
---]]
+-- Combat Service
+local WEAPON_HIT_FOLDER = workspace.WeaponHit
 
 local CONSTANTS = {
+	-- Global
 	DefinedTypes = DefinedTypes,
-	MAX_RADIANT = math.pi * 2,
-	HUB_PLACE_ID = 95975992291805,
-	THROTTLED_UPDATE_FRAMES = 5,
-	-- Folders
+	MAX_RADIANT = MAX_RADIANT,
+	HUB_PLACE_ID = HUB_PLACE_ID,
+	THROTTLED_UPDATE_FRAMES = THROTTLED_UPDATE_FRAMES,
 	PREFABS_FOLDER = PREFABS_FOLDER,
-	WEAPON_HIT_FOLDER = WEAPON_HIT_FOLDER,
-	DISABLED_ENTITIES_FOLDER = DISABLED_ENTITIES_FOLDER,
-	AUTOPICKUP_FOLDER = AUTOPICKUP_FOLDER,
+
+	-- Full Services
 	-- Players
 	ENEMIES_DETECTION_RADIUS = ENEMIES_DETECTION_RADIUS,
 	PLAYER_STATES = PLAYER_STATES,
 	CURRENCIES = CURRENCIES,
 	CURRENCIES_NAMES = CURRENCIES_NAMES,
 	MAX_CURRENCIES = MAX_CURRENCIES,
+
+	-- LevelConst = LevelConst,
 	-- Ecs
-	DISABLED_POSITION = DISABLED_POSITION,
 	EcsStorages = EcsStorages,
-	-- Full Services
+	-- Pool
+	DISABLED_ENTITIES_FOLDER = DISABLED_ENTITIES_FOLDER,
+	DISABLED_POSITION = DISABLED_POSITION,
+	-- Item
+	AUTOPICKUP_FOLDER = AUTOPICKUP_FOLDER,
+
 	RpgConst = RpgConst,
-	LevelConst = LevelConst,
 	EnemyConst = EnemyConst,
+
+	-- Combat
+	WEAPON_HIT_FOLDER = WEAPON_HIT_FOLDER,
 }
 
 return CONSTANTS

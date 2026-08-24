@@ -1,3 +1,5 @@
+-- RpgService = Calculate + Manage Unit Stats
+
 -- StatsSystem :
 -- Power Systems = ModStats -> Mutated by other Systems
 -- TotalStats = Calc Power Systems
@@ -29,11 +31,11 @@ local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefi
 local STATS_STORE = statsDefinition.STATS_STORE
 local MOD_STATS_STORE = statsDefinition.MOD_STATS_STORE
 local TO_STAT_OBJECT = statsDefinition.TO_STAT_OBJECT
-local MOD_STATS_INDEX = statsDefinition.MOD_STATS_INDEX
+-- local MOD_STATS_INDEX = statsDefinition.MOD_STATS_INDEX
 local DEFAULT_STATS = statsDefinition.DEFAULT_STATS
 -- local STATS_DISPLAY = statsDefinition.STATS_DISPLAY
 local META_UPRGADES = statsDefinition.META_UPRGADES
-local AUGMENTS = statsDefinition.AUGMENTS
+-- local AUGMENTS = statsDefinition.AUGMENTS
 
 -- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -63,7 +65,7 @@ local RpgService = Knit.CreateService({
 	},
 })
 
--- #region START SERVICE
+-- #region START
 
 function RpgService:KnitInit()
 	print("RpgService Initialized")
@@ -105,6 +107,52 @@ function RpgService.SetupPlayerService()
 		local userId = player.UserId
 		RpgService.StopLifeRegen(userId)
 	end)
+end
+
+-- #endregion
+
+-- #region UPDATE
+
+function RpgService.StartLifeRegen(userId, lifeRegen)
+	-- Validation
+	local state = Store:getState()
+	local playerState = Selectors.PlayerState(state, userId)
+	local playersLife = RpgState.playersLife
+
+	local isValid = lifeRegen > 0
+		and playerState.state == CONSTANTS.PLAYER_STATES.playing
+		and RpgState.lifeRegenUpdates[userId] == nil
+		and playersLife[userId]
+
+	if not isValid then
+		-- warn(playerState.username .. " Not Valid for Life Regen")
+		return
+	end
+
+	-- warn("Start Life Regen")
+
+	local lifeRegenUpdate = PlayerService.StateUpdate:Connect(function(state, dt)
+		local playerState = Selectors.PlayerState(state, userId)
+
+		if not playerState then
+			RpgService.StopLifeRegen(userId)
+		end
+
+		local maxLife = playerState.stats.maxLife
+		local lifeDelta = lifeRegen * dt -- lifeRegen / 60 -- 60 FPS
+		local lifeUpdate = playersLife[userId] + lifeDelta
+
+		playersLife[userId] = math.min(lifeUpdate, maxLife)
+	end)
+
+	RpgState.lifeRegenUpdates[userId] = lifeRegenUpdate
+end
+
+function RpgService.StopLifeRegen(userId)
+	if RpgState.lifeRegenUpdates[userId] then
+		RpgState.lifeRegenUpdates[userId]:Disconnect()
+		RpgState.lifeRegenUpdates[userId] = nil
+	end
 end
 
 -- #endregion
@@ -350,11 +398,9 @@ local statsCalculation = {
 
 		local maxLife = calcModStat(metaUpgrades, augments, modStat)
 
-		-- MaxLife also Give life
-		local playerLife = RpgState.playersLife[userId]
-
-		if playerLife then
-			playerLife += maxLife
+		-- Gain current Life
+		if RpgState.playersLife[userId] then
+			RpgState.playersLife[userId] += maxLife
 		end
 
 		local patch = { [modStat] = maxLife }
@@ -577,51 +623,5 @@ end
 
 -- ARTIFACTS
 -- ...
-
--- #region UPDATE
-
-function RpgService.StartLifeRegen(userId, lifeRegen)
-	-- Validation
-	local state = Store:getState()
-	local playerState = Selectors.PlayerState(state, userId)
-	local playersLife = RpgState.playersLife
-
-	local isValid = lifeRegen > 0
-		and playerState.state == CONSTANTS.PLAYER_STATES.playing
-		and RpgState.lifeRegenUpdates[userId] == nil
-		and playersLife[userId]
-
-	if not isValid then
-		-- warn(playerState.username .. " Not Valid for Life Regen")
-		return
-	end
-
-	-- warn("Start Life Regen")
-
-	local lifeRegenUpdate = PlayerService.StateUpdate:Connect(function(state, dt)
-		local playerState = Selectors.PlayerState(state, userId)
-
-		if not playerState then
-			RpgService.StopLifeRegen(userId)
-		end
-
-		local maxLife = playerState.stats.maxLife
-		local lifeDelta = lifeRegen * dt -- lifeRegen / 60 -- 60 FPS
-		local lifeUpdate = playersLife[userId] + lifeDelta
-
-		playersLife[userId] = math.min(lifeUpdate, maxLife)
-	end)
-
-	RpgState.lifeRegenUpdates[userId] = lifeRegenUpdate
-end
-
-function RpgService.StopLifeRegen(userId)
-	if RpgState.lifeRegenUpdates[userId] then
-		RpgState.lifeRegenUpdates[userId]:Disconnect()
-		RpgState.lifeRegenUpdates[userId] = nil
-	end
-end
-
--- #endregion
 
 return RpgService

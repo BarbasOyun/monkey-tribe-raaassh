@@ -1,7 +1,22 @@
--- Dynamic State
+-- MutableState = Dynamic State
 -- Mutable Data != RoduxStore
 -- For High Frequency Data eg ECS Components
--- This Data might be sent to the Rodux Store in the Throttled Update -> Use Commands Buffer
+-- This Data might be sent infrequently to the Rodux Store -> Use Commands Buffer
+-- Create 1 File / Service Slice -> Combine all in this file?
+
+-- Services Global Order :
+-- System Services :
+-- 1) PlayerService
+-- 2) LevelService
+-- 3) EcsService
+-- 4) PoolService
+-- 5) ItemService
+
+-- Gameplay Services :
+-- 6) RpgService
+-- 7) EnemyService
+-- 8) AugmentService
+-- 9) CombatService
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,7 +32,8 @@ local EnemiesStats = EnemyDefinitions.EnemiesStats
 
 local mainSounds = CONSTANTS.PREFABS_FOLDER.Sounds.MainSounds
 
--- Player Service State
+-- #region PLAYER SERVICE STATE
+
 local enemiesDetectionParam = OverlapParams.new()
 enemiesDetectionParam.FilterType = Enum.RaycastFilterType.Include
 enemiesDetectionParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER }
@@ -36,29 +52,7 @@ local PlayerServiceState = {
 	autoPickups = {},
 }
 
--- Combat State
-local weaponHitParam = OverlapParams.new()
-weaponHitParam.FilterType = Enum.RaycastFilterType.Include
-weaponHitParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER }
-weaponHitParam.MaxParts = 100
-
-local CombatState = {
-	weaponHitParam = weaponHitParam,
-	playersClosestEnemy = {},
-	playersClosestBuilding = {},
-	expectingAttack = {},
-	attackBuffer = {},
-	lastAttacks = {},
-	comboIndexes = {}, -- For Weapon Animation
-	comboReset = {},
-}
-
-local RpgState = {
-	totalXp = 0, -- Add to joining players
-	positionStart = {},
-	playersLife = {},
-	lifeRegenUpdates = {},
-}
+-- #endregion
 
 -- Level Service State
 local LevelState = {
@@ -76,6 +70,7 @@ local LevelState = {
 	isWaitingForNextStage = false,
 
 	-- Buildings
+	buildingFolder = nil, -- TODO : Move to GameState
 	buildingsDetectionParam = nil,
 	buildingsHealth = {}, -- TODO : Use ECS instead
 	buildingAmount = 3,
@@ -86,33 +81,6 @@ local LevelState = {
 	-- Events
 	maxEvents = 0,
 	currentEventIndex = 1,
-}
-
-local ItemServiceState = {
-	itemsMovement = {},
-}
-
-local EnemyServiceState = {
-	enemiesDeathCount = 0,
-	currentRobotStats = Gears.DeepCopy(EnemiesStats[Enemies.Robot]),
-
-	-- Stream Spawn
-	streamSpawnNbr = 2,
-	streamSpawnNbrRange = 1,
-	streamSpawnDeltaTime = 7,
-	streamSpawnDeltaTimeRange = 2,
-	streamSpawnDelta = 0,
-	streamSpawnTimer = 0,
-
-	-- SwarmSpawn
-	swarmWaves = 0,
-	swarmSpawnTimer = 0,
-}
-
-local PoolServiceState = {
-	pools = {},
-	entitiesPool = {},
-	poolsLookups = {},
 }
 
 -- #region ECS STATE
@@ -126,7 +94,6 @@ function StorageState.new(id, name)
 		name = name,
 		sparse = {},
 		entities = {},
-		-- customProperties = {}
 	}
 
 	setmetatable(self, StorageState)
@@ -172,6 +139,7 @@ local EcsState = {
 	entitiesId = {},
 	entitiesBitmask = {},
 	-- versions = {},
+
 	-- Storages
 	storages = {},
 	GameObjectStorageState = GameObjectStorageState,
@@ -180,26 +148,88 @@ local EcsState = {
 	CustomStorageState = CustomStorageState,
 	MobBehaviorStorageState = MobBehaviorStorageState,
 	DefinitionStorageState = DefinitionStorageState,
+
 	-- Archetypes
 	-- archetypes = {},
 }
 
 -- #endregion
 
+local PoolServiceState = {
+	pools = {},
+	entitiesPool = {},
+	poolsLookups = {},
+}
+
+local ItemServiceState = {
+	itemsMovement = {},
+}
+
+local RpgState = {
+	totalXp = 0, -- Add to joining players
+	positionStart = {},
+	playersLife = {},
+	lifeRegenUpdates = {},
+}
+
+local EnemyServiceState = {
+	enemiesDeathCount = 0,
+	currentRobotStats = Gears.DeepCopy(EnemiesStats[Enemies.Robot]),
+
+	-- Stream Spawn
+	streamSpawnNbr = 2,
+	streamSpawnNbrRange = 1,
+	streamSpawnDeltaTime = 7,
+	streamSpawnDeltaTimeRange = 2,
+	streamSpawnDelta = 0,
+	streamSpawnTimer = 0,
+
+	-- SwarmSpawn
+	swarmWaves = 0,
+	swarmSpawnTimer = 0,
+}
+
+-- AugmentState
+
+-- #region COMBAT STATE
+
+local weaponHitParam = OverlapParams.new()
+weaponHitParam.FilterType = Enum.RaycastFilterType.Include
+weaponHitParam.FilterDescendantsInstances = { CONSTANTS.WEAPON_HIT_FOLDER }
+weaponHitParam.MaxParts = 100
+
+local CombatState = {
+	weaponHitParam = weaponHitParam,
+	playersClosestEnemy = {},
+	playersClosestBuilding = {},
+	expectingAttack = {},
+	attackBuffer = {},
+	lastAttacks = {},
+	comboIndexes = {}, -- For Weapon Animation
+	comboReset = {},
+}
+
+-- #endregion
+
 local MutState = {
+	-- Global
 	gameTimer = 0,
 	gameTimerCount = 0,
 	frameCount = 0,
 	mainSounds = mainSounds,
+
+	-- TODO : Current Place State (Hub or Game)
+
+	-- Services
 	PlayerServiceState = PlayerServiceState,
-	CombatState = CombatState,
-	RpgState = RpgState,
 	LevelState = LevelState,
-	ItemServiceState = ItemServiceState,
-	EnemyServiceState = EnemyServiceState,
-	PoolServiceState = PoolServiceState,
 	EcsState = EcsState,
-	-- TODO : Current Place State (Hub or Level)
+	PoolServiceState = PoolServiceState,
+	ItemServiceState = ItemServiceState,
+
+	RpgState = RpgState,
+	EnemyServiceState = EnemyServiceState,
+	CombatState = CombatState,
 }
 
 return MutState

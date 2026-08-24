@@ -65,7 +65,8 @@ end
 -- #region PLAYERS
 
 --- Generate Custom Game State for Clients -> Remove Useless Data
-local function playerGameState(player)
+--[[
+function PlayerService.PlayerGameState(player)
 	local state = Store:getState()
 	local players = {}
 
@@ -101,6 +102,7 @@ local function playerGameState(player)
 	-- return gameState
 	return gameState
 end
+--]]
 
 function PlayerService.AddPlayer(player)
 	local userId = player.UserId
@@ -321,6 +323,10 @@ function PlayerService.SaveBananaDelta(state, player)
 	local userId = player.UserId
 	local playerState = Selectors.PlayerState(state, userId)
 
+	if not playerState then
+		return
+	end
+
 	-- Bananas Delta + DB Save
 	local bananasDelta = playerState.bananas - playerState.bananasSavedToDb
 
@@ -406,9 +412,11 @@ end
 -- #region CURRENCIES
 
 --- currencyId = from CONSTANTS.CURRENCIES
+--- return the amount of a currency a player has
 function PlayerService.GetCurrency(state, userId, currencyId)
 	local playerState = Selectors.PlayerState(state, userId)
 	local currency = playerState[CONSTANTS.CURRENCIES_NAMES[currencyId]]
+
 	return if currency ~= nil then currency else 0
 end
 

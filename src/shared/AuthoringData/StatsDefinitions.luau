@@ -132,6 +132,7 @@ local DEFAULT_STATS: Stats = {
 	basePickupRange = 10,
 	increasedPickupRange = 0,
 	pickupRange = 10,
+	-- ModStats?
 }
 
 local MOD_STATS: ModStats = {
@@ -157,25 +158,31 @@ local DEFAULT_PLAYER: Player = {
 	state = "Playing", -- TODO : rename logicState
 	isMusicEnabled = true,
 	isDead = false,
+
 	-- Currencies
 	bananas = 0,
 	bananasSavedToDb = 0,
 	sticks = 0,
 	stones = 0,
+
 	-- Score
 	kills = 0,
 	destruction = 0,
+
 	-- Level
 	level = 1,
 	waitingLevel = 0,
 	currentXp = 0,
 	xpRequired = 100,
+
 	-- Stats
 	stats = Gears.DeepCopy(DEFAULT_STATS),
-	metaUpgradesLevel = Gears.DeepCopy(MOD_STATS),
-	metaUpgradesCost = Gears.DeepCopy(MOD_STATS),
 	metaUpgrades = Gears.DeepCopy(MOD_STATS),
 	augments = Gears.DeepCopy(MOD_STATS),
+
+	-- Misc
+	metaUpgradesLevel = Gears.DeepCopy(MOD_STATS),
+	metaUpgradesCost = Gears.DeepCopy(MOD_STATS),
 	currentAugments = {}, -- 3+ choice cards
 	weaponData = {},
 }
@@ -192,10 +199,12 @@ local STATS_STORE = {
 	critChance = "critChance",
 	critMultiplier = "critMultiplier",
 	aoe = "aoe",
+
 	-- Defense
 	maxLife = "maxLife",
 	lifeRegen = "lifeRegen",
 	damageReduction = "damageReduction",
+
 	-- Utility
 	mobility = "mobility",
 	luck = "luck",
@@ -214,10 +223,12 @@ local TO_STAT_OBJECT = {
 	critMultiplier = "critMultiplier",
 	increasedAoe = "aoe",
 	aoe = "aoe",
+
 	-- Defense
 	maxLife = "maxLife",
 	lifeRegen = "lifeRegen",
 	damageReduction = "damageReduction",
+
 	-- Utility
 	mobility = "mobility",
 	luck = "luck",
@@ -227,8 +238,8 @@ local TO_STAT_OBJECT = {
 	pickupRange = "pickupRange",
 }
 
--- Every Stats mutated by power systems (Meta Upgrades & Augments) -> Input
 -- TODO : Replace with STATS = Index
+-- Every Stats mutated by power systems (Meta Upgrades & Augments) -> Input
 local MOD_STATS_STORE = {
 	-- Offense
 	increasedAttackDamage = "increasedAttackDamage",
@@ -236,10 +247,12 @@ local MOD_STATS_STORE = {
 	critChance = "critChance",
 	critMultiplier = "critMultiplier",
 	increasedAoe = "increasedAoe",
+
 	-- Defense
 	maxLife = "maxLife",
 	lifeRegen = "lifeRegen",
 	damageReduction = "damageReduction",
+
 	-- Utility
 	mobility = "mobility",
 	luck = "luck",
@@ -255,10 +268,12 @@ local MOD_STATS_INDEX = {
 	"critChance",
 	"critMultiplier",
 	"increasedAoe",
+
 	-- Defense
 	"maxLife",
 	"lifeRegen",
 	"damageReduction",
+
 	-- Utility
 	"mobility",
 	"luck",
@@ -269,14 +284,19 @@ local MOD_STATS_INDEX = {
 -- #endregion
 
 local STATS_DISPLAY = {
+	-- Offense
 	increasedAttackDamage = "% Attack Damage",
 	increasedAttackSpeed = "% Attack Speed",
 	critChance = "% Crit Chance",
 	critMultiplier = "% Crit Multiplier",
 	increasedAoe = "% Aoe",
+
+	-- Defense
 	maxLife = "Max Life",
 	lifeRegen = "Life Regen",
 	damageReduction = "% Damage Reduction",
+
+	-- Utility
 	mobility = "Mobility",
 	luck = "Luck",
 	increasedXp = "% Xp",
@@ -284,6 +304,7 @@ local STATS_DISPLAY = {
 }
 
 local META_UPGRADES = {
+	-- Offense
 	increasedAttackDamage = {
 		incrementValue = 5,
 		baseCost = 20,
@@ -314,6 +335,8 @@ local META_UPGRADES = {
 		maxLevel = 7,
 		costMultiplier = 1.4,
 	},
+
+	-- Defense
 	maxLife = {
 		incrementValue = 5,
 		baseCost = 10,
@@ -332,6 +355,8 @@ local META_UPGRADES = {
 		maxLevel = 5,
 		costMultiplier = 1.4,
 	},
+
+	-- Utility
 	mobility = {
 		incrementValue = 0.5,
 		baseCost = 80,
@@ -359,6 +384,7 @@ local META_UPGRADES = {
 }
 
 local AUGMENTS = {
+	-- TODO : Move to AugmentService Const
 	baseLuckValue = 200,
 	luckPoints = { 0, 75, 150, 180, 195 },
 	rarity = {
@@ -375,6 +401,8 @@ local AUGMENTS = {
 		epic = Color3.fromRGB(116, 2, 116),
 		legendary = Color3.fromRGB(211, 4, 4),
 	},
+
+	-- Offense
 	increasedAttackDamage = {
 		common = 10,
 		uncommon = 15,
@@ -408,6 +436,8 @@ local AUGMENTS = {
 		epic = 20,
 		legendary = 25,
 	},
+
+	-- Defense
 	maxLife = {
 		uncommon = 30,
 		rare = 45,
@@ -427,6 +457,8 @@ local AUGMENTS = {
 		epic = 9,
 		legendary = 11,
 	},
+
+	-- Utility
 	mobility = {
 		rare = 1,
 		epic = 2,
@@ -451,12 +483,14 @@ local AUGMENTS = {
 
 local statsDefinition = {
 	DEFAULT_PLAYER = DEFAULT_PLAYER,
+
 	-- Enums
 	STATS_STORE = STATS_STORE,
 	MOD_STATS_STORE = MOD_STATS_STORE,
 	-- MULT_STATS_STORE = MULT_STATS_STORE,
 	TO_STAT_OBJECT = TO_STAT_OBJECT,
 	MOD_STATS_INDEX = MOD_STATS_INDEX,
+
 	-- Authoring Data
 	DEFAULT_STATS = DEFAULT_STATS,
 	STATS_DISPLAY = STATS_DISPLAY,
