@@ -4,7 +4,7 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- TODO : PlayerDefinition = Client Side, StatsDefinition = ServerSide
 
--- #region DATA STRUCTS
+-- #region DEFAULT VALUES
 
 export type Stats = {
 	-- Offensive
@@ -32,80 +32,6 @@ export type Stats = {
 	increasedPickupRange: number,
 	pickupRange: number,
 }
-
--- Stats that can be Modified by Power Systems
-export type ModStats = {
-	-- Offense
-	increasedAttackDamage: number,
-	increasedAttackSpeed: number,
-	critChance: number,
-	critMultiplier: number,
-	increasedAoe: number,
-	-- Defense
-	maxLife: number,
-	lifeRegen: number,
-	damageReduction: number,
-	-- Utility
-	mobility: number,
-	luck: number,
-	increasedXp: number,
-	increasedPickupRange: number,
-}
-
-export type Augment = {
-	modStat: string,
-	rarity: string,
-	value: number,
-}
-
-export type WeaponData = {
-	name: string,
-	-- Model
-	weaponSize: number,
-	attackPoint: Vector3,
-	-- Offense
-	damage: number, -- Calculate using Weapon Definition + Weapon Modifiers
-	attackSpeed: number,
-	-- Utility
-	aoe: number,
-	-- Misc
-	attackVFX: ParticleEmitter,
-	maxCombo: number,
-	-- Rarity: string,
-	-- Modifiers: { mod: Modifier },
-}
-
-export type Player = {
-	username: string,
-	state: string,
-	isMusicEnabled: boolean,
-	isDead: boolean,
-	-- Currencies
-	bananas: number,
-	sticks: number,
-	stones: number,
-	-- Score
-	kills: number,
-	destruction: number,
-	-- Level
-	level: number,
-	waitingLevel: number,
-	currentXp: number,
-	xpRequired: number,
-	-- Stats
-	stats: Stats,
-	metaUpgradesLevel: ModStats,
-	metaUpgradesCost: ModStats,
-	metaUpgrades: ModStats,
-	augments: ModStats,
-	currentAugments: { Augment }, -- 3+ choice cards
-	weaponData: {}, -- WeaponData
-	-- gearData
-}
-
--- #endregion
-
--- #region DEFAULT VALUES
 
 local DEFAULT_STATS: Stats = {
 	-- Offensive
@@ -135,6 +61,25 @@ local DEFAULT_STATS: Stats = {
 	-- ModStats?
 }
 
+-- Stats that can be Modified by Power Systems
+export type ModStats = {
+	-- Offense
+	increasedAttackDamage: number,
+	increasedAttackSpeed: number,
+	critChance: number,
+	critMultiplier: number,
+	increasedAoe: number,
+	-- Defense
+	maxLife: number,
+	lifeRegen: number,
+	damageReduction: number,
+	-- Utility
+	mobility: number,
+	luck: number,
+	increasedXp: number,
+	increasedPickupRange: number,
+}
+
 local MOD_STATS: ModStats = {
 	-- Offense
 	increasedAttackDamage = 0,
@@ -153,7 +98,37 @@ local MOD_STATS: ModStats = {
 	increasedPickupRange = 0,
 }
 
+export type Player = {
+	userId: number,
+	username: string,
+	state: string,
+	isMusicEnabled: boolean,
+	isDead: boolean,
+	-- Currencies
+	bananas: number,
+	sticks: number,
+	stones: number,
+	-- Score
+	kills: number,
+	destruction: number,
+	-- Level
+	level: number,
+	waitingLevel: number,
+	currentXp: number,
+	xpRequired: number,
+	-- Stats
+	stats: Stats,
+	metaUpgradesLevel: ModStats,
+	metaUpgradesCost: ModStats,
+	metaUpgrades: ModStats,
+	augments: ModStats,
+	currentAugments: { Augment }, -- 3+ choice cards
+	weaponData: {}, -- WeaponData
+	-- gearData
+}
+
 local DEFAULT_PLAYER: Player = {
+	userId = 0,
 	username = "",
 	state = "Playing", -- TODO : rename logicState
 	isMusicEnabled = true,
@@ -185,6 +160,23 @@ local DEFAULT_PLAYER: Player = {
 	metaUpgradesCost = Gears.DeepCopy(MOD_STATS),
 	currentAugments = {}, -- 3+ choice cards
 	weaponData = {},
+}
+
+export type WeaponData = {
+	name: string,
+	-- Model
+	weaponSize: number,
+	attackPoint: Vector3,
+	-- Offense
+	damage: number, -- Calculate using Weapon Definition + Weapon Modifiers
+	attackSpeed: number,
+	-- Utility
+	aoe: number,
+	-- Misc
+	attackVFX: ParticleEmitter,
+	maxCombo: number,
+	-- Rarity: string,
+	-- Modifiers: { mod: Modifier },
 }
 
 -- #endregion
@@ -381,6 +373,12 @@ local META_UPGRADES = {
 		maxLevel = 12,
 		costMultiplier = 1.2,
 	},
+}
+
+export type Augment = {
+	modStat: string,
+	rarity: string,
+	value: number,
 }
 
 local AUGMENTS = {

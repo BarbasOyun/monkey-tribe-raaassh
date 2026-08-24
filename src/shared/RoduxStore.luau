@@ -43,22 +43,6 @@ local Selectors = {
 
 		return augments, metaUpgrades
 	end,
-
-	--- Get Stats Context of a Player
-	StatsCtx = function(state, userId)
-		local playerState = state.players[userId]
-		local augments = playerState.augments
-		local metaUpgrades = playerState.metaUpgrades
-
-		local statCtx = {
-			userId = userId,
-			augments = augments,
-			metaUpgrades = metaUpgrades,
-			weaponData = playerState.weaponData,
-		}
-
-		return statCtx
-	end,
 }
 
 -- #endregion
@@ -82,11 +66,10 @@ local Actions = {
 	end,
 
 	-- Players
-	AddPlayer = function(userId, username)
+	AddPlayer = function(player)
 		return {
 			type = "AddPlayer",
-			userId = userId,
-			username = username,
+			player = player,
 		}
 	end,
 
@@ -143,11 +126,12 @@ local playerReducer = Rodux.createReducer({}, {
 	AddPlayer = function(state, action)
 		local players = table.clone(state) or {}
 
-		local userId = action.userId
-		local username = action.username
+		local player = action.player
+		local userId = player.UserId
+		local username = player.Name
 
-		-- TODO : Player Constructor
 		players[userId] = Gears.DeepCopy(statsDefinition.DEFAULT_PLAYER)
+		players[userId].userId = userId
 		players[userId].username = username
 
 		return players

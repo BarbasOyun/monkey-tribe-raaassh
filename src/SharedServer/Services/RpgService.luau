@@ -263,7 +263,7 @@ end
 -- #region CALCULATIONS
 
 --- Sum modStats from each Power Systems -> Generate Patch
-local function calcModStat(metaUpgrades, augments, modStat)
+function RpgService.CalcModStat(metaUpgrades, augments, modStat)
 	local metaUpgradeStat = metaUpgrades[modStat]
 	local augmentStat = augments[modStat]
 
@@ -273,8 +273,8 @@ local function calcModStat(metaUpgrades, augments, modStat)
 end
 
 --- base * increase -> Generate Patch
-local function calcMultStat(metaUpgrades, augments, modStat, calcStat, baseValue)
-	local totalModStat = calcModStat(metaUpgrades, augments, modStat)
+function RpgService.CalcMultStat(metaUpgrades, augments, modStat, calcStat, baseValue)
+	local totalModStat = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 	local totalStat = baseValue * Gears.IncreaseToMultiplier(totalModStat)
 
 	local patch = { [modStat] = totalModStat, [calcStat] = totalStat }
@@ -282,36 +282,69 @@ local function calcMultStat(metaUpgrades, augments, modStat, calcStat, baseValue
 	return patch
 end
 
+--- Calculate a Final Stat using Power Systems -> Make Stat Effective,
+--- modStat = from STATS_STORE
+function RpgService.CalculateStat(state, player, stat)
+	local userId = player.UserId
+
+	local playerState = Selectors.PlayerState(state, userId)
+
+	local patch = RpgService.statsCalculation[stat](playerState)
+
+	-- Dispatch Server + Client
+	Store:dispatch(StoreActions.PatchStat(userId, patch))
+	RpgService.Client.PatchStats:Fire(player, patch)
+end
+
+function RpgService.CalculateAllStats(player)
+	local userId = player.UserId
+	local state = Store:getState()
+
+	-- Stich patches together
+	local patches = {}
+
+	for _, calculateStat in pairs(RpgService.statsCalculation) do
+		local playerState = Selectors.PlayerState(state, userId)
+
+		local patch = calculateStat(playerState)
+		Gears.FuseTable(patches, patch)
+	end
+
+	-- Dispatch Server + Client
+	Store:dispatch(StoreActions.PatchStat(userId, patches))
+	RpgService.Client.PatchStats:Fire(player, patches)
+end
+
 --- Final Stats Calcs using Power Systems
-local statsCalculation = {
+RpgService.statsCalculation = {
 	-- Offense
-	attackDamage = function(statCtx)
+	attackDamage = function(playerState)
 		local modStat = MOD_STATS_STORE.increasedAttackDamage
 		local calcStat = STATS_STORE.attackDamage
 
-		local weaponData = statCtx.weaponData
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local weaponData = playerState.weaponData
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
 		local weaponDamage = weaponData and weaponData.damage or 0
 
-		local patch = calcMultStat(metaUpgrades, augments, modStat, calcStat, weaponDamage)
+		local patch = RpgService.CalcMultStat(metaUpgrades, augments, modStat, calcStat, weaponDamage)
 
 		return patch
 	end,
 
-	attackSpeed = function(statCtx)
+	attackSpeed = function(playerState)
 		-- Get Values
 		local modStat = MOD_STATS_STORE.increasedAttackSpeed
 		local calcStat = STATS_STORE.attackSpeed
 
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
-		local weaponData = statCtx.weaponData
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
+		local weaponData = playerState.weaponData
 
 		local weaponAttackSpeed = weaponData and weaponData.attackSpeed or 1
 
-		local totalModStat = calcModStat(metaUpgrades, augments, modStat)
+		local totalModStat = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 
 		-- Calc
 		local attackSpeed = weaponAttackSpeed * Gears.IncreaseToMultiplier(totalModStat)
@@ -322,41 +355,41 @@ local statsCalculation = {
 		return patch
 	end,
 
-	critChance = function(statCtx)
+	critChance = function(playerState)
 		local modStat = MOD_STATS_STORE.critChance
 
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
-		local totalModStat = calcModStat(metaUpgrades, augments, modStat)
+		local totalModStat = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 		local patch = { [modStat] = totalModStat }
 
 		return patch
 	end,
 
-	critMultiplier = function(statCtx)
+	critMultiplier = function(playerState)
 		local modStat = MOD_STATS_STORE.critMultiplier
 
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
-		local totalModStat = calcModStat(metaUpgrades, augments, modStat)
+		local totalModStat = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 		local patch = { [modStat] = totalModStat }
 
 		return patch
 	end,
 
-	aoe = function(statCtx)
+	aoe = function(playerState)
 		-- Get Values
 		local modStat = MOD_STATS_STORE.increasedAoe
 		local calcStat = STATS_STORE.aoe
 
-		local userId = statCtx.userId
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
-		local weaponState = statCtx.weaponData
+		local userId = playerState.userId
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
+		local weaponState = playerState.weaponData
 
-		local totalIncreasedAoe = calcModStat(metaUpgrades, augments, modStat)
+		local totalIncreasedAoe = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 		local useAoe = weaponState and weaponState.aoe or 0
 
 		-- Calc
@@ -389,18 +422,20 @@ local statsCalculation = {
 	end,
 
 	-- Defense
-	maxLife = function(statCtx)
+	maxLife = function(playerState)
 		local modStat = MOD_STATS_STORE.maxLife
 
-		local userId = statCtx.userId
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local userId = playerState.userId
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
-		local maxLife = calcModStat(metaUpgrades, augments, modStat)
+		local maxLife = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 
 		-- Gain current Life
+		local lifeDelta = math.max(0, maxLife - playerState.stats.maxLife)
+
 		if RpgState.playersLife[userId] then
-			RpgState.playersLife[userId] += maxLife
+			RpgState.playersLife[userId] += lifeDelta
 		end
 
 		local patch = { [modStat] = maxLife }
@@ -408,14 +443,14 @@ local statsCalculation = {
 		return patch
 	end,
 
-	lifeRegen = function(statCtx)
+	lifeRegen = function(playerState)
 		local modStat = MOD_STATS_STORE.lifeRegen
 
-		local userId = statCtx.userId
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local userId = playerState.userId
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
-		local totalLifeRegen = calcModStat(metaUpgrades, augments, modStat)
+		local totalLifeRegen = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 
 		RpgService.StopLifeRegen(userId)
 		RpgService.StartLifeRegen(userId, totalLifeRegen)
@@ -425,27 +460,27 @@ local statsCalculation = {
 		return patch
 	end,
 
-	damageReduction = function(statCtx)
+	damageReduction = function(playerState)
 		local modStat = MOD_STATS_STORE.damageReduction
 
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
-		local totalDr = math.min(calcModStat(metaUpgrades, augments, modStat), 90) -- Hard Cap at 90% DR
+		local totalDr = math.min(RpgService.CalcModStat(metaUpgrades, augments, modStat), 90) -- Hard Cap at 90% DR
 		local patch = { [modStat] = totalDr }
 
 		return patch
 	end,
 
 	-- Utility
-	mobility = function(statCtx)
+	mobility = function(playerState)
 		local modStat = MOD_STATS_STORE.mobility
 
-		local userId = statCtx.userId
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local userId = playerState.userId
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
-		local totalMobility = calcModStat(metaUpgrades, augments, modStat)
+		local totalMobility = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 
 		-- Adjust Humanoid
 		local player = Players:GetPlayerByUserId(userId)
@@ -460,76 +495,44 @@ local statsCalculation = {
 		return patch
 	end,
 
-	luck = function(statCtx)
+	luck = function(playerState)
 		local modStat = MOD_STATS_STORE.luck
 
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
-		local totalLuck = calcModStat(metaUpgrades, augments, modStat)
+		local totalLuck = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 		local patch = { [modStat] = totalLuck }
 
 		return patch
 	end,
 
-	xp = function(statCtx)
+	xp = function(playerState)
 		local modStat = MOD_STATS_STORE.increasedXp
 
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
-		local totalIncreasedXp = calcModStat(metaUpgrades, augments, modStat)
+		local totalIncreasedXp = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 		local patch = { [modStat] = totalIncreasedXp }
 
 		return patch
 	end,
 
-	pickupRange = function(statCtx)
+	pickupRange = function(playerState)
 		local modStat = MOD_STATS_STORE.increasedPickupRange
 		local calcStat = STATS_STORE.pickupRange
 
-		local augments = statCtx.augments
-		local metaUpgrades = statCtx.metaUpgrades
+		local augments = playerState.augments
+		local metaUpgrades = playerState.metaUpgrades
 
 		local basePickupRange = DEFAULT_STATS[MOD_STATS_STORE.basePickupRange]
 
-		local patch = calcMultStat(metaUpgrades, augments, modStat, calcStat, basePickupRange)
+		local patch = RpgService.CalcMultStat(metaUpgrades, augments, modStat, calcStat, basePickupRange)
 
 		return patch
 	end,
 }
-
---- Calculate a Final Stat using Power Systems -> Make Stat Effective,
---- modStat = from STATS_STORE
-function RpgService.CalculateStat(state, player, stat)
-	local userId = player.UserId
-
-	local statsCtx = Selectors.StatsCtx(state, userId)
-
-	-- Dispatch Server + Client
-	local patch = statsCalculation[stat](statsCtx)
-	Store:dispatch(StoreActions.PatchStat(userId, patch))
-	RpgService.Client.PatchStats:Fire(player, patch)
-end
-
-function RpgService.CalculateAllStats(player)
-	local userId = player.UserId
-	local state = Store:getState()
-
-	-- Stich patches together
-	local patches = {}
-
-	for _, calculateStat in pairs(statsCalculation) do
-		local statsCtx = Selectors.StatsCtx(state, userId)
-
-		local patch = calculateStat(statsCtx)
-		Gears.FuseTable(patches, patch)
-	end
-
-	-- Dispatch Server + Client
-	Store:dispatch(StoreActions.PatchStat(userId, patches))
-	RpgService.Client.PatchStats:Fire(player, patches)
-end
 
 -- #endregion
 

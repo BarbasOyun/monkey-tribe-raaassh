@@ -88,36 +88,39 @@ function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, siz
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
 
 	for _ = 1, pool.size do
-		local entityId = EcsService.CreateEntity()
-		table.insert(PoolServiceState.entitiesPool, entityId)
-
-		local model = prefab:Clone()
-
-		GameObjectStorage.AddComponentToEntity(entityId, model)
-
-		-- OnSpawn Functions
-		if onSpawn then
-			local onSpawnCtx = {
-				entityId = entityId,
-				definitionId = definitionID,
-				model = model,
-			}
-
-			for i = 1, #onSpawn do
-				onSpawn[i](onSpawnCtx)
-			end
-		end
-
-		-- Disable
-		PoolService.Disable(entityId)
+		PoolService.SpawnEntity(GameObjectStorage, definitionID, prefab, onSpawn)
 	end
 
 	return pool
 end
 
+function PoolService.SpawnEntity(GameObjectStorage, definitionID, prefab, onSpawn)
+	local entityId = EcsService.CreateEntity()
+	table.insert(PoolServiceState.entitiesPool, entityId)
+
+	local model = prefab:Clone()
+
+	GameObjectStorage.AddComponentToEntity(entityId, model)
+
+	-- OnSpawn Functions
+	if onSpawn then
+		local onSpawnCtx = {
+			entityId = entityId,
+			definitionId = definitionID,
+			model = model,
+		}
+
+		for i = 1, #onSpawn do
+			onSpawn[i](onSpawnCtx)
+		end
+	end
+
+	-- Disable
+	PoolService.Disable(entityId)
+end
+
 --- Disable every GameObjects in a Pool
-function PoolService.ClearPool(pool)
-	-- Disable All
+function PoolService.DisablePool(pool)
 	for i = 0, pool.activeCount do
 		local index = pool.startIndex + i
 		local entityId = PoolServiceState.entitiesPool[index]
@@ -127,11 +130,10 @@ function PoolService.ClearPool(pool)
 	pool.activeCount = 0
 end
 
---- Disable every GameObjects in Pools
-function PoolService.ClearPools()
+function PoolService.DisableAllPools()
 	for i = 1, #PoolServiceState.pools do
 		local pool = PoolServiceState.pools[i]
-		PoolService.ClearPool(pool)
+		PoolService.DisablePool(pool)
 	end
 end
 
@@ -164,7 +166,7 @@ function PoolService.EnableNextInPool(typeID, definitionID, parent, position)
 	local poolIndex = PoolServiceState.poolsLookups[typeID][definitionID]
 	local pool = PoolServiceState.pools[poolIndex]
 
-	local hasReachedMax = pool.activeCount >= pool.size -- - 1
+	local hasReachedMax = pool.activeCount >= pool.size
 
 	if hasReachedMax then
 		warn(pool.name .. " Reached Limit of : " .. pool.size)

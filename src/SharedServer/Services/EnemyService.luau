@@ -10,10 +10,6 @@ local EnemyConst = CONSTANTS.EnemyConst
 local Enemies = EnemyConst.Enemies
 local EnemiesStats = EnemyConst.EnemiesStats
 
--- local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
--- local Enemies = EnemyDefinitions.Enemies
--- local EnemiesStats = EnemyDefinitions.EnemiesStats
-
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
@@ -50,8 +46,6 @@ function EnemyService:KnitStart()
 	ItemService = Knit.GetService("ItemService")
 end
 
--- #region ON SPAWN SYSTEMS
-
 -- TODO : Rename EnemyCtx
 type SpawnCtx = {
 	entityId: number,
@@ -59,6 +53,8 @@ type SpawnCtx = {
 	model: Model,
 	-- Pos?
 }
+
+-- #region ON SPAWN SYSTEMS
 
 -- local gameObjectSetup = function(onSpawnCtx)
 -- 	local entityId = onSpawnCtx.entityId
@@ -124,9 +120,7 @@ local respawnSetup = function(spawnCtx)
 	-- local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
 
 	-- UnitStorageState.deathEvent[unitId]:Connect(function(character, _player)
-	-- 	task.wait(1)
 	-- 	-- Get Back respawnPos
-	-- 	local id = character:GetAttribute("EntityId")
 	-- 	local respawnPos = CustomStorage.GetCustomProperties(id).respawnPos
 
 	-- 	EnemyService.SpawnArchetypeEnemy(Enemies.Dummy, respawnPos) -- Respawn
@@ -140,12 +134,7 @@ end
 local gameObjectOnEnabled = function(spawnCtx, position)
 	local character = spawnCtx.model
 
-	-- Move
-	-- character:PivotTo(CFrame.new(position))
-	-- character.Parent = CONSTANTS.WEAPON_HIT_FOLDER
-
 	-- character:SetAttribute("Version", entityVersion)
-	-- Gears.AnchorModel(character, false)
 	character.HumanoidRootPart.Anchored = false
 end
 
@@ -155,6 +144,7 @@ local unitOnEnabled = function(spawnCtx)
 
 	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local UnitStorageState = UnitStorage.GetState()
+	local unitID = UnitStorage.GetComponentId(UnitStorageState, entityId)
 
 	-- Movement Speed
 	local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
@@ -163,7 +153,7 @@ local unitOnEnabled = function(spawnCtx)
 
 	-- Life
 	local maxLife = EnemiesStats[Enemies.Robot].MaxLife
-	UnitStorageState.life[entityId] = maxLife
+	UnitStorageState.life[unitID] = maxLife
 end
 
 local lifeBarOnEnabled = function(spawnCtx)
@@ -283,14 +273,11 @@ EnemyService.enemiesOnDisabled = {
 
 -- #region SPAWN ENEMY
 
--- Custom Spawn Enemy
-
 --- Spawn New Model + Create Enemy
 function EnemyService.SpawnEnemy(enemyId, position)
 	-- Spawn Model
 	local character = EnemyConst.EnemiesPrefabs[enemyId]:Clone()
 	character:PivotTo(CFrame.new(position))
-	character.Name = "Dummy3"
 
 	EnemyService.CreateEnemy(character, enemyId)
 end
@@ -367,6 +354,11 @@ end
 function EnemyService.EnableEnemy(definitionID, position)
 	local parent = CONSTANTS.WEAPON_HIT_FOLDER
 	local entityId, model = PoolService.EnableNextInPool(CONSTANTS.DefinedTypes.Unit, definitionID, parent, position)
+
+	-- If Pool limit is reached
+	if not model then
+		return
+	end
 
 	-- Per Type OnEnabled
 	local onEnabled = EnemyService.enemiesOnEnabled[definitionID]
@@ -473,23 +465,26 @@ function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 	local UnitStorageState = UnitStorage.GetState()
 	local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
 
-	-- warn("Damage Enemy : Entity ID = " .. entityId .. ", Unit ID = " .. unitId)
-
+	-- Validation
 	local currentLife = UnitStorageState.life[unitId]
-	if currentLife <= 0 or damage <= 0 then
+	local isValid = currentLife > 0 and damage > 0
+
+	if not isValid then
+		-- warn("Damage Enemy Not Valid : Current Life = " .. currentLife)
 		return
 	end
+
+	-- warn("Damage Enemy : Entity ID = " .. entityId .. ", Unit ID = " .. unitId)
 
 	-- Damage Unit
 	UnitStorageState.life[unitId] -= damage
 	local damagedLife = UnitStorageState.life[unitId]
-	-- print(" Dealt " .. damage .. " damage to " .. humanoid.Parent.Name .. " New life : " .. life)
 
 	-- Trigger Life Changed Event
 	local definitionId = UnitStorageState.definitionId[unitId]
 	local definition = EnemiesStats[definitionId]
 
-	local percent = damagedLife / definition.MaxLife
+	local percent = math.max(0, damagedLife / definition.MaxLife)
 	UnitStorageState.lifeChanged[unitId]:Fire(percent)
 
 	-- Handle Death
@@ -746,7 +741,6 @@ function EnemyService.StreamSpawn(state, player)
 	-- Spawn X Mobs
 	for _ = 1, enemyNbr do
 		local spawnPos = EnemyService.GetSpawnPosition(playerPos)
-		-- PoolService.EnableNextInPool(Enemies.Robot, spawnPos)
 		EnemyService.EnableEnemy(Enemies.Robot, spawnPos)
 	end
 end
@@ -792,7 +786,6 @@ function EnemyService.SwarmSpawn()
 		local spawnPos = EnemyService.GetSpawnPosition(playerPos)
 
 		for _ = 1, enemyNbr, 1 do
-			-- PoolService.EnableNextInPool(Enemies.Robot, spawnPos)
 			EnemyService.EnableEnemy(Enemies.Robot, spawnPos)
 		end
 	end

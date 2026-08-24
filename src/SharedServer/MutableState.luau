@@ -25,10 +25,9 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
-
-local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
-local Enemies = EnemyDefinitions.Enemies
-local EnemiesStats = EnemyDefinitions.EnemiesStats
+local EnemyConst = CONSTANTS.EnemyConst
+local Enemies = EnemyConst.Enemies
+local EnemiesStats = EnemyConst.EnemiesStats
 
 local mainSounds = CONSTANTS.PREFABS_FOLDER.Sounds.MainSounds
 
@@ -162,6 +161,7 @@ local PoolServiceState = {
 }
 
 local ItemServiceState = {
+	groundItemsModels = {},
 	itemsMovement = {},
 }
 

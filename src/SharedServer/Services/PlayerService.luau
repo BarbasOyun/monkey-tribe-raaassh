@@ -109,7 +109,7 @@ function PlayerService.AddPlayer(player)
 	local username = player.Name
 
 	-- Create Player
-	Store:dispatch(StoreActions.AddPlayer(userId, username))
+	Store:dispatch(StoreActions.AddPlayer(player))
 
 	-- Send the full store to the new player
 	local state = Store:getState()

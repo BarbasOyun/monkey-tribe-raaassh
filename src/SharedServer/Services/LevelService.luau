@@ -212,7 +212,7 @@ function LevelService.ResetLevel()
 
 	-- Clear Objects
 	LevelService.ClearBuildings()
-	PoolService.ClearPools()
+	PoolService.DisableAllPools()
 	ItemService.ClearGroundItems()
 
 	-- Reset Players

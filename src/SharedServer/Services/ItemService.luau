@@ -170,20 +170,6 @@ function ItemService.CreateItem(definitionID, itemModel)
 	ItemService.SetupItemModel(spawnCtx)
 end
 
---- Setup an item and its model
-function ItemService.ItemOnSpawn(spawnCtx)
-	local entityId = spawnCtx.entityId
-	local definitionId = spawnCtx.definitionId
-	local itemModel = spawnCtx.model
-
-	-- Add Definition Component
-	local DefinitionStorage = EcsState.storages[CONSTANTS.EcsStorages.definition]
-	local type = CONSTANTS.DefinedTypes.Items
-	DefinitionStorage.AddComponentToEntity(entityId, type, definitionId)
-
-	itemModel:SetAttribute("EntityId", entityId)
-end
-
 --- Model + OnSpawn
 function ItemService.SetupItemModel(spawnCtx)
 	local entityId = spawnCtx.entityId
@@ -194,6 +180,17 @@ function ItemService.SetupItemModel(spawnCtx)
 	GameObjectStorage.AddComponentToEntity(entityId, itemModel)
 
 	ItemService.ItemOnSpawn(spawnCtx)
+end
+
+--- Setup an item and its model
+function ItemService.ItemOnSpawn(spawnCtx)
+	local entityId = spawnCtx.entityId
+	local definitionId = spawnCtx.definitionId
+
+	-- Add Definition Component
+	local DefinitionStorage = EcsState.storages[CONSTANTS.EcsStorages.definition]
+	local typeID = CONSTANTS.DefinedTypes.Items
+	DefinitionStorage.AddComponentToEntity(entityId, typeID, definitionId)
 end
 
 --- Create an Instance of statsDefinition.WeaponData struct using WeaponDefinition
@@ -238,6 +235,7 @@ function ItemService.SpawnItem(item, position: Vector3)
 
 	-- Spawn Model
 	local itemModel = item.prefab:Clone()
+	table.insert(ItemServiceState.groundItemsModels, itemModel)
 
 	ItemService.CreateItem(item.id, itemModel)
 
@@ -279,9 +277,16 @@ function ItemService.RemoveGroundItem(itemModel, instanceId)
 end
 
 function ItemService.ClearGroundItems()
-	for _, child in pairs(CONSTANTS.AUTOPICKUP_FOLDER:GetChildren()) do
-		ItemService.RemoveGroundItem(child)
+	-- for _, child in pairs(CONSTANTS.AUTOPICKUP_FOLDER:GetChildren()) do
+	-- 	ItemService.RemoveGroundItem(child)
+	-- end
+
+	for i = 1, #ItemServiceState.groundItemsModels do
+		local itemModel = ItemServiceState.groundItemsModels[i]
+		itemModel:Destroy()
 	end
+
+	table.clear(ItemServiceState.groundItemsModels)
 end
 
 -- #endregion
@@ -308,6 +313,11 @@ end
 --- Enable + Loot Movement
 function ItemService.EnableLoot(definitionID, position)
 	local _entityId, model = ItemService.EnableItem(definitionID, position)
+
+	if not model then
+		return
+	end
+
 	ItemService.LootMovement(model, position)
 end
 

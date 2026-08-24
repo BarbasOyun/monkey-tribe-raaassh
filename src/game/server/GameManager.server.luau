@@ -32,12 +32,12 @@ local ItemService = Knit.GetService("ItemService")
 
 local function createPools()
 	-- Create ItemsPools : SmallXpOrb + Banana
-	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, 500)
-	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].Banana, 500)
+	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, 300)
+	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].Banana, 300)
 
 	-- Load Enemies
 	-- PoolService.CreatePool(Enemies.Robot)
-	EnemyService.CreatePool(Enemies.Robot, 200)
+	EnemyService.CreatePool(Enemies.Robot, 150)
 end
 
 local function setupPlayers()

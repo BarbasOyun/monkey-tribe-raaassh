@@ -240,11 +240,14 @@ function AugmentsService.Client:StartAugmentPick(player)
 	local state = Store:getState()
 	local playerState = Selectors.PlayerState(state, userId)
 
-	-- Validations
-	assert(playerState.currentAugments, player.Name .. " No Augments ready")
-
 	local waitingLevel = playerState.waitingLevel
-	assert(waitingLevel > 0, player.Name .. " No waiting Level")
+
+	-- Validations
+	local isValid = waitingLevel > 0 and playerState.currentAugments
+	if not isValid then
+		warn("No Waiting Levels or Augments = " .. playerState.currentAugments)
+		return
+	end
 
 	-- Picking Augment State
 	-- print(player.Name .. " Is Picking Augment...")

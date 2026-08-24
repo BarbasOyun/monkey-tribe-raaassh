@@ -102,8 +102,6 @@ function CombatService.HitsDetection(position, radius, param, charactersBanned)
 		return humanoidsHit, buildingsHit
 	end
 
-	-- humanoidsHit = Gears.FindUniqueHumanoids(hits, charactersBanned)
-
 	for _, hit in pairs(hits) do
 		local humanoid = Gears.FindHumanoidFromPart(hit)
 
@@ -158,7 +156,8 @@ function CombatService.AttackHit(player, playerStats, weaponState)
 
 	-- Damage Humanoids
 	for _, humanoid in pairs(humanoidsHit) do
-		EnemyService.DamageEnemy(player, humanoid.Parent:GetAttribute("EntityId"), humanoid, damage)
+		local entityID = humanoid.Parent:GetAttribute("EntityId")
+		EnemyService.DamageEnemy(player, entityID, humanoid, damage)
 	end
 
 	CombatService.AttackFeedback(weaponState, isCrit, hasHitBuilding)
@@ -263,15 +262,15 @@ function CombatService.StartAttack(state, player, playerStats, weaponState)
 	-- Validation
 	local userId = player.UserId
 	local playerState = Selectors.PlayerState(state, userId)
-	local isPlayerReady = playerState and playerState.state == CONSTANTS.PLAYER_STATES.playing
 
+	local isPlayerReady = playerState and playerState.state == CONSTANTS.PLAYER_STATES.playing
 	local hasWeapon = next(weaponState) ~= nil
 
-	if not hasWeapon or not isPlayerReady then
+	local isValid = hasWeapon and isPlayerReady
+	if not isValid then
 		return
 	end
 
-	-- TODO : Measure animations using frames instead of time
 	-- Get Attack State
 	local currentTime = tick()
 	local lastAttack = CombatState.lastAttacks[userId]
@@ -279,6 +278,14 @@ function CombatService.StartAttack(state, player, playerStats, weaponState)
 	local isAttackReady = attackDelta > playerStats.animationTime
 
 	local function startAttack()
+		-- Validation
+		local comboIndex = CombatState.comboIndexes[userId]
+
+		if not comboIndex then
+			warn("Start Attack Validation failed")
+			return
+		end
+
 		-- print("Attack By : " .. player.Name .. " At : " .. tick())
 
 		-- Setup Attack
@@ -286,11 +293,8 @@ function CombatService.StartAttack(state, player, playerStats, weaponState)
 		CombatState.expectingAttack[userId] = true
 
 		-- Start Animation
-		local comboId = CombatState.comboIndexes[userId] + 1
+		local comboId = comboIndex + 1
 		CombatService.Client.startAttack:Fire(player, comboId, playerStats.attackSpeed)
-
-		-- TODO : StartAttackEvent
-		-- player.Character.Humanoid.WalkSpeed *= 0.5
 	end
 
 	-- Input Buffer
@@ -301,7 +305,7 @@ function CombatService.StartAttack(state, player, playerStats, weaponState)
 		if missingTime <= 0.1 and not isBuffering then
 			-- print("Attack Buffer: " .. player.Name)
 			CombatState.attackBuffer[userId] = true -- Lock Input Buffer
-			task.delay(missingTime, function()
+			task.delay(missingTime, function() -- FIXME : Perf
 				startAttack()
 			end)
 		end
@@ -332,9 +336,7 @@ function CombatService.Client:AttackCallback(player)
 		return
 	end
 
-	-- Resets
-	-- player.Character.Humanoid.WalkSpeed = playerStats.mobility
-
+	-- Reset Attack State
 	CombatState.expectingAttack[userId] = nil
 	CombatState.attackBuffer[userId] = nil
 
