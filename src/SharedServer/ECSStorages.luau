@@ -33,6 +33,9 @@ end
 
 --- Get ComponentId of an Entity using Sparse -> Doesn't work for Archetype
 function Storage.GetComponentId(storageState, entityId)
+	assert(storageState, "No Storage State")
+	assert(entityId, "No Entity ID")
+
 	-- warn(storageState.name .. " Get Component ID = " .. entityId)
 	local componentId = storageState.sparse[entityId]
 
@@ -188,19 +191,6 @@ function GameObjectStorage.GetGameObject(entityId)
 
 	local gameObject = GameObjectStorageState.gameObjects[gameObjectId]
 	return gameObject
-end
-
--- TODO : OnEnabled
-
---- System Disable Gameobject
-function GameObjectStorage.OnDisable(entityId)
-	local gameObject = GameObjectStorage.GetGameObject(entityId)
-
-	Gears.ResetCharacter(gameObject)
-	gameObject.HumanoidRootPart.Anchored = true
-
-	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
-	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
 end
 
 -- #endregion

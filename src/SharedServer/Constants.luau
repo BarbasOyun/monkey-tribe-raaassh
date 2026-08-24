@@ -61,7 +61,7 @@ local LevelConst = {
 }
 
 -- EnemyService
-local DISABLED_POSITION = Vector3.new(300, 0, 0) -- Vector3.new(0, 20, 0) Vector3.new(300, 0, 0)
+local DISABLED_POSITION = Vector3.new(400, 0, 0) -- Vector3.new(0, 20, 0) Vector3.new(300, 0, 0)
 
 local EnemyConst = {
 	ENEMY_LVL_UP_BREAKPOINT = 30,

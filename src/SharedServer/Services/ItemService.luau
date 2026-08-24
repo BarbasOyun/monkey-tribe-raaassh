@@ -1,7 +1,10 @@
+-- Item System :
+-- Item = data
+-- ItemModel = 3D Model
+
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local CollectionService = game:GetService("CollectionService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
@@ -54,9 +57,16 @@ function ItemService:KnitStart()
 	EcsService = Knit.GetService("EcsService")
 	PoolService = Knit.GetService("PoolService")
 
-	ItemService.SetupWeaponType("WoodenClub")
-	ItemService.SetupWeaponType("IronMace")
-	ItemService.SetupWeaponType("IronAxe")
+	-- Create Starter Weapon as Item
+	PlayerService.PlayerAdded:Connect(function(player)
+		player.CharacterAdded:Connect(function(character)
+			local baseWeapon = player.Backpack:WaitForChild("WoodenClub")
+
+			local definitionID = CategoryRegistries[CategoryStore.Weapons].WoodenClub.id
+			ItemService.CreateItem(definitionID, baseWeapon)
+			ItemService.SetupWeapon(baseWeapon)
+		end)
+	end)
 
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		ItemService.LootMovementUpdate()
@@ -65,11 +75,12 @@ end
 
 -- #region ITEMS LOGIC
 
-local smallXpOrbOnUse = function(player, itemDefinition, itemModel)
+local smallXpOrbOnUse = function(player, itemDefinition, itemModel, entityID)
 	-- print("Add Small XP Orb to : " .. player.Name)
 	RpgService.AddXpToAllPlayers(itemDefinition.xp)
 	ItemService.Client.GetOrb:Fire(player) -- SFX Feedback
-	ItemService.RemoveGroundItem(itemModel)
+	-- ItemService.RemoveGroundItem(itemModel)
+	PoolService.Disable(entityID)
 end
 
 local bananaOnUse = function(player, itemDefinition, itemModel)
@@ -94,29 +105,12 @@ local stoneOnUse = function(player, itemDefinition, itemModel)
 	ItemService.RemoveGroundItem(itemModel)
 end
 
--- TODO : useItem(player)
 local usablesLogicDefinition = {
 	smallXpOrbOnUse,
 	bananaOnUse,
 	stickOnUse,
 	stoneOnUse,
 }
-
-function ItemService.ItemOnSpawn(spawnCtx)
-	local entityId = spawnCtx.entityId
-	local definitionId = spawnCtx.definitionId
-	local itemModel = spawnCtx.character
-
-	-- Add Components : GameObject, Definition
-	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
-	GameObjectStorage.AddComponentToEntity(entityId, itemModel)
-
-	local DefinitionStorage = EcsState.storages[CONSTANTS.EcsStorages.definition]
-	local type = CONSTANTS.DefinedTypes.Items
-	DefinitionStorage.AddComponentToEntity(entityId, type, definitionId)
-
-	itemModel:SetAttribute("EntityId", entityId)
-end
 
 -- #endregion
 
@@ -150,21 +144,52 @@ function ItemService.GetGlobalId(category, id)
 	-- TODO
 end
 
-function ItemService.GetModelDef(itemModel)
-	local entityId = itemModel:GetAttribute("EntityId")
+function ItemService.GetModelInfo(itemModel)
+	local entityID = itemModel:GetAttribute("EntityId")
 
 	local DefinitionStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.definition)
-	local typeID, definitionID = DefinitionStorage.GetDefinition(entityId)
+	local typeID, definitionID = DefinitionStorage.GetDefinition(entityID)
 
-	return definitionID
+	return entityID, definitionID
 end
 
 -- #endregion
 
 -- #region CREATE ITEMS
 
+--- Create a new item + OnSpawn
+function ItemService.CreateItem(definitionID, itemModel)
+	-- ECS Item Setup
+	local entityId = EcsService.CreateEntity()
+
+	local spawnCtx = {
+		entityId = entityId,
+		definitionId = definitionID,
+		model = itemModel,
+	}
+
+	ItemService.ItemOnSpawn(spawnCtx)
+end
+
+--- Setup an item and its model
+function ItemService.ItemOnSpawn(spawnCtx)
+	local entityId = spawnCtx.entityId
+	local definitionId = spawnCtx.definitionId
+	local itemModel = spawnCtx.model
+
+	-- Add Components : GameObject, Definition
+	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
+	GameObjectStorage.AddComponentToEntity(entityId, itemModel)
+
+	local DefinitionStorage = EcsState.storages[CONSTANTS.EcsStorages.definition]
+	local type = CONSTANTS.DefinedTypes.Items
+	DefinitionStorage.AddComponentToEntity(entityId, type, definitionId)
+
+	itemModel:SetAttribute("EntityId", entityId)
+end
+
 --- Create an Instance of statsDefinition.WeaponData struct using WeaponDefinition
-local function createWeapon(itemDefinition, weaponModel)
+function ItemService.CreateWeapon(itemDefinition, weaponModel)
 	if itemDefinition.itemType ~= itemTypes.weapon then
 		return
 	end
@@ -206,16 +231,7 @@ function ItemService.SpawnItem(item, position: Vector3)
 	-- Spawn Model
 	local itemModel = item.prefab:Clone()
 
-	-- ECS Item Setup
-	local entityId = EcsService.CreateEntity()
-
-	local spawnCtx = {
-		entityId = entityId,
-		definitionId = item.id,
-		character = itemModel,
-	}
-
-	ItemService.ItemOnSpawn(spawnCtx)
+	ItemService.CreateItem(item.id, itemModel)
 
 	-- Set Item Model
 	-- itemModel.Name = itemDefinition.name
@@ -237,18 +253,6 @@ function ItemService.SpawnItem(item, position: Vector3)
 	return itemModel
 end
 
-function ItemService.CreatePool(item, size)
-	local prefab = item.prefab
-	local onSpawn = ItemService.ItemOnSpawn
-	PoolService.CreatePool("Robot", CONSTANTS.DefinedTypes.Items, item.id, prefab, onSpawn, size)
-end
-
---- Use PoolService to Enable Item
-function ItemService.EnableItem(definitionID, position)
-	local parent = workspace
-	local entityId, model = PoolService.EnableNextInPool(CONSTANTS.DefinedTypes.Items, definitionID, parent, position)
-end
-
 --- SpawnItem + LootMovement
 function ItemService.SpawnLoot(item, position)
 	local partToMove = ItemService.SpawnItem(item, position)
@@ -257,48 +261,52 @@ end
 
 --- Spawn Multiple Items + Loot Movement
 function ItemService.SpawnManyItem(item, position, amount)
-	for i = 1, amount do
+	for _ = 1, amount do
 		ItemService.SpawnLoot(item, position)
 	end
 end
 
---- Generate Loot of a Killed Enemy
-function ItemService.GenerateLoot(player, enemyHumanoid)
-	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
-
-	local pos = enemyHumanoid.Parent:GetPivot().Position
-	local orbsRng = math.random(1, 3)
-
-	ItemService.SpawnManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)
-end
-
---- Spawn a Random Item from a Category
---- eg ItemService.SpawnRandomItem(ItemDefinitions.Weapons, ItemRegistries.Weapons)
-function ItemService.SpawnRandomItem(categoryId, position)
-	local defintions = CategoryDefinitions[categoryId]
-	local registry = CategoryRegistries[categoryId]
-
-	assert(defintions, "wrong categoryId")
-	assert(registry, "wrong categoryId")
-
-	local randomItem = math.random(1, #defintions)
-	local itemDef = defintions[randomItem]
-	local item = registry[itemDef.name]
-
-	ItemService.SpawnItem(item, position)
-end
-
 function ItemService.RemoveGroundItem(itemModel, instanceId)
-	-- TODO : Object Pooling
 	itemModel:Destroy()
 end
 
 function ItemService.ClearGroundItems()
-	-- FIXME : List all ground Items
-
 	for _, child in pairs(CONSTANTS.AUTOPICKUP_FOLDER:GetChildren()) do
-		child:Destroy()
-		-- ItemService.RemoveGroundItem(child)
+		ItemService.RemoveGroundItem(child)
+	end
+end
+
+-- #endregion
+
+-- #region ITEM POOL
+
+function ItemService.CreatePool(item, size)
+	local prefab = item.prefab
+	local onSpawn = {
+		ItemService.ItemOnSpawn,
+	}
+
+	PoolService.CreatePool(item.definition.name, CONSTANTS.DefinedTypes.Items, item.id, prefab, onSpawn, size)
+end
+
+--- Use PoolService to Enable Item
+function ItemService.EnableItem(definitionID, position)
+	local parent = workspace
+	local entityId, model = PoolService.EnableNextInPool(CONSTANTS.DefinedTypes.Items, definitionID, parent, position)
+
+	return entityId, model
+end
+
+--- Enable + Loot Movement
+function ItemService.EnableLoot(definitionID, position)
+	local entityId, model = ItemService.EnableItem(definitionID, position)
+	ItemService.LootMovement(model, position)
+end
+
+--- Enable Multiple Items + Loot Movement
+function ItemService.EnableManyItem(item, position, amount)
+	for _ = 1, amount do
+		ItemService.EnableLoot(item.id, position)
 	end
 end
 
@@ -366,6 +374,36 @@ end
 
 -- #endregion
 
+-- #region ADVANCED
+
+--- Generate Loot of a Killed Enemy
+function ItemService.GenerateLoot(player, enemyHumanoid)
+	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
+
+	local pos = enemyHumanoid.Parent:GetPivot().Position
+	local orbsRng = math.random(1, 3)
+
+	-- ItemService.SpawnManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)
+	ItemService.EnableManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)
+end
+
+--- Spawn a Random Item from a Category
+--- eg ItemService.SpawnRandomItem(ItemDefinitions.Weapons, ItemRegistries.Weapons)
+function ItemService.SpawnRandomItem(categoryId, position)
+	local defintions = CategoryDefinitions[categoryId]
+	local registry = CategoryRegistries[categoryId]
+
+	assert(defintions and registry, "wrong categoryId")
+
+	local randomItem = math.random(1, #defintions)
+	local itemDef = defintions[randomItem]
+	local item = registry[itemDef.name]
+
+	ItemService.SpawnItem(item, position)
+end
+
+-- #endregion
+
 -- #region ITEM PICKUP
 
 type ItemUseCtx = {
@@ -382,12 +420,9 @@ function ItemService.PickupItem(player, itemModel)
 	-- itemModel parent = ManualPickup or AutoPickup -> Only Pickup & Unowned item
 	-- Distance item / player
 
-	-- TODO : Get DefID from Model
-
-	local definitionId = ItemService.GetModelDef(itemModel)
-	-- local definitionId = itemModel:GetAttribute("DefinitionId")
-
-	local itemDefinition = ItemService.GetItemDefinition(definitionId)
+	-- Get State
+	local entityID, definitionID = ItemService.GetModelDef(itemModel)
+	local itemDefinition = ItemService.GetItemDefinition(definitionID)
 
 	if not itemDefinition then
 		warn("Pickup item : itemDefinition not found for " .. itemModel.name)
@@ -406,27 +441,12 @@ function ItemService.PickupItem(player, itemModel)
 	-- }
 
 	-- Use Item on Pickup
-	usablesLogicDefinition[definitionId](player, itemDefinition, itemModel)
+	usablesLogicDefinition[definitionID](player, itemDefinition, itemModel, entityID)
 end
 
 -- #endregion
 
 -- #region WEAPON : SETUP & EQUIP
-
-function ItemService.EquipDefaultWeapon(player)
-	local humanoid = player.Character:FindFirstChild("Humanoid")
-	local backpack = player:FindFirstChild("Backpack")
-
-	if not humanoid or not backpack then
-		return
-	end
-
-	local defaultTool = backpack:FindFirstChild("WoodenClub")
-	-- print("Equip Default tool : " .. defaultTool)
-	if defaultTool then
-		humanoid:EquipTool(defaultTool)
-	end
-end
 
 --- Set a Player's Weapon State
 function ItemService.SetWeapon(player, weapon)
@@ -438,6 +458,47 @@ function ItemService.SetWeapon(player, weapon)
 	Store:dispatch(StoreActions.PatchPlayer(UserId, patch))
 
 	RpgService.CalculateAllStats(player) -- TODO : Calculate only Weapon Stats
+end
+
+--- Setup a Weapon Model
+function ItemService.SetupWeapon(weaponModel)
+	-- print("Setup weapon model : " .. weaponModel.Name)
+
+	local entityID, definitionID = ItemService.GetModelInfo(weaponModel)
+
+	-- Item not Created -> Create
+	-- if not definitionId then
+	-- 	definitionId = CategoryRegistries[CategoryStore.Weapons].WoodenClub.id
+	-- 	ItemService.CreateItem(definitionId, weaponModel)
+	-- end
+
+	local itemDefinition = ItemService.GetItemDefinition(definitionID)
+
+	local weaponData = ItemService.CreateWeapon(itemDefinition, weaponModel)
+
+	weaponModel.Equipped:Connect(function()
+		ItemService.OnEquipped(weaponModel, weaponData)
+	end)
+
+	weaponModel.Unequipped:Connect(function()
+		ItemService.OnUnequipped(weaponModel)
+	end)
+end
+
+function ItemService.EquipDefaultWeapon(player)
+	local humanoid = player.Character:FindFirstChild("Humanoid")
+	local backpack = player:FindFirstChild("Backpack")
+
+	if not humanoid or not backpack then
+		return
+	end
+
+	local baseWeapon = backpack:FindFirstChild("WoodenClub")
+
+	-- print("Equip Default tool : " .. baseWeapon)
+	if baseWeapon then
+		humanoid:EquipTool(baseWeapon)
+	end
 end
 
 function ItemService.AddWeaponSounds(player, weapon)
@@ -529,43 +590,6 @@ function ItemService.OnUnequipped(weaponModel)
 	for _, sound in pairs(weaponData.sounds) do
 		sound:Destroy()
 	end
-end
-
-function ItemService.SetupWeapon(weaponModel)
-	-- Avoid setting up prefabs
-	local isValid = weaponModel:IsDescendantOf(workspace) or weaponModel:IsDescendantOf(Players)
-	if not isValid then
-		return
-	end
-
-	-- print("Setup weapon model : " .. weaponModel.Name)
-
-	local definitionId = ItemService.GetModelDef(weaponModel)
-	-- local definitionId = weaponModel:GetAttribute("DefinitionId")
-
-	local itemDefinition = ItemService.GetItemDefinition(definitionId)
-
-	local weaponData = createWeapon(itemDefinition, weaponModel)
-
-	weaponModel.Equipped:Connect(function()
-		ItemService.OnEquipped(weaponModel, weaponData)
-	end)
-
-	weaponModel.Unequipped:Connect(function()
-		ItemService.OnUnequipped(weaponModel)
-	end)
-end
-
-function ItemService.SetupWeaponType(weaponType)
-	-- Setup Existing Weapons
-	for _, weaponModel in pairs(CollectionService:GetTagged(weaponType)) do
-		ItemService.SetupWeapon(weaponModel)
-	end
-
-	-- Setup Future Weapons
-	-- CollectionService:GetInstanceAddedSignal(weaponType):Connect(function(weaponModel)
-	-- 	ItemService.SetupWeapon(weaponModel)
-	-- end)
 end
 
 -- #endregion

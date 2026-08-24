@@ -27,9 +27,18 @@ local LevelService = Knit.GetService("LevelService")
 local RpgService = Knit.GetService("RpgService")
 local AugmentsService = Knit.GetService("AugmentsService")
 
-local PoolService = Knit.GetService("PoolService")
 local EnemyService = Knit.GetService("EnemyService")
 local ItemService = Knit.GetService("ItemService")
+
+local function createPools()
+	-- Create ItemsPools : SmallXpOrb + Banana
+	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, 500)
+	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].Banana, 500)
+
+	-- Load Enemies
+	-- PoolService.CreatePool(Enemies.Robot)
+	EnemyService.CreatePool(Enemies.Robot, 200)
+end
 
 local function setupPlayers()
 	Players.PlayerAdded:Connect(function(player)
@@ -38,7 +47,7 @@ local function setupPlayers()
 		PlayerService.GetMetaUpgrades(player)
 		AugmentsService.GenerateAugments(player)
 
-		-- ItemService.EquipDefaultWeapon(player)
+		ItemService.EquipDefaultWeapon(player)
 
 		RpgService.RegisterLife(player)
 		PlayerService.SetupGameOver(player)
@@ -49,10 +58,6 @@ end
 
 local function setupLevel()
 	LevelService.LoadLevelDefinitions()
-
-	-- Create ItemsPools : SmallXpOrb + Banana
-	-- ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, 500)
-	-- ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].Banana, 500)
 
 	-- Set Map Limits
 	local minLimitPart = workspace.Map.Limits.MinLimit
@@ -70,10 +75,6 @@ end
 local function setupEnemies()
 	EnemyService.StartUnitUpdate()
 
-	-- Load Enemies
-	-- PoolService.CreatePool(Enemies.Robot)
-	EnemyService.CreatePool(Enemies.Robot, 200)
-
 	-- Start Spawning Mobs
 	EnemyService.StartStreamSpawn()
 	EnemyService.StartMobBehavior()
@@ -86,6 +87,7 @@ end
 
 setupPlayers()
 setupLevel()
+createPools()
 setupEnemies()
 
 -- #endregion

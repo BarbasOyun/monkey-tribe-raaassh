@@ -307,9 +307,12 @@ local function generateUi()
 	local mainGuiRef = MutState.playerGui.RoactTree.MainGui
 
 	-- ProgressBar
+	local progressText = mainGuiRef.ProgressBar[1]
 	local progressBarRef = mainGuiRef.ProgressBar[2]
 
 	LevelService.ProgressUpdate:Connect(function(progress)
+		local useProgress = math.floor(progress)
+		progressText.Text = useProgress .. " / 100" -- TODO : string table
 		progressBarRef.Size = UDim2.fromScale(progress, 1)
 	end)
 

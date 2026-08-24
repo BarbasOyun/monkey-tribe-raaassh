@@ -99,6 +99,8 @@ function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, siz
 		-- local entityId = EnemyService.CEnemy(pool.definitionId, Vector3.zero)
 
 		local entityId = EcsService.CreateEntity()
+		table.insert(PoolServiceState.entitiesPool, entityId)
+
 		-- local model = pool.prefab:Clone()
 		local model = prefab:Clone()
 
@@ -109,7 +111,7 @@ function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, siz
 			local onSpawnCtx = {
 				entityId = entityId,
 				definitionId = definitionID,
-				character = model,
+				model = model,
 			}
 
 			for i = 1, #onSpawn do
@@ -117,10 +119,9 @@ function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, siz
 			end
 		end
 
-		table.insert(PoolServiceState.entitiesPool, entityId)
-
 		-- Disable
-		GameObjectStorage.OnDisable(entityId)
+		-- GameObjectStorage.OnDisable(entityId)
+		PoolService.Disable(entityId)
 	end
 
 	return pool
@@ -172,7 +173,7 @@ function PoolService.EnableNextInPool(typeID, definitionID, parent, position)
 	local poolIndex = PoolServiceState.poolsLookups[typeID][definitionID]
 	local pool = PoolServiceState.pools[poolIndex]
 
-	local hasReachedMax = pool.activeCount >= pool.size - 1
+	local hasReachedMax = pool.activeCount >= pool.size -- - 1
 
 	if hasReachedMax then
 		warn(pool.name .. " Reached Limit of : " .. pool.size)
@@ -236,6 +237,16 @@ end
 ]]
 
 --- Disable a GameObject in Pool
+function PoolService.Disable(entityId)
+	-- Disable GameObject
+	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
+	local gameObject = GameObjectStorage.GetGameObject(entityId)
+
+	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
+	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
+end
+
+--- Disable + Update Pool
 function PoolService.DisableEntity(entityId)
 	if not EcsService.HasComponent(entityId, 1) then
 		warn(entityId .. " Doesn't have Gameobject Component")
@@ -250,23 +261,17 @@ function PoolService.DisableEntity(entityId)
 
 	-- warn("Disable .. " .. pool.name)
 
+	PoolService.Disable(entityId)
+
+	-- If entityId not last Entity : Swap Last
 	local lastIndex = pool.startIndex + pool.activeCount
 	local lastEntityId = PoolServiceState.entitiesPool[lastIndex]
+	local isLastEntity = entityId == lastEntityId
 
 	-- Update Pool
 	pool.activeCount -= 1
 
-	-- Update Components
-	-- TODO : Per Pool Components
-	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
-	-- GameObjectStorage.OnDisable(entityId)
-	local gameObject = GameObjectStorage.GetGameObject(entityId)
-
-	gameObject:PivotTo(CFrame.new(CONSTANTS.DISABLED_POSITION))
-	gameObject.Parent = CONSTANTS.DISABLED_ENTITIES_FOLDER
-
-	-- If entityId not last Entity : Swap Last
-	if entityId == lastEntityId then
+	if isLastEntity then
 		return
 	end
 

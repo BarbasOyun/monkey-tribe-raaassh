@@ -301,6 +301,7 @@ function PlayerService.GameOver()
 
 	PlayerService.SaveAllBananaDelta()
 
+	-- Go Back to Hub
 	pcall(function()
 		return TeleportService:TeleportAsync(CONSTANTS.HUB_PLACE_ID, players)
 	end)

@@ -44,6 +44,7 @@ function CombatService:KnitStart()
 
 	CombatService.SetupPlayerService()
 
+	-- Reset Attack State OnUnequip
 	ItemService.UnequipWeapon:Connect(function(player)
 		local userId = player.UserId
 
