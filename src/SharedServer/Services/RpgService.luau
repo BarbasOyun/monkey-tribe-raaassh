@@ -26,16 +26,11 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local RpgConst = CONSTANTS.RpgConst
 
-local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
-
-local STATS_STORE = statsDefinition.STATS_STORE
-local MOD_STATS_STORE = statsDefinition.MOD_STATS_STORE
-local TO_STAT_OBJECT = statsDefinition.TO_STAT_OBJECT
--- local MOD_STATS_INDEX = statsDefinition.MOD_STATS_INDEX
-local DEFAULT_STATS = statsDefinition.DEFAULT_STATS
--- local STATS_DISPLAY = statsDefinition.STATS_DISPLAY
-local META_UPRGADES = statsDefinition.META_UPRGADES
--- local AUGMENTS = statsDefinition.AUGMENTS
+local STATS_STORE = RpgConst.STATS_STORE
+local MOD_STATS_STORE = RpgConst.MOD_STATS_STORE
+local TO_STAT_OBJECT = RpgConst.TO_STAT_OBJECT
+local DEFAULT_STATS = RpgConst.DEFAULT_STATS
+local META_UPRGADES = RpgConst.META_UPRGADES
 
 -- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)

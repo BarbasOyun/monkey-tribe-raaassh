@@ -6,14 +6,14 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
--- local LevelConst = CONSTANTS.LevelConst
+local LevelConst = CONSTANTS.LevelConst
 
+-- TODO : Move to Consts?
 local LevelDefinitions
 local Events, EventsSounds, Maps, MapsMusics, MapsBuildings
 
-local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-local CategoryStore = itemDef.CategoryStore
-local CategoryRegistries = itemDef.CategoryRegistries
+local CategoryStore = CONSTANTS.CategoryStore
+local CategoryRegistries = CONSTANTS.CategoryRegistries
 
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -215,6 +215,9 @@ function LevelService.ResetLevel()
 	PoolService.DisableAllPools()
 	ItemService.ClearGroundItems()
 
+	-- Reset Services
+	MutState.EnemyServiceState.swarmWaves = 0
+
 	-- Reset Players
 	PlayerService.ResurrectAll()
 	for _, player in pairs(Players:GetPlayers()) do
@@ -244,7 +247,7 @@ end
 
 --- Start Next Stage Countdown -> Trigger Next Stage
 function LevelService.StartStageCountdown()
-	local countdown = 10
+	local countdown = LevelConst.NEXT_STAGE_COUNTDOWN
 
 	LevelState.isWaitingForNextStage = true
 
@@ -255,23 +258,15 @@ function LevelService.StartStageCountdown()
 	LevelService.Client.StageCountDownUpdate:FireAll(LevelState.stageCountDown)
 
 	-- Start Coundown
-	local handle = PlayerService.StateUpdate:Connect(function(state, dt)
-		LevelState.stageCountDownTime += dt -- TODO : Second Global Timer (PlayerService)
+	local handle = PlayerService.SecondPassed:Connect(function(state)
+		LevelState.stageCountDown -= 1
+		LevelService.Client.StageCountDownUpdate:FireAll(LevelState.stageCountDown)
 
-		-- 1sec Passed
-		if LevelState.stageCountDownTime >= 1 then
-			LevelState.stageCountDownTime -= 1 -- Reset + Keep Overtime
+		local isCountdownComplete = LevelState.stageCountDown <= 0
 
-			LevelState.stageCountDown -= 1
-			-- Refresh Client UI
-			LevelService.Client.StageCountDownUpdate:FireAll(LevelState.stageCountDown)
-
-			local isCountdownComplete = LevelState.stageCountDown <= 0
-
-			if isCountdownComplete then
-				LevelState.stageCountDown = countdown
-				LevelService.FinishStage()
-			end
+		if isCountdownComplete then
+			LevelState.stageCountDown = countdown
+			LevelService.FinishStage()
 		end
 	end)
 
@@ -306,26 +301,21 @@ function LevelService.FinishStage()
 	LevelService.StartStage()
 end
 
-function LevelService.GameTimer(dt)
-	MutState.gameTimerCount += dt
+function LevelService.GameTimer()
+	MutState.gameTimer += 1
 
-	if MutState.gameTimerCount >= 1 then
-		MutState.gameTimerCount -= 1
-		MutState.gameTimer += 1
+	LevelService.Client.GameTimerUpdate:FireAll(MutState.gameTimer)
 
-		LevelService.Client.GameTimerUpdate:FireAll(MutState.gameTimer)
-
-		local isLvlBreakpointReached = (MutState.gameTimer % CONSTANTS.EnemyConst.ENEMY_LVL_UP_BREAKPOINT) == 0
-		if isLvlBreakpointReached then
-			EnemyService.LevelUpEnemies()
-		end
+	local isLvlBreakpointReached = (MutState.gameTimer % CONSTANTS.EnemyConst.ENEMY_LVL_UP_BREAKPOINT) == 0
+	if isLvlBreakpointReached then
+		EnemyService.LevelUpEnemies()
 	end
 end
 
 function LevelService.StartGameTimer()
 	-- warn("Start Game Timer")
-	PlayerService.StateUpdate:Connect(function(state, dt)
-		LevelService.GameTimer(dt)
+	PlayerService.SecondPassed:Connect(function(state)
+		LevelService.GameTimer()
 	end)
 end
 

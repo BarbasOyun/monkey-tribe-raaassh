@@ -40,12 +40,14 @@ local textButton = require(ReplicatedStorage.Shared.Components.TextButton)
 
 -- Get Elements
 local AugmentPanel = require(ReplicatedStorage.Shared.Elements.AugmentPanel)
+local metaUpgradeBoard = require(ReplicatedStorage.Shared.Elements.UpgradesGui)
+local enteringGameLabel = require(ReplicatedStorage.Shared.Elements.EnteringGame)
+
 local LevelUpLabel = require(ReplicatedStorage.Shared.Elements.LevelUpLabel)
 local Bars = require(ReplicatedStorage.Shared.Elements.ResourceBars)
 local XpBar = Bars.XpBar
 local LifeBar = Bars.LifeBar
 local updateLifeBar = Bars.updateLifeBar
-local enteringGameLabel = require(ReplicatedStorage.Shared.Components.EnteringGame)
 local GetBananasUi = require(ReplicatedStorage.Shared.Elements.BananasText)
 local BananaIcon, BananasText = GetBananasUi(1)
 
@@ -122,8 +124,6 @@ local function shopGui()
 		}),
 	})
 end
-
-local metaUpgradeBoard = require(ReplicatedStorage.Shared.Components.UpgradesGui)
 
 local app = Roact.createElement(RoactRodux.StoreProvider, {
 	store = Store,

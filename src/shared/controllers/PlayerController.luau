@@ -24,14 +24,50 @@ local PlayerController = Knit.CreateController({
 	SoundFolder = MutState.soundFolder,
 	StateUpdate = Signal.new(),
 	LifeUpdate = Signal.new(),
+
 	-- Stores
 	STATS_STORE = statsDefinition.STATS_STORE,
 	MOD_STATS_STORE = statsDefinition.MOD_STATS_STORE,
+
 	-- Authoring Data
 	STATS_DISPLAY = statsDefinition.STATS_DISPLAY,
 	META_UPRGADES = statsDefinition.META_UPRGADES,
 	AUGMENTS = statsDefinition.AUGMENTS,
 })
+
+-- #region START
+
+function PlayerController:KnitInit()
+	print("PlayerController Init")
+
+	PlayerController.LoadAllAnimations()
+	MutState.player.CharacterAdded:Connect(PlayerController.OnCharacterAdded)
+end
+
+function PlayerController:KnitStart()
+	PlayerService = Knit.GetService("PlayerService")
+
+	RpgService = Knit.GetService("RpgService")
+	AugmentsService = Knit.GetService("AugmentsService")
+
+	CombatService = Knit.GetService("CombatService")
+	ItemService = Knit.GetService("ItemService")
+
+	-- Setup Services
+	PlayerController.SetupPlayerService()
+	PlayerController.SetupRpgService()
+	PlayerController.SetupAugmentsService()
+	PlayerController.SetupItemService()
+
+	-- Controller Setup
+	PlayerController.SetupControls()
+	PlayerController.SetupAttack()
+
+	-- Start StateUpdate
+	RunService.Heartbeat:Connect(PlayerController.RoduxStateUpdate)
+
+	PlayerController.GetSounds()
+end
 
 function PlayerController.GetSounds()
 	MutState.playerGui = MutState.player:WaitForChild("PlayerGui")
@@ -44,9 +80,45 @@ function PlayerController.GetSounds()
 	MutState.playerDamagedSfx = MutState.mainSounds.PlayerDamaged
 end
 
+function PlayerController.SetupAttack()
+	-- 1) Client : Player Input -> Ask Server to Attack
+	RunService.Heartbeat:Connect(function()
+		if isLClickDown then
+			-- print(player.Name .. " Ask Server to Attack")
+			CombatService:StartAttack()
+		end
+	end)
+
+	-- 3) Clients : Animation
+	-- Server Validated the attack
+	CombatService.startAttack:Connect(function(animationId, animationSpeed) -- animationId = comboIndex + 1
+		PlayerController.PlayAttackAnim(animationId, animationSpeed)
+	end)
+end
+
+-- #endregion
+
+-- #region UPDATE
+
+function PlayerController.RoduxStateUpdate()
+	local state = Store:getState() -- Get state once every frame
+
+	PlayerController.UpdateLife(state)
+	PlayerController.StateUpdate:Fire(state)
+end
+
+function PlayerController.UpdateLife(state)
+	MutState.visualLife = math.lerp(MutState.visualLife, MutState.serverLife, 0.1)
+
+	-- Apply to UI
+	PlayerController.LifeUpdate:Fire(state, MutState.visualLife)
+end
+
+-- #endregion
+
 -- #region ANIMATIONS
 
-local function loadAnimation(animationId)
+function PlayerController.LoadAnimation(animationId)
 	local anim = Instance.new("Animation")
 	anim.AnimationId = animationId
 
@@ -54,30 +126,30 @@ local function loadAnimation(animationId)
 	animationTrack.Priority = Enum.AnimationPriority.Action
 
 	animationTrack:GetMarkerReachedSignal("AttackHit"):Connect(function()
-		--print("Hit Event Triggered by player: " .. player.Name)
+		-- print("Hit Event Triggered by player: " .. player.Name)
 		CombatService:AttackCallback()
 	end)
 
 	return animationTrack
 end
 
-local function loadAllAnimations()
-	local horizontalSlash = loadAnimation("rbxassetid://88145589618998") -- Combo 1
-	local verticalSlash = loadAnimation("rbxassetid://119339188916178") -- Combo 2
+function PlayerController.LoadAllAnimations()
+	local horizontalSlash = PlayerController.LoadAnimation("rbxassetid://88145589618998") -- Combo 1
+	local verticalSlash = PlayerController.LoadAnimation("rbxassetid://119339188916178") -- Combo 2
 
 	table.insert(MutState.animationTracks, horizontalSlash)
 	table.insert(MutState.animationTracks, verticalSlash)
 end
 
 -- On Respawn
-local function onCharacterAdded(newCharacter)
+function PlayerController.OnCharacterAdded(newCharacter)
 	-- print("Character Added for player: " .. player.Name)
 	MutState.animator = newCharacter:WaitForChild("Humanoid"):WaitForChild("Animator")
 	table.clear(MutState.animationTracks)
-	loadAllAnimations()
+	PlayerController.LoadAllAnimations()
 end
 
-local function playAttackAnim(animationId, animationSpeed)
+function PlayerController.PlayAttackAnim(animationId, animationSpeed)
 	-- print(localPlayer.Name .. " Combo: " .. animationId .. " Animation Speed: " .. animationSpeed)
 	MutState.animationTracks[animationId]:Play()
 	MutState.animationTracks[animationId]:AdjustSpeed(animationSpeed)
@@ -87,7 +159,7 @@ end
 
 -- #region CONTROLS
 
-local function toggleMusic(isEnabled)
+function PlayerController.ToggleMusic(isEnabled)
 	local music = MutState.soundFolder:FindFirstChild("Music")
 
 	if not music then
@@ -106,7 +178,7 @@ local function toggleMusic(isEnabled)
 	PlayerService:ToggleMusic(isEnabled)
 end
 
-local function setupControls()
+function PlayerController.SetupControls()
 	UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		--print("Input detected: " .. tostring(input.UserInputType) .. "Game processed: " .. tostring(gameProcessed))
 		if gameProcessed then
@@ -128,7 +200,7 @@ local function setupControls()
 			local state = Store:getState()
 			local playerState = state.players[MutState.player.UserId]
 			local isEnabled = not playerState.isMusicEnabled
-			toggleMusic(isEnabled)
+			PlayerController.ToggleMusic(isEnabled)
 		end
 	end)
 
@@ -143,31 +215,15 @@ local function setupControls()
 	end)
 end
 
-local function setupAttack()
-	-- 1) Client : Player Input -> Ask Server to Attack
-	RunService.Heartbeat:Connect(function()
-		if isLClickDown then
-			-- print(player.Name .. " Ask Server to Attack")
-			CombatService:StartAttack()
-		end
-	end)
-
-	-- 3) Clients : Animation
-	-- Server Validated the attack
-	CombatService.startAttack:Connect(function(animationId, animationSpeed) -- animationId = comboIndex + 1
-		playAttackAnim(animationId, animationSpeed)
-	end)
-end
-
 -- #endregion
 
 -- #region SERVICES
 
-function PlayerController:BuyUpgrade(upgradeType)
+function PlayerController.BuyUpgrade(upgradeType)
 	RpgService:BuyMetaUpgrade(upgradeType)
 end
 
-local function setupPlayerService()
+function PlayerController.SetupPlayerService()
 	-- On joining game -> Replicate Server Game State
 	PlayerService.ReplicateStore:Connect(function(worldState)
 		-- Convert string UserIds back to number
@@ -218,7 +274,7 @@ local function setupPlayerService()
 	end)
 end
 
-local function setupRpgService()
+function PlayerController.SetupRpgService()
 	-- StatsPatch
 	RpgService.PatchStats:Connect(function(patch)
 		Store:dispatch(StoreActions.PatchStat(MutState.player.UserId, patch))
@@ -246,7 +302,7 @@ local function setupRpgService()
 	end)
 end
 
-local function setupAugmentsService()
+function PlayerController.SetupAugmentsService()
 	AugmentsService.NewAugments:Connect(function(augmentChoices)
 		-- warn(augmentChoices)
 
@@ -275,7 +331,7 @@ local function setupAugmentsService()
 	end)
 end
 
-local function setupItemService()
+function PlayerController.SetupItemService()
 	-- Orb Pickup Feedback
 	ItemService.GetOrb:Connect(function()
 		MutState.getOrbSound:Play()
@@ -283,54 +339,5 @@ local function setupItemService()
 end
 
 -- #endregion
-
--- #region UPDATE
-
-local function stateUpdate()
-	local state = Store:getState() -- Get state once every frame
-
-	PlayerController.UpdateLife(state)
-	PlayerController.StateUpdate:Fire(state)
-end
-
-function PlayerController.UpdateLife(state)
-	MutState.visualLife = math.lerp(MutState.visualLife, MutState.serverLife, 0.1)
-
-	-- Apply to UI
-	PlayerController.LifeUpdate:Fire(state, MutState.visualLife)
-end
-
--- #endregion
-
--- Start Controller
-function PlayerController:KnitInit()
-	print("PlayerController Init")
-
-	loadAllAnimations()
-	MutState.player.CharacterAdded:Connect(onCharacterAdded)
-end
-
-function PlayerController:KnitStart()
-	PlayerService = Knit.GetService("PlayerService")
-
-	RpgService = Knit.GetService("RpgService")
-	AugmentsService = Knit.GetService("AugmentsService")
-
-	CombatService = Knit.GetService("CombatService")
-	ItemService = Knit.GetService("ItemService")
-
-	setupPlayerService()
-	setupRpgService()
-	setupAugmentsService()
-	setupItemService()
-
-	setupControls()
-	setupAttack()
-
-	-- Start StateUpdate
-	RunService.Heartbeat:Connect(stateUpdate)
-
-	PlayerController.GetSounds()
-end
 
 return PlayerController

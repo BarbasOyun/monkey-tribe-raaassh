@@ -90,7 +90,7 @@ local function statButton(statType, borderColor)
 		text = "",
 		borderColor = borderColor,
 		onClick = function()
-			PlayerController:BuyUpgrade(statType)
+			PlayerController.BuyUpgrade(statType)
 		end,
 		childs = {
 			Roact.createElement(title(statType, borderColor)),

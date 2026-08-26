@@ -5,10 +5,10 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
-
-local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
-local MOD_STATS_INDEX = statsDefinition.MOD_STATS_INDEX
-local AUGMENTS = statsDefinition.AUGMENTS
+local RpgConst = CONSTANTS.RpgConst
+local TO_STAT_OBJECT = RpgConst.TO_STAT_OBJECT
+local MOD_STATS_INDEX = RpgConst.MOD_STATS_INDEX
+local AUGMENTS = RpgConst.AUGMENTS
 
 -- Get Rodux Store
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -311,7 +311,7 @@ function AugmentsService.Client:PickAugment(player, index)
 	-- Replicate to Client -> Display Augment stats client side
 
 	-- Make Stat Effective
-	local stat = statsDefinition.TO_STAT_OBJECT[augment.modStat]
+	local stat = TO_STAT_OBJECT[augment.modStat]
 	RpgService.CalculateStat(state, player, stat)
 
 	-- Generate augments for next Level

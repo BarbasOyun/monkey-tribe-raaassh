@@ -284,7 +284,7 @@ function Gears.ResetCharacter(character)
 	rightHip.Enabled = true
 
 	-- Enable Collisions
-	Gears.SetCharCollisions(character, true)
+	-- Gears.SetCharCollisions(character, true)
 end
 
 -- #endregion

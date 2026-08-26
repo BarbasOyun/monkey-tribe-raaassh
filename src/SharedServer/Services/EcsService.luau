@@ -5,7 +5,7 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 local ECSStorages = require(ServerScriptService.SharedServer.ECSStorages)
 
 -- Get Constants
-local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+-- local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
@@ -19,6 +19,15 @@ local EcsService = Knit.CreateService({
 	Name = "EcsService",
 	-- Client = {},
 })
+
+function EcsService:KnitInit()
+	print("EcsService Init")
+	EcsState.storages = ECSStorages
+end
+
+function EcsService:KnitStart()
+	-- Start
+end
 
 -- #region ENTITIES
 
@@ -112,15 +121,5 @@ end
 -- -> GetEntityMask -> Place in the right Archetype
 
 -- #endregion
-
--- Start Service
-function EcsService:KnitInit()
-	print("EcsService Initialized")
-	EcsState.storages = ECSStorages
-end
-
-function EcsService:KnitStart()
-	-- Start
-end
 
 return EcsService

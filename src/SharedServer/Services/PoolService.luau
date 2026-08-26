@@ -6,9 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local EnemyConst = CONSTANTS.EnemyConst
-
-local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
-local Enemies = EnemyDefinitions.Enemies
+local Enemies = EnemyConst.Enemies
 
 -- Get State
 -- local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -49,7 +47,6 @@ export type Pool = {
 
 -- #region POOLS
 
--- spawnFunc
 --- Create, Register and Spawn a Pool of GameObject
 function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, size)
 	-- TODO : Prevent Creating the same Pool
@@ -91,7 +88,7 @@ function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, siz
 		PoolService.SpawnEntity(GameObjectStorage, definitionID, prefab, onSpawn)
 	end
 
-	return pool
+	return pool, poolIndex
 end
 
 function PoolService.SpawnEntity(GameObjectStorage, definitionID, prefab, onSpawn)
@@ -121,7 +118,7 @@ end
 
 --- Disable every GameObjects in a Pool
 function PoolService.DisablePool(pool)
-	for i = 0, pool.activeCount do
+	for i = 0, pool.activeCount - 1 do
 		local index = pool.startIndex + i
 		local entityId = PoolServiceState.entitiesPool[index]
 		PoolService.Disable(entityId)
@@ -161,20 +158,27 @@ function PoolService.GetPool(index)
 end
 
 --- Spawn a GameObject from a Pool
-function PoolService.EnableNextInPool(typeID, definitionID, parent, position)
+function PoolService.EnableNextInPool(poolIndex, parent, position)
 	-- Validation
-	local poolIndex = PoolServiceState.poolsLookups[typeID][definitionID]
 	local pool = PoolServiceState.pools[poolIndex]
 
 	local hasReachedMax = pool.activeCount >= pool.size
 
-	if hasReachedMax then
+	-- FIXME : param
+	local loop = true
+
+	if hasReachedMax and not loop then
 		warn(pool.name .. " Reached Limit of : " .. pool.size)
 		return
 	end
 
 	-- Get State
 	local nextIndex = pool.startIndex + pool.activeCount
+
+	if hasReachedMax and loop then
+		nextIndex = pool.startIndex
+	end
+
 	local entityId = PoolServiceState.entitiesPool[nextIndex]
 
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
@@ -186,7 +190,9 @@ function PoolService.EnableNextInPool(typeID, definitionID, parent, position)
 	model:PivotTo(CFrame.new(position))
 	model.Parent = parent
 
-	pool.activeCount += 1
+	if not hasReachedMax then
+		pool.activeCount += 1
+	end
 
 	return entityId, model
 end
@@ -208,9 +214,15 @@ function PoolService.DisableEntity(entityId)
 	end
 
 	local index = table.find(PoolServiceState.entitiesPool, entityId) -- TODO : replace with : entityId index array
+
+	if not index then
+		warn("EntityId = " .. entityId .. " Not Found in entitiesPool")
+		return
+	end
+
 	local pool = PoolService.GetPool(index)
 
-	if not pool then
+	if not pool or pool.activeCount == 0 then
 		return
 	end
 
@@ -230,12 +242,6 @@ function PoolService.DisableEntity(entityId)
 	end
 
 	-- Swap Entities
-
-	if not index then
-		warn("EntityId = " .. entityId .. " Not Found in entitiesPool")
-		return
-	end
-
 	PoolServiceState.entitiesPool[index] = lastEntityId
 	PoolServiceState.entitiesPool[lastIndex] = entityId
 end

@@ -1,21 +1,16 @@
 local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TeleportService = game:GetService("TeleportService")
 
 -- local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
-local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
-local Enemies = enemyDef.Enemies
+local EnemyConst = CONSTANTS.EnemyConst
+local Enemies = EnemyConst.Enemies
 
-local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-local itemTypes = itemDef.itemTypes
-
-local CategoryStore = itemDef.CategoryStore
-local CategoryDefinitions = itemDef.CategoryDefinitions
-local CategoryRegistries = itemDef.CategoryRegistries
+local CategoryStore = CONSTANTS.CategoryStore
+local CategoryRegistries = CONSTANTS.CategoryRegistries
 
 -- Get Services
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -34,9 +29,9 @@ local function createPools()
 	-- Create ItemsPools : SmallXpOrb + Banana
 	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, 300)
 	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].Banana, 300)
+	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].Stick, 50)
 
 	-- Load Enemies
-	-- PoolService.CreatePool(Enemies.Robot)
 	EnemyService.CreatePool(Enemies.Robot, 150)
 end
 
@@ -73,7 +68,7 @@ local function setupLevel()
 end
 
 local function setupEnemies()
-	EnemyService.StartUnitUpdate()
+	EnemyService.StartEnemyUpdate()
 
 	-- Start Spawning Mobs
 	EnemyService.StartStreamSpawn()

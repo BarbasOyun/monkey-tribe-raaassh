@@ -11,14 +11,12 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
+local itemTypes = CONSTANTS.itemTypes
+local CategoryStore = CONSTANTS.CategoryStore
+local CategoryDefinitions = CONSTANTS.CategoryDefinitions
+local CategoryRegistries = CONSTANTS.CategoryRegistries
+
 local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
-
-local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-local itemTypes = itemDef.itemTypes
-
-local CategoryStore = itemDef.CategoryStore
-local CategoryDefinitions = itemDef.CategoryDefinitions
-local CategoryRegistries = itemDef.CategoryRegistries
 
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
@@ -90,11 +88,12 @@ local bananaOnUse = function(player, itemDefinition, itemModel, entityID)
 	PoolService.Disable(entityID)
 end
 
-local stickOnUse = function(player, itemDefinition, itemModel)
+local stickOnUse = function(player, itemDefinition, itemModel, entityID)
 	print("Add Stick to : " .. player.Name)
 	PlayerService.AddCurrencyToPlayer(player, CONSTANTS.CURRENCIES.sticks, itemDefinition.stick)
 	ItemService.Client.GetOrb:Fire(player)
-	ItemService.RemoveGroundItem(itemModel)
+	-- ItemService.RemoveGroundItem(itemModel)
+	ItemService.Disable(entityID)
 end
 
 local stoneOnUse = function(player, itemDefinition, itemModel)
@@ -147,7 +146,7 @@ function ItemService.GetModelInfo(itemModel)
 	local entityID = itemModel:GetAttribute("EntityId")
 
 	local DefinitionStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.definition)
-	local typeID, definitionID = DefinitionStorage.GetDefinition(entityID)
+	local _typeID, definitionID = DefinitionStorage.GetDefinition(entityID)
 
 	return entityID, definitionID
 end
@@ -168,6 +167,8 @@ function ItemService.CreateItem(definitionID, itemModel)
 	}
 
 	ItemService.SetupItemModel(spawnCtx)
+
+	return entityId
 end
 
 --- Model + OnSpawn
@@ -235,9 +236,10 @@ function ItemService.SpawnItem(item, position: Vector3)
 
 	-- Spawn Model
 	local itemModel = item.prefab:Clone()
-	table.insert(ItemServiceState.groundItemsModels, itemModel)
+	local entityId = ItemService.CreateItem(item.id, itemModel)
 
-	ItemService.CreateItem(item.id, itemModel)
+	-- table.insert(ItemServiceState.groundItemsModels, itemModel)
+	ItemServiceState.groundItemsModels[entityId] = itemModel
 
 	-- Set Item Model
 	-- itemModel.Name = itemDefinition.name
@@ -272,7 +274,7 @@ function ItemService.SpawnManyItem(item, position, amount)
 	end
 end
 
-function ItemService.RemoveGroundItem(itemModel, instanceId)
+function ItemService.RemoveGroundItem(itemModel)
 	itemModel:Destroy()
 end
 
@@ -294,18 +296,23 @@ end
 -- #region ITEM POOL
 
 function ItemService.CreatePool(item, size)
+	local definitionID = item.id
 	local prefab = item.prefab
 	local onSpawn = {
 		ItemService.ItemOnSpawn,
 	}
 
-	PoolService.CreatePool(item.definition.name, CONSTANTS.DefinedTypes.Items, item.id, prefab, onSpawn, size)
+	local _pool, poolID =
+		PoolService.CreatePool(item.definition.name, CONSTANTS.DefinedTypes.Items, definitionID, prefab, onSpawn, size)
+
+	ItemServiceState.poolIDs[definitionID] = poolID
 end
 
 --- Use PoolService to Enable Item
 function ItemService.EnableItem(definitionID, position)
+	local poolID = ItemServiceState.poolIDs[definitionID]
 	local parent = workspace
-	local entityId, model = PoolService.EnableNextInPool(CONSTANTS.DefinedTypes.Items, definitionID, parent, position)
+	local entityId, model = PoolService.EnableNextInPool(poolID, parent, position)
 
 	return entityId, model
 end
@@ -340,6 +347,7 @@ function ItemService.LootMovement(part, startPos)
 	local dist = 4
 	local targetPos = Vector3.new(startPos.X + math.random(-dist, dist), 2.5, startPos.Z + math.random(-dist, dist))
 
+	-- Raycast
 	-- local targetPos = startPos + Vector3.new(math.random(-dist, dist), 5, math.random(-dist, dist))
 	-- local result = workspace:Raycast(targetPos, Vector3.new(0, -10, 0))
 
@@ -349,11 +357,10 @@ function ItemService.LootMovement(part, startPos)
 
 	-- local posOffset = Vector3.new(0, 2, 0)
 	-- local finalTargetPos = result.Position + posOffset
-	local finalTargetPos = targetPos
 
 	-- Perform Movement in X Steps
-	local steps = math.random(30, 90)
-	local height = math.random(3, 6)
+	local steps = math.random(15, 30)
+	local height = math.random(2, 10)
 
 	-- Create Movement Context
 	local movementCtx = {
@@ -362,7 +369,7 @@ function ItemService.LootMovement(part, startPos)
 		currentStep = 0,
 		-- delay
 		startPos = startPos,
-		endPos = finalTargetPos,
+		endPos = targetPos,
 		height = height,
 	}
 
@@ -481,7 +488,7 @@ end
 function ItemService.SetupWeapon(weaponModel)
 	-- print("Setup weapon model : " .. weaponModel.Name)
 
-	local entityID, definitionID = ItemService.GetModelInfo(weaponModel)
+	local _entityID, definitionID = ItemService.GetModelInfo(weaponModel)
 
 	local itemDefinition = ItemService.GetItemDefinition(definitionID)
 
@@ -552,6 +559,11 @@ function ItemService.OnEquipped(weaponModel, weaponData)
 	end
 
 	-- warn("Equip Weapon : " .. player.Name .. " -> " .. weaponModel.Name)
+
+	-- TODO : OnPickup
+	-- Remove from Ground Items
+	local entityID, _definitionID = ItemService.GetModelInfo(weaponModel)
+	table.remove(ItemServiceState.groundItemsModels, entityID)
 
 	-- TODO : Check if sounds are available -> Spawn & Delete sounds
 	ItemService.AddWeaponSounds(player, weaponData)

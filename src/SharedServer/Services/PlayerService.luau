@@ -5,7 +5,6 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local DataStoreService = game:GetService("DataStoreService")
 
-local CombatService = require(script.Parent.CombatService)
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
@@ -28,7 +27,7 @@ local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
 local Knit = require(ReplicatedStorage.Packages.Knit)
 local Signal = require(ReplicatedStorage.Packages._Index["sleitnick_signal@1.5.0"].signal)
 
-local RpgService, ItemService
+local RpgService, ItemService, CombatService
 
 local PlayerService = Knit.CreateService({
 	Name = "PlayerService",
@@ -38,6 +37,7 @@ local PlayerService = Knit.CreateService({
 	BananasChanged = Signal.new(),
 	StateUpdate = Signal.new(),
 	ThrottledUpdate = Signal.new(),
+	SecondPassed = Signal.new(),
 	Client = {
 		ReplicateStore = Knit.CreateSignal(),
 		PlayerAdded = Knit.CreateSignal(),
@@ -56,6 +56,7 @@ end
 function PlayerService:KnitStart()
 	RpgService = Knit.GetService("RpgService")
 	ItemService = Knit.GetService("ItemService")
+	CombatService = Knit.GetService("CombatService")
 
 	RunService.Heartbeat:Connect(function(dt: number)
 		PlayerService.RoduxStateUpdate(dt)
@@ -106,7 +107,6 @@ end
 
 function PlayerService.AddPlayer(player)
 	local userId = player.UserId
-	local username = player.Name
 
 	-- Create Player
 	Store:dispatch(StoreActions.AddPlayer(player))
@@ -477,6 +477,37 @@ end
 
 -- #region UPDATES
 
+function PlayerService.RoduxStateUpdate(dt: number)
+	local state = Store:getState() -- Get state once every frame
+
+	-- Trigger Event for other Services
+	PlayerService.StateUpdate:Fire(state, dt)
+
+	PlayerService.AutoPickupUpdate()
+
+	-- Throttled Update
+	MutState.frameCount += 1
+
+	if MutState.frameCount > CONSTANTS.THROTTLED_UPDATE_FRAMES then
+		MutState.frameCount = 0
+
+		PlayerService.ThrottledUpdate:Fire(state, dt)
+
+		for _, player in pairs(Players:GetPlayers()) do
+			PlayerService.AutoPickupRange(state, player)
+			PlayerService.EnemiesDetection(state, player)
+		end
+	end
+
+	-- Global Seconds Timer
+	PlayerServiceState.secondTimer += dt
+
+	if PlayerServiceState.secondTimer >= 1 then
+		PlayerServiceState.secondTimer -= 1
+		PlayerService.SecondPassed:Fire(state)
+	end
+end
+
 --- Detect Enemies around Player -> Calculate Distance + Normals
 function PlayerService.EnemiesDetection(state, player)
 	local userId = player.UserId
@@ -629,29 +660,6 @@ function PlayerService.AutoPickupUpdate()
 			ItemService.PickupItem(movementCtx.player, movementCtx.itemModel)
 			table.remove(PlayerServiceState.autoPickups, i)
 		end
-	end
-end
-
-function PlayerService.RoduxStateUpdate(dt: number)
-	local state = Store:getState() -- Get state once every frame
-
-	-- Trigger Event for other Services
-	PlayerService.StateUpdate:Fire(state, dt)
-
-	PlayerService.AutoPickupUpdate()
-
-	-- Throttled Update
-	MutState.frameCount += 1
-
-	if MutState.frameCount > CONSTANTS.THROTTLED_UPDATE_FRAMES then
-		PlayerService.ThrottledUpdate:Fire(state, dt)
-
-		for _, player in pairs(Players:GetPlayers()) do
-			PlayerService.AutoPickupRange(state, player)
-			PlayerService.EnemiesDetection(state, player)
-		end
-
-		MutState.frameCount = 0
 	end
 end
 

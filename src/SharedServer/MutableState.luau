@@ -44,6 +44,7 @@ autoPickupParam.FilterDescendantsInstances = { workspace.AutoPickup }
 autoPickupParam.MaxParts = 100
 
 local PlayerServiceState = {
+	secondTimer = 0,
 	enemiesDetectionParam = enemiesDetectionParam,
 	autoPickupParam = autoPickupParam,
 	playersDetections = {},
@@ -123,8 +124,6 @@ CustomStorageState.customProperties = {}
 
 -- MobBehavior
 local MobBehaviorStorageState = StorageState.new(5, "MobBehaviorStorageState")
-MobBehaviorStorageState.timer = 0
-MobBehaviorStorageState.timerDelta = 0.5
 MobBehaviorStorageState.target = {}
 -- MobBehaviorStorageState.damage = {}
 -- MobBehaviorStorageState.attackRange = {}
@@ -161,6 +160,7 @@ local PoolServiceState = {
 }
 
 local ItemServiceState = {
+	poolIDs = {},
 	groundItemsModels = {},
 	itemsMovement = {},
 }
@@ -175,6 +175,7 @@ local RpgState = {
 local EnemyServiceState = {
 	enemiesDeathCount = 0,
 	currentRobotStats = Gears.DeepCopy(EnemiesStats[Enemies.Robot]),
+	poolIDs = {},
 
 	-- Stream Spawn
 	streamSpawnNbr = 2,
@@ -186,7 +187,6 @@ local EnemyServiceState = {
 
 	-- SwarmSpawn
 	swarmWaves = 0,
-	swarmSpawnTimer = 0,
 }
 
 -- AugmentState

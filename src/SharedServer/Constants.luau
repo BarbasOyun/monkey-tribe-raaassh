@@ -4,6 +4,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Load Authoring Data
 local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
+local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
+local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
 -- #region GLOBAL
 
@@ -57,7 +59,7 @@ local MAX_CURRENCIES = {
 	10_000,
 }
 
-local ENEMIES_DETECTION_RADIUS = 200
+local ENEMIES_DETECTION_RADIUS = 150
 
 -- local PlayerConsts = {
 -- 	ENEMIES_DETECTION_RADIUS = ENEMIES_DETECTION_RADIUS,
@@ -69,7 +71,9 @@ local ENEMIES_DETECTION_RADIUS = 200
 
 -- #endregion
 
--- local LevelConst = {}
+local LevelConst = {
+	NEXT_STAGE_COUNTDOWN = 10,
+}
 
 -- ECS
 local EcsStorages = {
@@ -87,10 +91,26 @@ local DISABLED_POSITION = Vector3.new(400, 0, 0) -- Test Pos = Vector3.new(0, 20
 
 -- Item Service
 local AUTOPICKUP_FOLDER = workspace.AutoPickup
+local itemTypes = itemDef.itemTypes
+local CategoryStore = itemDef.CategoryStore
+local CategoryDefinitions = itemDef.CategoryDefinitions
+local CategoryRegistries = itemDef.CategoryRegistries
 
 local RpgConst = {
+	-- Level
 	ADDITIONAL_XP = 20,
 	MULTIPLIER_XP = 1.2,
+
+	-- Stats
+	STATS_STORE = statsDefinition.STATS_STORE,
+	MOD_STATS_STORE = statsDefinition.MOD_STATS_STORE,
+	TO_STAT_OBJECT = statsDefinition.TO_STAT_OBJECT,
+	MOD_STATS_INDEX = statsDefinition.MOD_STATS_INDEX,
+	DEFAULT_STATS = statsDefinition.DEFAULT_STATS,
+	STATS_DISPLAY = statsDefinition.STATS_DISPLAY,
+
+	META_UPRGADES = statsDefinition.META_UPRGADES,
+	AUGMENTS = statsDefinition.AUGMENTS,
 }
 
 -- #region ENEMY SERVICE CONST
@@ -151,14 +171,19 @@ local CONSTANTS = {
 	CURRENCIES_NAMES = CURRENCIES_NAMES,
 	MAX_CURRENCIES = MAX_CURRENCIES,
 
-	-- LevelConst = LevelConst,
+	LevelConst = LevelConst,
 	-- Ecs
 	EcsStorages = EcsStorages,
 	-- Pool
 	DISABLED_ENTITIES_FOLDER = DISABLED_ENTITIES_FOLDER,
 	DISABLED_POSITION = DISABLED_POSITION,
+
 	-- Item
 	AUTOPICKUP_FOLDER = AUTOPICKUP_FOLDER,
+	itemTypes = itemTypes,
+	CategoryStore = CategoryStore,
+	CategoryDefinitions = CategoryDefinitions,
+	CategoryRegistries = CategoryRegistries,
 
 	RpgConst = RpgConst,
 	EnemyConst = EnemyConst,

@@ -61,6 +61,8 @@ function CombatService.CombatServiceUpdate(state, dt)
 		CombatService.FindClosestEnemy(player)
 		CombatService.AutoTarget(state, player)
 	end
+
+	CombatService.BufferUpdate(state, dt)
 end
 
 function CombatService.SetupPlayerService()
@@ -94,9 +96,9 @@ function CombatService.HitsDetection(position, radius, param, charactersBanned)
 	local buildingsHit = {} -- Parts
 
 	-- Debug HitZone
-	Gears.ExecuteFor(0.5, function()
-		Gears.DrawSphere(position, radius)
-	end)
+	-- Gears.ExecuteFor(0.5, function()
+	-- 	Gears.DrawSphere(position, radius)
+	-- end)
 
 	if #hits <= 0 then
 		return humanoidsHit, buildingsHit
@@ -151,7 +153,8 @@ function CombatService.AttackHit(player, playerStats, weaponState)
 	-- Damage Building
 	for i = 1, #buildingsHit do
 		local building = buildingsHit[i]
-		LevelService.DamageBuilding(building, damage)
+		-- LevelService.DamageBuilding(building, damage)
+		LevelService.DestroyBuilding(building)
 	end
 
 	-- Damage Humanoids
@@ -257,6 +260,30 @@ end
 -- 3) Animation = Clients
 -- 4) Attack Result = Server
 
+function CombatService.StartAttackPlayer(player, attackSpeed)
+	local userId = player.UserId
+
+	-- Validation
+	local comboIndex = CombatState.comboIndexes[userId]
+
+	if not comboIndex then
+		warn("Start Attack Validation failed")
+		return
+	end
+
+	-- print("Attack By : " .. player.Name .. " At : " .. tick())
+
+	CombatState.attackBuffer[userId] = nil
+
+	-- Setup Attack
+	CombatState.lastAttacks[userId] = tick()
+	CombatState.expectingAttack[userId] = true
+
+	-- Start Animation
+	local comboId = comboIndex + 1
+	CombatService.Client.startAttack:Fire(player, comboId, attackSpeed)
+end
+
 --- 2) Start a Player Attack (Server Validation)
 function CombatService.StartAttack(state, player, playerStats, weaponState)
 	-- Validation
@@ -277,26 +304,6 @@ function CombatService.StartAttack(state, player, playerStats, weaponState)
 	local attackDelta = currentTime - lastAttack -- Time between last attack and now
 	local isAttackReady = attackDelta > playerStats.animationTime
 
-	local function startAttack()
-		-- Validation
-		local comboIndex = CombatState.comboIndexes[userId]
-
-		if not comboIndex then
-			warn("Start Attack Validation failed")
-			return
-		end
-
-		-- print("Attack By : " .. player.Name .. " At : " .. tick())
-
-		-- Setup Attack
-		CombatState.lastAttacks[userId] = tick()
-		CombatState.expectingAttack[userId] = true
-
-		-- Start Animation
-		local comboId = comboIndex + 1
-		CombatService.Client.startAttack:Fire(player, comboId, playerStats.attackSpeed)
-	end
-
 	-- Input Buffer
 	if not isAttackReady then
 		local missingTime = playerStats.animationTime - attackDelta -- Time to wait before attacking
@@ -304,17 +311,31 @@ function CombatService.StartAttack(state, player, playerStats, weaponState)
 
 		if missingTime <= 0.1 and not isBuffering then
 			-- print("Attack Buffer: " .. player.Name)
-			CombatState.attackBuffer[userId] = true -- Lock Input Buffer
-			task.delay(missingTime, function() -- FIXME : Perf
-				startAttack()
-			end)
+			CombatState.attackBuffer[userId] = missingTime -- Lock Input Buffer
+			-- task.delay(missingTime, function() -- FIXME : Perf
+			-- 	startAttack()
+			-- end)
 		end
 
 		return
 	end
 
 	-- print("Attack non buffer: " .. player.Name)
-	startAttack()
+	CombatService.StartAttackPlayer(player, playerStats.attackSpeed)
+end
+
+function CombatService.BufferUpdate(state, dt)
+	for userId, missingTime in pairs(CombatState.attackBuffer) do
+		missingTime -= dt
+
+		if missingTime <= 0 then
+			local player = Players:GetPlayerByUserId(userId)
+			local playerState = state.players[userId]
+			local playerStats = playerState.stats
+
+			CombatService.StartAttackPlayer(player, playerStats.attackSpeed)
+		end
+	end
 end
 
 --- 4) Attack Callback with server validation
