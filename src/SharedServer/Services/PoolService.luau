@@ -69,13 +69,13 @@ function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, siz
 	local poolIndex = #PoolServiceState.pools
 
 	-- Create Missing Table
-	local poolType = PoolServiceState.poolsLookups[typeID]
+	-- local poolType = PoolServiceState.poolsLookups[typeID]
 
-	if not poolType then
-		PoolServiceState.poolsLookups[typeID] = {}
-	end
+	-- if not poolType then
+	-- 	PoolServiceState.poolsLookups[typeID] = {}
+	-- end
 
-	PoolServiceState.poolsLookups[typeID][definitionID] = poolIndex
+	-- PoolServiceState.poolsLookups[typeID][definitionID] = poolIndex
 
 	-- Spawn Pool
 	warn("Spawn Pool : " .. pool.name .. ", Size = " .. size)

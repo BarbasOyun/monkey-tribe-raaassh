@@ -539,7 +539,8 @@ function PlayerService.EnemiesDetection(state, player)
 	-- Calculate Distance Player to Enemy
 	for _, humanoid in pairs(detectedEnemies) do
 		local enemy = humanoid.Parent :: Model
-		local enemyPos = enemy.Torso.CFrame.Position
+		-- local enemyPos = enemy.Torso.CFrame.Position
+		local enemyPos = enemy.CFrame.Position
 
 		local playerToEnemyDirection = enemyPos - playerPos
 

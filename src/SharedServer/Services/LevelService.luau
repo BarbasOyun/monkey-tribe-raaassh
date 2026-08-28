@@ -176,18 +176,24 @@ function LevelService.LoadLevelDefinitions()
 	end)
 end
 
+function LevelService.StatRandomStage()
+	local mapID = math.random(1, #MapsBuildings)
+	local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
+
+	LevelService.StartStage(mapID, buildingsAmount)
+end
+
 --- Start a New Stage
-function LevelService.StartStage()
+function LevelService.StartStage(mapID, buildingsAmount)
 	if not LevelDefinitions then
 		warn("Level Definition not loaded -> Call LevelService.LoadLevelDefinitions()")
 		return
 	end
 
-	LevelState.currentMapId = math.random(1, #MapsBuildings)
+	LevelState.currentMapId = mapID
 	warn("Start Stage MapID = " .. LevelState.currentMapId)
 
 	-- Generate Map
-	local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
 	LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
 
 	LevelState.totalParts *= 0.5 -- Require 50% of the stage to be completed
@@ -298,7 +304,7 @@ function LevelService.FinishStage()
 
 	-- Reset + Next Stage
 	LevelService.ResetLevel()
-	LevelService.StartStage()
+	LevelService.StatRandomStage()
 end
 
 function LevelService.GameTimer()

@@ -219,7 +219,8 @@ function CombatService.GetAttackPosition(player, weaponState)
 	local closestEnemy = CombatState.playersClosestEnemy[userId]
 
 	if closestEnemy then
-		local targetPart = closestEnemy.Head
+		-- local targetPart = closestEnemy.Head
+		local targetPart = closestEnemy
 		local playerToEnemyNormal = vector.normalize(targetPart.CFrame.Position - playerPos)
 
 		local hitDistance = vector.magnitude(weaponState.attackPoint.WorldCFrame.Position - playerPos)

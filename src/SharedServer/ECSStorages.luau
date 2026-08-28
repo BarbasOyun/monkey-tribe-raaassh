@@ -205,7 +205,6 @@ end
 
 function UnitStorage.AddComponentToEntity(entityId, definitionId, life)
 	local storageState = UnitStorage.GetState()
-
 	local componentId = Storage.AddComponentToEntity(storageState, entityId)
 
 	table.insert(storageState.definitionId, definitionId)
@@ -368,14 +367,15 @@ end
 
 function MobBehaviorStorage.AddComponentToEntity(entityId)
 	local MobBehaviorStorageState = MobBehaviorStorage.GetState()
-
 	local componentId = Storage.AddComponentToEntity(MobBehaviorStorageState, entityId)
 
 	-- Register Properties
-	table.insert(MobBehaviorStorageState.target, nil)
+	-- table.insert(MobBehaviorStorageState.targetPos, nil)
 
 	return componentId
 end
+
+-- TODO : RemoveComponent
 
 function MobBehaviorStorage.RemoveEntity(storageState, entityId)
 	local componentId, lastCompId, lastHasComp = Storage.RemoveEntity(storageState, entityId)
@@ -387,10 +387,6 @@ function MobBehaviorStorage.RemoveEntity(storageState, entityId)
 
 	-- Swap Values + Delete Last
 	Gears.ReplaceWithLastElement(storageState.target, componentId)
-end
-
-function MobBehaviorStorage.DisableEntity(entityId)
-	-- TODO : Disable Behavior
 end
 
 -- #endregion

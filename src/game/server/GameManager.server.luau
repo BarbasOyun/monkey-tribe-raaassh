@@ -52,8 +52,6 @@ local function setupPlayers()
 end
 
 local function setupLevel()
-	LevelService.LoadLevelDefinitions()
-
 	-- Set Map Limits
 	local minLimitPart = workspace.Map.Limits.MinLimit
 	local maxLimitPart = workspace.Map.Limits.MaxLimit
@@ -62,9 +60,12 @@ local function setupLevel()
 	local maxLimit = LevelService.ToFlatVector(maxLimitPart.CFrame.Position)
 
 	LevelService.SetLimits(minLimit, maxLimit)
+end
 
-	-- Start Stage
-	LevelService.StartStage()
+local function startStage()
+	LevelService.LoadLevelDefinitions()
+	LevelService.StartStage(1, 10)
+	-- LevelService.StatRandomStage()
 end
 
 local function setupEnemies()
@@ -73,9 +74,6 @@ local function setupEnemies()
 	-- Start Spawning Mobs
 	EnemyService.StartStreamSpawn()
 	EnemyService.StartMobBehavior()
-
-	-- Start Raaash Timer
-	LevelService.StartGameTimer()
 end
 
 -- #region START
@@ -84,5 +82,8 @@ setupPlayers()
 setupLevel()
 createPools()
 setupEnemies()
+
+LevelService.StartGameTimer()
+startStage()
 
 -- #endregion

@@ -150,20 +150,21 @@ end
 
 local unitOnEnabled = function(spawnCtx)
 	local entityId = spawnCtx.entityId
-	local character = spawnCtx.model
+	-- local character = spawnCtx.model
 
 	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local UnitStorageState = UnitStorage.GetState()
 	local unitID = UnitStorage.GetComponentId(UnitStorageState, entityId)
 
-	-- Movement Speed
-	local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
-	local humanoid = character.Humanoid :: Humanoid
-	humanoid.WalkSpeed = movementSpeed
-
 	-- Life
 	local maxLife = EnemiesStats[Enemies.Robot].MaxLife
 	UnitStorageState.life[unitID] = maxLife
+
+	-- TODO : Move
+	-- Movement Speed
+	-- local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
+	-- local humanoid = character.Humanoid :: Humanoid
+	-- humanoid.WalkSpeed = movementSpeed
 end
 
 local lifeBarOnEnabled = function(spawnCtx)
@@ -246,12 +247,20 @@ local robotLogic = {
 		mobBehaviorSetup,
 	},
 	onEnabled = {
-		gameObjectOnEnabled,
+		-- gameObjectOnEnabled,
+		function(spawnCtx)
+			local character = spawnCtx.model
+			-- character.Anchored = false
+		end,
 		unitOnEnabled,
 		-- lifeBarOnEnabled,
 	},
 	onDeath = defaultOnDeath,
-	onDisabled = defaultOnDisabled,
+	onDisabled = function(spawnCtx) -- defaultOnDisabled
+		local character = spawnCtx.model
+		-- warn("DISABLE : " .. character.Name)
+		character.Anchored = true
+	end,
 }
 
 -- #endregion
@@ -751,45 +760,14 @@ function EnemyService.UnitUpdate(dt)
 	end
 end
 
---- MobBehavior System : Seek & Attack Players
---- Using Components : MobBehavior, GameObject, Unit
-function EnemyService.MobBehavior(state, entityId, character, robotStats)
-	-- Get Nearest Player
-	local targetPlayer, distance, playerState = EnemyService.GetNearestPlayer(state, character)
-	local humanoid = character.Humanoid
+function EnemyService.StartMobBehavior()
+	PlayerService.StateUpdate:Connect(function(state, dt)
+		EnemyService.MobBehaviorUpdate(state, dt)
+	end)
 
-	-- Check GameObject -> Reset
-	local root = character:FindFirstChild("HumanoidRootPart")
-
-	if not root then
-		-- warn("Entity " .. entityId .. " " .. character.Name .. " No HumanoidRootPart")
-		PoolService.ResetGameObject(entityId, character)
-		return
-	end
-
-	-- No Target = Stop + Respawn
-	if not targetPlayer then
-		humanoid:MoveTo(character.HumanoidRootPart.Position)
-
-		local isPickingAugments = playerState == CONSTANTS.PLAYER_STATES.pickingAugment
-		if not isPickingAugments then
-			EnemyService.RespawnEnemy(character)
-		end
-		return
-	end
-
-	-- Target found
-	local isWithinRange = distance <= robotStats.Range
-
-	-- Attack
-	if isWithinRange then
-		EnemyService.EnemyAttack(entityId, character, targetPlayer)
-		return
-	end
-
-	-- Move to player
-	local playerPos = targetPlayer.character:GetPivot().Position
-	humanoid:MoveTo(playerPos)
+	-- PlayerService.ThrottledUpdate:Connect(function(state, dt)
+	-- 	EnemyService.MobBehaviorUpdate(state, dt)
+	-- end)
 end
 
 --- MobBehavior in Throttled update
@@ -816,14 +794,57 @@ function EnemyService.MobBehaviorUpdate(state, dt)
 	end
 end
 
-function EnemyService.StartMobBehavior()
-	PlayerService.StateUpdate:Connect(function(state, dt)
-		EnemyService.MobBehaviorUpdate(state, dt)
-	end)
+--- MobBehavior System : Seek & Attack Players
+--- Using Components : MobBehavior, GameObject, Unit
+function EnemyService.MobBehavior(state, entityId, character, robotStats)
+	-- Get Nearest Player
+	local targetPlayer, distance, playerState = EnemyService.GetNearestPlayer(state, character)
+	-- local humanoid = character.Humanoid
 
-	-- PlayerService.ThrottledUpdate:Connect(function(state, dt)
-	-- 	EnemyService.MobBehaviorUpdate(state, dt)
-	-- end)
+	-- Check GameObject -> Reset
+	-- local root = character:FindFirstChild("HumanoidRootPart")
+
+	-- if not root then
+	-- 	-- warn("Entity " .. entityId .. " " .. character.Name .. " No HumanoidRootPart")
+	-- 	PoolService.ResetGameObject(entityId, character)
+	-- 	return
+	-- end
+
+	if not character then
+		-- warn("Entity " .. entityId .. " Replace GameObject")
+		PoolService.ResetGameObject(entityId, character)
+		return
+	end
+
+	-- No Target = Stop + Respawn
+	if not targetPlayer then
+		-- humanoid:MoveTo(character.HumanoidRootPart.Position)
+
+		local isPickingAugments = playerState == CONSTANTS.PLAYER_STATES.pickingAugment
+		if not isPickingAugments then
+			EnemyService.RespawnEnemy(character)
+		end
+		return
+	end
+
+	-- Target found
+	local isWithinRange = distance <= robotStats.Range
+
+	-- Attack
+	if isWithinRange then
+		EnemyService.EnemyAttack(entityId, character, targetPlayer)
+		return
+	end
+
+	-- Move to player
+	-- local playerPos = targetPlayer.character:GetPivot().Position
+	-- humanoid:MoveTo(playerPos)
+
+	local playerPos = targetPlayer.character:GetPivot().Position
+	local targetPos = Vector3.new(playerPos.X, 2, playerPos.Z)
+	local enemyToPlayer = targetPos - character.CFrame.Position
+	local normal = Vector3.normal(enemyToPlayer)
+	character.CFrame.Position += normal * EnemyServiceState.currentRobotStats.MovementSpeed
 end
 
 -- #endregion

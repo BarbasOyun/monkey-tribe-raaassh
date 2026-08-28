@@ -3,23 +3,25 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- #region BUILDINGS
 -- Some numbers are fake for balance reasons
 
-local buildingsFolder = ReplicatedStorage.Shared.Prefabs.Buildings
 local soundsFolder = ReplicatedStorage.Shared.Prefabs.Sounds
+local buildingsFolder = ReplicatedStorage.Shared.Prefabs.Buildings
+local militaryBuildingsFolder = buildingsFolder.Military
+local labBuildingsFolder = buildingsFolder.Lab
 
 -- Military
-local militaryBase = { prefab = buildingsFolder.MilitaryBase, nbrOfParts = 800, radius = 55 } -- Real Nbr of parts = 1110
-local militaryCamp = { prefab = buildingsFolder.MilitaryCamp, nbrOfParts = 912, radius = 60 }
-local militaryCanvas = { prefab = buildingsFolder.MilitaryCanvas, nbrOfParts = 336, radius = 40 }
-local smallCamp = { prefab = buildingsFolder.SmallCamp, nbrOfParts = 1000, radius = 35 } -- Real Nbr of parts = 1806
-local sniperTower = { prefab = buildingsFolder.SniperTower, nbrOfParts = 139, radius = 20 }
-local woodCrates = { prefab = buildingsFolder.WoodCrates, nbrOfParts = 76, radius = 15 }
+local militaryBase = { prefab = militaryBuildingsFolder.MilitaryBase, nbrOfParts = 800, radius = 55 } -- Real Nbr of parts = 1110
+local militaryCamp = { prefab = militaryBuildingsFolder.MilitaryCamp, nbrOfParts = 912, radius = 60 }
+local militaryCanvas = { prefab = militaryBuildingsFolder.MilitaryCanvas, nbrOfParts = 336, radius = 40 }
+local smallCamp = { prefab = militaryBuildingsFolder.SmallCamp, nbrOfParts = 1000, radius = 35 } -- Real Nbr of parts = 1806
+local sniperTower = { prefab = militaryBuildingsFolder.SniperTower, nbrOfParts = 139, radius = 20 }
+local woodCrates = { prefab = militaryBuildingsFolder.WoodCrates, nbrOfParts = 76, radius = 15 }
 
 -- Lab
-local reactor = { prefab = buildingsFolder.Reactor, nbrOfParts = 700, radius = 55 } -- Real Nbr of parts = 1230
-local galileoLaboratorty = { prefab = buildingsFolder.GalileoLaboratorty, nbrOfParts = 38, radius = 20 }
-local alchemyLab = { prefab = buildingsFolder.AlchemyLab, nbrOfParts = 175, radius = 30 }
-local labRoom = { prefab = buildingsFolder.LabRoom, nbrOfParts = 129, radius = 45 }
-local labBattery = { prefab = buildingsFolder.LabBattery, nbrOfParts = 25, radius = 15 }
+local reactor = { prefab = labBuildingsFolder.Reactor, nbrOfParts = 700, radius = 55 } -- Real Nbr of parts = 1230
+local galileoLaboratorty = { prefab = labBuildingsFolder.GalileoLaboratorty, nbrOfParts = 38, radius = 20 }
+local alchemyLab = { prefab = labBuildingsFolder.AlchemyLab, nbrOfParts = 175, radius = 30 }
+local labRoom = { prefab = labBuildingsFolder.LabRoom, nbrOfParts = 129, radius = 45 }
+local labBattery = { prefab = labBuildingsFolder.LabBattery, nbrOfParts = 25, radius = 15 }
 
 -- #endregion
 

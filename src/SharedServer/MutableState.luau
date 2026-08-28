@@ -124,7 +124,8 @@ CustomStorageState.customProperties = {}
 
 -- MobBehavior
 local MobBehaviorStorageState = StorageState.new(5, "MobBehaviorStorageState")
-MobBehaviorStorageState.target = {}
+-- MobBehaviorStorageState.target = {}
+-- MobBehaviorStorageState.targetPos = {} -- TODO : Movement Component
 -- MobBehaviorStorageState.damage = {}
 -- MobBehaviorStorageState.attackRange = {}
 
@@ -156,7 +157,7 @@ local EcsState = {
 local PoolServiceState = {
 	pools = {},
 	entitiesPool = {},
-	poolsLookups = {},
+	-- poolsLookups = {},
 }
 
 local ItemServiceState = {
