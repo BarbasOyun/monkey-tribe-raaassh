@@ -153,8 +153,7 @@ function CombatService.AttackHit(player, playerStats, weaponState)
 	-- Damage Building
 	for i = 1, #buildingsHit do
 		local building = buildingsHit[i]
-		-- LevelService.DamageBuilding(building, damage)
-		LevelService.DestroyBuilding(building)
+		LevelService.DamageBuilding(building, damage)
 	end
 
 	-- Damage Humanoids
@@ -219,11 +218,11 @@ function CombatService.GetAttackPosition(player, weaponState)
 	local closestEnemy = CombatState.playersClosestEnemy[userId]
 
 	if closestEnemy then
-		-- local targetPart = closestEnemy.Head
-		local targetPart = closestEnemy
-		local playerToEnemyNormal = vector.normalize(targetPart.CFrame.Position - playerPos)
+		local targetPart = closestEnemy.Head
+		-- local targetPart = closestEnemy
+		local playerToEnemyNormal = (targetPart.CFrame.Position - playerPos).Unit
 
-		local hitDistance = vector.magnitude(weaponState.attackPoint.WorldCFrame.Position - playerPos)
+		local hitDistance = (weaponState.attackPoint.WorldCFrame.Position - playerPos).Magnitude
 		attackPosition = playerPos + playerToEnemyNormal * hitDistance
 	end
 

@@ -9,6 +9,7 @@ local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefi
 
 -- Immutable Default Game State
 local defaultGameState = {
+	enemiesDeathCount = 0,
 	globalEnemyLvl = 1,
 	minLimit = Vector2.new(-100, -100),
 	maxLimit = Vector2.new(100, 100),
@@ -66,10 +67,11 @@ local Actions = {
 	end,
 
 	-- Players
-	AddPlayer = function(player)
+	AddPlayer = function(player, highestKills)
 		return {
 			type = "AddPlayer",
 			player = player,
+			highestKills = highestKills,
 		}
 	end,
 
@@ -129,10 +131,12 @@ local playerReducer = Rodux.createReducer({}, {
 		local player = action.player
 		local userId = player.UserId
 		local username = player.Name
+		local highestKills = action.highestKills
 
 		players[userId] = Gears.DeepCopy(statsDefinition.DEFAULT_PLAYER)
 		players[userId].userId = userId
 		players[userId].username = username
+		players[userId].highestKills = highestKills
 
 		return players
 	end,

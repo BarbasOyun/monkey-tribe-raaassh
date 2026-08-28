@@ -157,10 +157,11 @@ local EcsState = {
 local PoolServiceState = {
 	pools = {},
 	entitiesPool = {},
-	-- poolsLookups = {},
 }
 
 local ItemServiceState = {
+	bananaLootChance = 25, -- TODO : Per Player
+	stickLootChance = 10, -- TODO : Per Player
 	poolIDs = {},
 	groundItemsModels = {},
 	itemsMovement = {},
@@ -174,7 +175,6 @@ local RpgState = {
 }
 
 local EnemyServiceState = {
-	enemiesDeathCount = 0,
 	currentRobotStats = Gears.DeepCopy(EnemiesStats[Enemies.Robot]),
 	poolIDs = {},
 

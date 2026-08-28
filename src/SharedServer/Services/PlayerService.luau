@@ -22,6 +22,7 @@ local PlayerServiceState = MutState.PlayerServiceState
 
 -- Get DataStore
 local PlayersDb = DataStoreService:GetDataStore("PlayersDb")
+local KillsData = DataStoreService:GetOrderedDataStore("Wins")
 
 -- Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
@@ -108,8 +109,10 @@ end
 function PlayerService.AddPlayer(player)
 	local userId = player.UserId
 
+	local highestKills = PlayersDb:GetAsync(userId) or 0
+
 	-- Create Player
-	Store:dispatch(StoreActions.AddPlayer(player))
+	Store:dispatch(StoreActions.AddPlayer(player, highestKills))
 
 	-- Send the full store to the new player
 	local state = Store:getState()
@@ -135,8 +138,13 @@ function PlayerService.OnCharacterAdded(player, character)
 	PlayerService.AddSounds(player)
 
 	-- Un-kill on character on spawn
-	local patch = { isDead = false }
-	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+	local state = Store:getState()
+	local playerState = Selectors.PlayerState(state, userId)
+
+	if playerState.isDead then
+		local patch = { isDead = false }
+		Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+	end
 end
 
 function PlayerService.RemovePlayer(player, exitReason)
@@ -182,12 +190,12 @@ end
 
 -- #region DB
 
---- Save a Player's Bananas & Meta Upgrades to Db
+--- Save all Player Data
 function PlayerService.SaveToDb(userId)
 	local state = Store:getState()
 	local playerState = state.players[userId]
 
-	warn(playerState.username .. " Saving Meta Upgrades and Bananas to DB")
+	warn(playerState.username .. " Saving Player Data to DB")
 
 	-- Bananas
 	local bananaCount = playerState.bananas
@@ -227,13 +235,31 @@ function PlayerService.IncrementDbBananas(userId, value)
 	assert(value > 0, "IncrementDbBananas : Bananas Value need to be Greater than 0")
 	local key = userId .. "_bananas"
 
-	local success, newValue = pcall(function()
+	local _success, _newValue = pcall(function()
 		return PlayersDb:UpdateAsync(key, function(oldValue)
 			local current = oldValue or 0
 			local nextValue = current + value
 			return math.clamp(nextValue, 0, CONSTANTS.MAX_CURRENCIES[CONSTANTS.CURRENCIES.bananas])
 		end)
 	end)
+end
+
+function PlayerService.SaveHighestKills(player)
+	local userId = player.UserId
+	local state = Store:getState()
+	local playerState = state.players[userId]
+
+	local totalKills = state.gameState.enemiesDeathCount
+	warn(player.Name .. " Save Highest Kills = " .. totalKills)
+
+	if totalKills > playerState.highestKills then
+		pcall(function()
+			KillsData:SetAsync(userId, totalKills)
+		end)
+
+		local patch = { highestKills = totalKills }
+		Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+	end
 end
 
 --- Get Meta Upgrades Levels from DB or 0
@@ -274,14 +300,19 @@ function PlayerService.GetMetaUpgrades(player)
 end
 
 --- Debug func -> Delete Player's DB
-local function ResetPlayer(player)
+function PlayerService.ResetPlayer(player)
 	local state = Store:getState()
 	local userId = player.UserId
 	local playerData = state.players[userId]
 
+	-- Highest Kill
+	pcall(function()
+		KillsData:SetAsync(userId, 0)
+	end)
+
 	-- Bananas
 	pcall(function()
-		PlayersDb:SetAsync(userId .. "_" .. "bananas", 0)
+		PlayersDb:SetAsync(userId .. "_bananas", 0)
 	end)
 
 	-- Meta Upgrades
@@ -301,7 +332,7 @@ function PlayerService.GameOver()
 	print("Game Over -> Saving Bananas & Going back to Hub")
 	local players = Players:GetPlayers()
 
-	PlayerService.SaveAllBananaDelta()
+	PlayerService.SaveGameData()
 
 	-- Go Back to Hub
 	pcall(function()
@@ -309,10 +340,11 @@ function PlayerService.GameOver()
 	end)
 end
 
-function PlayerService.SaveAllBananaDelta()
+function PlayerService.SaveGameData()
 	local state = Store:getState()
 
 	for _, player in pairs(Players:GetPlayers()) do
+		PlayerService.SaveHighestKills(player)
 		PlayerService.SaveBananaDelta(state, player)
 	end
 end
@@ -535,16 +567,40 @@ function PlayerService.EnemiesDetection(state, player)
 
 	-- Detect Enemy Humanoids
 	local detectedEnemies = Gears.FindUniqueHumanoids(hits)
+	-- local detectedEnemies = hits
 
 	-- Calculate Distance Player to Enemy
 	for _, humanoid in pairs(detectedEnemies) do
 		local enemy = humanoid.Parent :: Model
-		-- local enemyPos = enemy.Torso.CFrame.Position
-		local enemyPos = enemy.CFrame.Position
+		local enemyPos = enemy.Torso.CFrame.Position
+
+		-- Custom
+		-- local enemy = humanoid
+		-- local enemyPos = enemy.CFrame.Position
 
 		local playerToEnemyDirection = enemyPos - playerPos
 
-		local playerToEnemyDistance = vector.magnitude(playerToEnemyDirection) :: number
+		local playerToEnemyDistance = playerToEnemyDirection.Magnitude :: number
+		PlayerServiceState.playersDetections[userId][enemy] = playerToEnemyDistance
+
+		-- TODO : Calculate Normals
+	end
+end
+
+--- Each Players Detect Enemy
+function PlayerService.DetectEnemy(enemy)
+	for _, player in Players:GetPlayers() do
+		local userId = player.UserId
+
+		local enemyPos = enemy.Torso.CFrame.Position
+
+		local character = player.Character or player.CharacterAdded:Wait()
+		local torso = character.UpperTorso or character.Torso
+		local playerPos = torso.CFrame.Position
+
+		local playerToEnemyDirection = enemyPos - playerPos
+
+		local playerToEnemyDistance = playerToEnemyDirection.Magnitude :: number
 		PlayerServiceState.playersDetections[userId][enemy] = playerToEnemyDistance
 
 		-- TODO : Calculate Normals
@@ -580,7 +636,7 @@ function PlayerService.BuildingsDetection(state, player)
 
 		local playerToBuilding = buildingPos - playerPos
 
-		local playerToBuildingDistance = vector.magnitude(playerToBuilding) :: number
+		local playerToBuildingDistance = playerToBuilding.Magnitude :: number
 		PlayerServiceState.buildingsDetections[userId][part] = playerToBuildingDistance
 
 		-- TODO : Calculate Normals

@@ -64,8 +64,8 @@ end
 
 local function startStage()
 	LevelService.LoadLevelDefinitions()
-	LevelService.StartStage(1, 10)
-	-- LevelService.StatRandomStage()
+	-- LevelService.StartStage(1, 10)
+	LevelService.StatRandomStage()
 end
 
 local function setupEnemies()

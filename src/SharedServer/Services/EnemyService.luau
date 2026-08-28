@@ -46,6 +46,7 @@ function EnemyService:KnitStart()
 	ItemService = Knit.GetService("ItemService")
 end
 
+--- Update that should always be on
 function EnemyService.StartEnemyUpdate()
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		EnemyService.UnitUpdate(dt)
@@ -66,13 +67,13 @@ type SpawnCtx = {
 
 -- #region ON SPAWN SYSTEMS
 
--- local gameObjectSetup = function(onSpawnCtx)
--- 	local entityId = onSpawnCtx.entityId
--- 	local character = onSpawnCtx.model
+local gameObjectSetup = function(onSpawnCtx)
+	local entityId = onSpawnCtx.entityId
+	local character = onSpawnCtx.model
 
--- 	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
--- 	GameObjectStorage.AddComponentToEntity(entityId, character)
--- end
+	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
+	GameObjectStorage.AddComponentToEntity(entityId, character)
+end
 
 local unitSetup = function(spawnCtx)
 	local entityId = spawnCtx.entityId
@@ -90,10 +91,13 @@ local unitSetup = function(spawnCtx)
 	local onDeath = EnemyService.enemiesOnDeath[definitionId]
 	UnitStorageState.deathEvent[unitId]:Connect(onDeath)
 
-	-- Setup OnDispawn
+	-- Setup OnDisabled
 	local onDisabled = EnemyService.enemiesOnDisabled[definitionId]
 	UnitStorageState.onDispawn[unitId]:Connect(function(spawnCtx)
-		onDisabled(spawnCtx)
+		for i = 1, #onDisabled do
+			local onDisabledFunction = onDisabled[i]
+			onDisabledFunction(spawnCtx)
+		end
 	end)
 end
 
@@ -144,13 +148,15 @@ end
 local gameObjectOnEnabled = function(spawnCtx, position)
 	local character = spawnCtx.model
 
+	PlayerService.DetectEnemy(character)
+
 	-- character:SetAttribute("Version", entityVersion)
 	character.HumanoidRootPart.Anchored = false
 end
 
 local unitOnEnabled = function(spawnCtx)
 	local entityId = spawnCtx.entityId
-	-- local character = spawnCtx.model
+	local character = spawnCtx.model
 
 	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local UnitStorageState = UnitStorage.GetState()
@@ -160,11 +166,11 @@ local unitOnEnabled = function(spawnCtx)
 	local maxLife = EnemiesStats[Enemies.Robot].MaxLife
 	UnitStorageState.life[unitID] = maxLife
 
-	-- TODO : Move
+	-- TODO : Move to other component
 	-- Movement Speed
-	-- local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
-	-- local humanoid = character.Humanoid :: Humanoid
-	-- humanoid.WalkSpeed = movementSpeed
+	local movementSpeed = EnemyServiceState.currentRobotStats.MovementSpeed
+	local humanoid = character.Humanoid :: Humanoid
+	humanoid.WalkSpeed = movementSpeed
 end
 
 local lifeBarOnEnabled = function(spawnCtx)
@@ -188,6 +194,37 @@ end
 
 -- #endregion
 
+-- #region ON DISABLED SYSTEMS
+
+local defaultOnDisabled = function(spawnCtx)
+	local character = spawnCtx.model
+
+	-- warn("Default On Dispawn")
+	Gears.ResetCharacter(character)
+	character.HumanoidRootPart.Anchored = true
+end
+
+local lifeBarOnDisable = function(spawnCtx)
+	local character = spawnCtx.model
+
+	local lifeBar = EnemyService.TryToFindLifeBar(character)
+	local billboardGui = lifeBar.Parent
+
+	-- Force Re render of lifebar
+	billboardGui.Enabled = false
+end
+
+local respawnOnDisabled = function(entityId)
+	-- Get Back respawnPos
+	local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
+	local respawnPos = CustomStorage.GetCustomProperties(entityId).respawnPos
+
+	-- Respawn
+	EnemyService.EnableEnemy(Enemies.Dummy, respawnPos)
+end
+
+-- #endregion
+
 -- #region ENEMIES LOGIC
 -- Move to other File? -> Dependency Injection
 
@@ -204,17 +241,8 @@ local defaultOnDeath = function(entityId, character, player)
 	UnitStorageState.dispawnCd[unitId] = 1
 end
 
-local defaultOnDisabled = function(spawnCtx)
-	local character = spawnCtx.model
-
-	-- warn("Default On Dispawn")
-	Gears.ResetCharacter(character)
-	character.HumanoidRootPart.Anchored = true
-end
-
 local dummyLogic = {
 	onSpawn = {
-		-- gameObjectSetup,
 		unitSetup,
 		lifeBarSetup,
 		respawnSetup,
@@ -226,41 +254,30 @@ local dummyLogic = {
 		respawnOnEnabled,
 	},
 	onDeath = defaultOnDeath,
-
-	onDisabled = function(entityId)
-		-- Get Back respawnPos
-		local CustomStorage = EcsState.storages[CONSTANTS.EcsStorages.custom]
-		local respawnPos = CustomStorage.GetCustomProperties(entityId).respawnPos
-
-		-- Respawn
-		EnemyService.EnableEnemy(Enemies.Dummy, respawnPos)
-
-		defaultOnDisabled(entityId)
-	end,
+	onDisabled = { respawnOnDisabled, defaultOnDisabled },
 }
 
 local robotLogic = {
 	onSpawn = {
-		-- gameObjectSetup,
 		unitSetup,
-		-- lifeBarSetup,
+		lifeBarSetup,
 		mobBehaviorSetup,
 	},
 	onEnabled = {
-		-- gameObjectOnEnabled,
-		function(spawnCtx)
-			local character = spawnCtx.model
-			-- character.Anchored = false
-		end,
+		gameObjectOnEnabled,
 		unitOnEnabled,
-		-- lifeBarOnEnabled,
+		lifeBarOnEnabled,
 	},
 	onDeath = defaultOnDeath,
-	onDisabled = function(spawnCtx) -- defaultOnDisabled
-		local character = spawnCtx.model
-		-- warn("DISABLE : " .. character.Name)
-		character.Anchored = true
-	end,
+	-- onDisabled = function(spawnCtx)
+	-- 	local character = spawnCtx.model
+	-- 	-- warn("DISABLE : " .. character.Name)
+	-- 	character.Anchored = true
+	-- end,
+	onDisabled = {
+		defaultOnDisabled,
+		lifeBarOnDisable,
+	},
 }
 
 -- #endregion
@@ -328,13 +345,8 @@ function EnemyService.CEnemy(enemyId, position)
 
 	-- warn("Create enemy : " .. character.Name .. ", TypeId = " .. enemyId .. ", EntityId = " .. entityId)
 
-	-- Add GameObject Comp
-	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
-	GameObjectStorage.AddComponentToEntity(entityId, enemy)
-
 	-- Setup GameObject
-	enemy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
-	enemy.Name = enemy.Name .. entityId
+	-- enemy.Name = enemy.Name .. entityId
 
 	-- Per Enemy type OnSpawn
 	local OnSpawnFunctions = EnemyService.enemiesOnSpawn[enemyId]
@@ -344,12 +356,15 @@ function EnemyService.CEnemy(enemyId, position)
 		model = enemy,
 	}
 
+	gameObjectSetup(spawnCtx)
+
 	for i = 1, #OnSpawnFunctions do
 		OnSpawnFunctions[i](spawnCtx)
 	end
 
 	-- Move GameObject
 	enemy:PivotTo(CFrame.new(position))
+	enemy.Parent = CONSTANTS.WEAPON_HIT_FOLDER
 
 	return entityId
 end
@@ -364,11 +379,11 @@ function EnemyService.CreatePool(definitionID, size)
 	-- Setup OnSpawn functions table
 	local onSpawn = table.clone(EnemyService.enemiesOnSpawn[definitionID])
 	local onDisabled = EnemyService.enemiesOnDisabled[definitionID]
-	table.insert(onSpawn, onDisabled)
+	-- table.insert(onSpawn, onDisabled)
+	Gears.JoinTable(onSpawn, onDisabled)
 
 	-- Create + Register Pool
-	local _pool, poolIndex =
-		PoolService.CreatePool("Robot", CONSTANTS.DefinedTypes.Unit, Enemies.Robot, prefab, onSpawn, size)
+	local _pool, poolIndex = PoolService.CreatePool("Robot", Enemies.Robot, prefab, onSpawn, size)
 
 	EnemyServiceState.poolIDs[definitionID] = poolIndex
 end
@@ -378,6 +393,8 @@ function EnemyService.EnableEnemy(definitionID, position)
 	local poolID = EnemyServiceState.poolIDs[definitionID]
 	local parent = CONSTANTS.WEAPON_HIT_FOLDER
 	local entityId, model = PoolService.EnableNextInPool(poolID, parent, position)
+
+	-- warn("Enable Enemy : " .. model.Name .. " EntityID = " .. entityId)
 
 	-- If Pool limit is reached
 	if not model then
@@ -411,8 +428,10 @@ function EnemyService.RespawnEnemy(character)
 		return
 	end
 
-	local playerpos = randomPlayer.character:GetPivot()
-	local respawnPos = EnemyService.GetSpawnPosition(playerpos)
+	warn("Respawn Mob : " .. character.Name)
+
+	local playerPos = randomPlayer.character:GetPivot()
+	local respawnPos = EnemyService.GetSpawnPosition(playerPos)
 
 	character:PivotTo(CFrame.new(respawnPos))
 end
@@ -659,7 +678,12 @@ function EnemyService.DamageEnemy(player, entityId, humanoid, damage)
 end
 
 function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
-	EnemyServiceState.enemiesDeathCount += 1
+	-- Increment DeathCount
+	local state = Store:getState()
+	local newDeathCount = state.gameState.enemiesDeathCount + 1
+	local patch = { enemiesDeathCount = newDeathCount }
+	Store:dispatch(StoreActions.PatchGameState(patch))
+	PlayerService.Client.PatchGameState:FireAll(patch)
 
 	-- TODO : Check if userId is nil -> attribute the kill to nearest Player
 	-- Rewards
@@ -668,8 +692,8 @@ function EnemyService.KillEnemy(player, entityId, humanoid, overKillDamage)
 	-- UnitState
 	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
 	local UnitStorageState = UnitStorage.GetState()
-
 	local unitId = UnitStorage.GetComponentId(UnitStorageState, entityId)
+
 	local deathEvent = UnitStorageState.deathEvent[unitId]
 
 	-- Trigger Death Event
@@ -683,16 +707,13 @@ end
 
 --- Unit + MobBehavior System
 function EnemyService.EnemyAttack(entityId, enemy, player)
-	local isValid = player.Character.Humanoid.Health > 0
+	local isPlayerDead = player.Character.Humanoid.Health > 0
 
-	if not isValid then
+	if not isPlayerDead then
 		return
 	end
 
-	-- Stop
-	enemy.Humanoid:MoveTo(enemy.HumanoidRootPart.Position)
-
-	-- Check CD
+	-- Validation : CD
 	local robotStats = EnemiesStats[Enemies.Robot]
 
 	local UnitStorage = EcsState.storages[CONSTANTS.EcsStorages.unit]
@@ -721,42 +742,47 @@ function EnemyService.UnitUpdate(dt)
 	local GameObjectStorage = EcsState.storages[CONSTANTS.EcsStorages.gameObject]
 
 	for i = 1, #UnitStorageState.entities do
-		local entityId = UnitStorageState.entities[i]
-		local character = GameObjectStorage.GetGameObject(entityId)
+		EnemyService.UnitSystem(i, UnitStorageState, GameObjectStorage, dt)
+	end
+end
 
-		local isDisabled = character.Parent == CONSTANTS.DISABLED_ENTITIES_FOLDER
+-- TODO : UnitComponent Param
+function EnemyService.UnitSystem(index, UnitStorageState, GameObjectStorage, dt)
+	local entityId = UnitStorageState.entities[index]
+	local character = GameObjectStorage.GetGameObject(entityId)
 
-		if isDisabled then
-			continue
-		end
+	local isDisabled = character.Parent == CONSTANTS.DISABLED_ENTITIES_FOLDER
 
-		-- Attack CD
-		-- TODO : Attack Speed = Attack / sec
-		local isReady = UnitStorageState.attackCd[i] >= EnemiesStats[Enemies.Robot].AttackSpeed
+	if isDisabled then
+		return
+	end
 
-		if not isReady then
-			UnitStorageState.attackCd[i] += dt
-		end
+	-- Attack CD
+	-- TODO : Attack Speed = Attack / sec
+	local isReady = UnitStorageState.attackCd[index] >= EnemiesStats[Enemies.Robot].AttackSpeed
 
-		-- Dispawn CD
-		if UnitStorageState.dispawnCd[i] <= 0 then
-			continue
-		end
+	if not isReady then
+		UnitStorageState.attackCd[index] += dt
+	end
 
-		UnitStorageState.dispawnCd[i] -= dt
+	-- Dispawn CD
+	if UnitStorageState.dispawnCd[index] <= 0 then
+		return
+	end
 
-		-- Dispawn
-		if UnitStorageState.dispawnCd[i] <= 0 then
-			local spawnCtx = {
-				entityId = entityId,
-				definitionId = UnitStorageState.definitionId[i],
-				model = character,
-			}
+	UnitStorageState.dispawnCd[index] -= dt
 
-			-- warn("EntityId = " .. entityId .. " -> Dispawn Event")
-			UnitStorageState.onDispawn[i]:Fire(spawnCtx)
-			PoolService.DisableEntity(entityId)
-		end
+	-- Dispawn
+	if UnitStorageState.dispawnCd[index] <= 0 then
+		local spawnCtx = {
+			entityId = entityId,
+			definitionId = UnitStorageState.definitionId[index],
+			model = character,
+		}
+
+		-- warn("EntityId = " .. entityId .. " -> Dispawn Event")
+		UnitStorageState.onDispawn[index]:Fire(spawnCtx)
+		PoolService.DisableEntity(entityId)
 	end
 end
 
@@ -799,26 +825,28 @@ end
 function EnemyService.MobBehavior(state, entityId, character, robotStats)
 	-- Get Nearest Player
 	local targetPlayer, distance, playerState = EnemyService.GetNearestPlayer(state, character)
-	-- local humanoid = character.Humanoid
+	-- TODO : GetValidNearestPlayer()
+	local humanoid = character.Humanoid
 
 	-- Check GameObject -> Reset
-	-- local root = character:FindFirstChild("HumanoidRootPart")
+	local root = character:FindFirstChild("HumanoidRootPart")
 
-	-- if not root then
-	-- 	-- warn("Entity " .. entityId .. " " .. character.Name .. " No HumanoidRootPart")
-	-- 	PoolService.ResetGameObject(entityId, character)
-	-- 	return
-	-- end
-
-	if not character then
-		-- warn("Entity " .. entityId .. " Replace GameObject")
+	if not root then
+		-- warn("Entity " .. entityId .. " " .. character.Name .. " No HumanoidRootPart")
 		PoolService.ResetGameObject(entityId, character)
 		return
 	end
 
+	-- Custom Replace GameObject
+	-- if not character then
+	-- 	warn("Entity " .. entityId .. " Replace GameObject")
+	-- 	PoolService.ResetGameObject(entityId, character)
+	-- 	return
+	-- end
+
 	-- No Target = Stop + Respawn
 	if not targetPlayer then
-		-- humanoid:MoveTo(character.HumanoidRootPart.Position)
+		humanoid:MoveTo(character.HumanoidRootPart.Position)
 
 		local isPickingAugments = playerState == CONSTANTS.PLAYER_STATES.pickingAugment
 		if not isPickingAugments then
@@ -832,19 +860,24 @@ function EnemyService.MobBehavior(state, entityId, character, robotStats)
 
 	-- Attack
 	if isWithinRange then
+		-- Stop
+		humanoid:MoveTo(character.HumanoidRootPart.Position)
 		EnemyService.EnemyAttack(entityId, character, targetPlayer)
 		return
 	end
 
 	-- Move to player
-	-- local playerPos = targetPlayer.character:GetPivot().Position
-	-- humanoid:MoveTo(playerPos)
-
 	local playerPos = targetPlayer.character:GetPivot().Position
-	local targetPos = Vector3.new(playerPos.X, 2, playerPos.Z)
-	local enemyToPlayer = targetPos - character.CFrame.Position
-	local normal = Vector3.normal(enemyToPlayer)
-	character.CFrame.Position += normal * EnemyServiceState.currentRobotStats.MovementSpeed
+	humanoid:MoveTo(playerPos)
+
+	-- Custom Move to Player
+	-- local playerPos = targetPlayer.character:GetPivot().Position
+	-- local targetPos = Vector3.new(playerPos.X, 4.5, playerPos.Z)
+
+	-- local enemyToPlayer = targetPos - character.CFrame.Position
+	-- local normal = enemyToPlayer.Unit
+	-- local nextPos = character.CFrame.Position + normal * EnemyServiceState.currentRobotStats.MovementSpeed * 0.01
+	-- character.CFrame = CFrame.new(nextPos)
 end
 
 -- #endregion

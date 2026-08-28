@@ -74,6 +74,23 @@ local function augmentCard(props)
 	})
 end
 
+local function rerollButton()
+	local onClick = function()
+		AugmentsService:RerollAugment()
+	end
+
+	return Roact.createElement("TextButton", {
+		Position = UDim2.fromScale(0.95, 0.5), -- UDim2.fromScale(0.75, 0.175)
+		Size = UDim2.fromScale(0.15, 0.15),
+		Text = "Reroll \n Cost : 10 Sticks",
+		[Roact.Event.MouseButton1Click] = onClick,
+		BackgroundColor3 = Color3.new(0.694117, 0.498039, 0.078431),
+		BorderColor3 = Color3.new(0.15, 0.1, 0.0),
+		BorderSizePixel = 3,
+		TextScaled = true,
+	})
+end
+
 -- TODO : Replace with frameGridLayout Component
 local function cardsPanel(props)
 	local augments = props.augments
@@ -128,10 +145,11 @@ local function augmentPanel(props)
 		Title = textLabel({
 			text = "Choose an Augment",
 			size = UDim2.fromScale(0.75, 0.25),
-			position = UDim2.fromScale(0.125, 0.0),
+			position = UDim2.fromScale(0.125, -0.125),
 			zIndex = 5,
 		}),
 		CardsPanel = cardsPanel(cardsPanelProps),
+		RerollButton = rerollButton(),
 	})
 end
 

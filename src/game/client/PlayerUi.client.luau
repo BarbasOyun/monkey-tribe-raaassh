@@ -72,6 +72,22 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 	}
 end)(textLabel)
 
+-- Enemy Kills
+local EnemyKills = RoactRodux.connect(function(state)
+	local enemyKills = 0
+	local enemiesDeathCount = state.gameState.enemiesDeathCount
+
+	if enemiesDeathCount then
+		enemyKills = enemiesDeathCount
+	end
+
+	return {
+		position = UDim2.fromScale(0.15, 0),
+		size = UDim2.fromScale(0.05, 0.05),
+		text = "Kills: " .. enemyKills,
+	}
+end)(textLabel)
+
 -- Sticks Display
 sticksImageProps = {
 	position = UDim2.fromScale(0.77, 0.175),
@@ -268,6 +284,7 @@ local function mainGui()
 		-- ScoreBoard = Roact.createElement(ScoreBoard),
 		RobotImage = image(robotImageProps),
 		GlobalEnemyLvlText = Roact.createElement(globalEnemyLvlText),
+		EnemyKills = Roact.createElement(EnemyKills),
 		GameTimer = textLabel(gameTimerProps),
 		-- Top Mid
 		StageCountdown = textLabel(stageCountdownProps),

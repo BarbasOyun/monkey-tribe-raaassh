@@ -73,6 +73,7 @@ function Gears.SwapTableElements(t, index1, index2)
 	return element1, element2
 end
 
+--- Insert table2 in table1
 function Gears.JoinTable(table1, table2)
 	for _, element in pairs(table2) do
 		table.insert(table1, element)

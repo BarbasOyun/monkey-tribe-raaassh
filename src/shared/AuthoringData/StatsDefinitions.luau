@@ -45,12 +45,14 @@ local DEFAULT_STATS: Stats = {
 	critMultiplier = 50,
 	increasedAoe = 0,
 	aoe = 0,
+
 	-- Defensive
 	-- baseLife = 100,
 	-- increasedLife = 0,
 	maxLife = 100,
 	lifeRegen = 1,
 	damageReduction = 0,
+
 	-- Utility
 	mobility = 15,
 	luck = 0,
@@ -87,10 +89,12 @@ local MOD_STATS: ModStats = {
 	critChance = 0,
 	critMultiplier = 0,
 	increasedAoe = 0,
+
 	-- Defense
 	maxLife = 0,
 	lifeRegen = 0,
 	damageReduction = 0,
+
 	-- Utility
 	mobility = 0,
 	luck = 0,
@@ -109,7 +113,7 @@ export type Player = {
 	sticks: number,
 	stones: number,
 	-- Score
-	kills: number,
+	highestKills: number,
 	destruction: number,
 	-- Level
 	level: number,
@@ -141,7 +145,7 @@ local DEFAULT_PLAYER: Player = {
 	stones = 0,
 
 	-- Score
-	kills = 0,
+	highestKills = 0,
 	destruction = 0,
 
 	-- Level

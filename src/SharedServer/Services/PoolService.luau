@@ -48,7 +48,7 @@ export type Pool = {
 -- #region POOLS
 
 --- Create, Register and Spawn a Pool of GameObject
-function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, size)
+function PoolService.CreatePool(name, definitionID, prefab, onSpawn, size)
 	-- TODO : Prevent Creating the same Pool
 
 	-- Create Pool
@@ -65,22 +65,12 @@ function PoolService.CreatePool(name, typeID, definitionID, prefab, onSpawn, siz
 
 	-- Register Pool
 	table.insert(PoolServiceState.pools, pool)
-
 	local poolIndex = #PoolServiceState.pools
-
-	-- Create Missing Table
-	-- local poolType = PoolServiceState.poolsLookups[typeID]
-
-	-- if not poolType then
-	-- 	PoolServiceState.poolsLookups[typeID] = {}
-	-- end
-
-	-- PoolServiceState.poolsLookups[typeID][definitionID] = poolIndex
 
 	-- Spawn Pool
 	warn("Spawn Pool : " .. pool.name .. ", Size = " .. size)
-	-- warn(", typeID = " .. typeID .. ", definitionID = " .. definitionID)
-	warn(", StartIndex = " .. startIndex .. ", EndIndex = " .. endIndex)
+	-- warn("definitionID = " .. definitionID)
+	-- warn(", StartIndex = " .. startIndex .. ", EndIndex = " .. endIndex)
 
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
 
@@ -161,6 +151,7 @@ end
 function PoolService.EnableNextInPool(poolIndex, parent, position)
 	-- Validation
 	local pool = PoolServiceState.pools[poolIndex]
+	assert(pool, "Enable Next in Pool : Pool Not Found")
 
 	local hasReachedMax = pool.activeCount >= pool.size
 

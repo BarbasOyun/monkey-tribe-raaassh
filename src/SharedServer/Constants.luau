@@ -86,7 +86,7 @@ local EcsStorages = {
 }
 
 -- PoolService
-local DISABLED_ENTITIES_FOLDER = workspace.DisabledEntities -- workspace.DisabledEntities ReplicatedStorage.DisabledEntities
+local DISABLED_ENTITIES_FOLDER = ReplicatedStorage.DisabledEntities -- workspace.DisabledEntities ReplicatedStorage.DisabledEntities
 local DISABLED_POSITION = Vector3.new(10_000, 0, 0) -- Test Pos = Vector3.new(0, 20, 0), Vector3.new(400, 0, 0), Vector3.new(10_000, 0, 0)
 
 -- Item Service

@@ -70,7 +70,7 @@ end
 -- #region AUGMENTS GENERATION
 
 --- Generate Weight for each Rarity based on Luck Value
-local function getWeights(luck)
+function AugmentsService.GetWeights(luck)
 	-- local weights = AUGMENTS.weights -- TODO : Per Augment type weight
 	local baseLuckValue = AUGMENTS.baseLuckValue
 	local luckPoints = AUGMENTS.luckPoints
@@ -95,7 +95,7 @@ local function getWeights(luck)
 end
 
 --- Get a Rarity based on Weights
-local function rollRarity(weights, totalWeight)
+function AugmentsService.RollRarity(weights, totalWeight)
 	local roll = math.random(0, totalWeight)
 	local count = 1
 	local currentCheck = weights[1]
@@ -110,7 +110,7 @@ local function rollRarity(weights, totalWeight)
 end
 
 --- Get a random valid augment of a Rarity
-local function getAugment(rarity, banList)
+function AugmentsService.GetAugment(rarity, banList)
 	-- Build Possible List
 	local optionList = Gears.DeepCopy(MOD_STATS_INDEX)
 
@@ -163,22 +163,27 @@ end
 
 --- Make the next set of Augments available
 function AugmentsService.GenerateAugments(player)
+	-- Get State
 	local userId = player.UserId
 	local state = Store:getState()
-	local playerData = state.players[userId]
+	local playerState = Selectors.PlayerState(state, userId)
 
-	local weights = getWeights(playerData.stats.luck)
+	local weights = AugmentsService.GetWeights(playerState.stats.luck)
 	local totalWeight = Gears.SumTable(weights)
 
+	-- Generate 3 Augments + Build Ban List
 	local banList = {} -- Avoid Generating the Same Augment Type
 
-	local augment1 = getAugment(rollRarity(weights, totalWeight))
+	local rarity1 = AugmentsService.RollRarity(weights, totalWeight)
+	local augment1 = AugmentsService.GetAugment(rarity1)
 	table.insert(banList, augment1.modStat)
 
-	local augment2 = getAugment(rollRarity(weights, totalWeight), banList)
+	local rarity2 = AugmentsService.RollRarity(weights, totalWeight)
+	local augment2 = AugmentsService.GetAugment(rarity2, banList)
 	table.insert(banList, augment2.modStat)
 
-	local augment3 = getAugment(rollRarity(weights, totalWeight), banList)
+	local rarity3 = AugmentsService.RollRarity(weights, totalWeight)
+	local augment3 = AugmentsService.GetAugment(rarity3, banList)
 
 	local augmentChoices = {
 		augment1,
@@ -207,7 +212,7 @@ end
 -- #region AUGMENT PICK STATE
 
 -- Send Augments to Client -> Display
-local function sendAugments(player)
+function AugmentsService.SendAugments(player)
 	local state = Store:getState()
 	local userId = player.UserId
 
@@ -216,7 +221,7 @@ local function sendAugments(player)
 	AugmentsService.Client.NewAugments:Fire(player, augmentChoices)
 end
 
-local function finishAugmentPick(player)
+function AugmentsService.FinishAugmentPick(player)
 	local userId = player.UserId
 
 	local state = Store:getState()
@@ -236,6 +241,7 @@ end
 
 -- Player start choosing Augment
 function AugmentsService.Client:StartAugmentPick(player)
+	-- Get State
 	local userId = player.UserId
 	local state = Store:getState()
 	local playerState = Selectors.PlayerState(state, userId)
@@ -258,27 +264,30 @@ function AugmentsService.Client:StartAugmentPick(player)
 	local patch = { state = CONSTANTS.PLAYER_STATES.pickingAugment }
 	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 
-	sendAugments(player)
+	AugmentsService.SendAugments(player)
 end
 
 function AugmentsService.Client:RerollAugment(player)
 	local state = Store:getState()
-	local playerData = state.players[player.UserId]
+	local playerState = Selectors.PlayerState(state, player.UserId)
 
-	if not playerData.currentAugments then
+	-- Validation
+	local rerollCost = 10 -- TODO : Per Player
+
+	if not playerState.currentAugments then
 		print(player.Name .. " No Augments ready")
 		return
 	end
 
-	if playerData.sticks.Value < 10 then
+	if playerState.sticks < rerollCost then
 		print(player.Name .. " Not enough Sticks")
 		return
 	end
 
 	-- Transaction
-	AugmentsService.SendAugment(player)
-
-	PlayerService:SubtractCurrency(player, PlayerService.CURRENCIES.sticks, 10)
+	AugmentsService.GenerateAugments(player)
+	AugmentsService.SendAugments(player)
+	PlayerService.SubtractCurrency(player, CONSTANTS.CURRENCIES.sticks, rerollCost)
 end
 
 --- Player Choose Augment -> Get Stats
@@ -319,11 +328,11 @@ function AugmentsService.Client:PickAugment(player, index)
 
 	-- Additional Levels
 	if waitingLevel > 0 then
-		sendAugments(player)
+		AugmentsService.SendAugments(player)
 		return
 	end
 
-	finishAugmentPick(player)
+	AugmentsService.FinishAugmentPick(player)
 end
 
 -- #endregion

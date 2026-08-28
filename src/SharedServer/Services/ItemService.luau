@@ -92,8 +92,7 @@ local stickOnUse = function(player, itemDefinition, itemModel, entityID)
 	print("Add Stick to : " .. player.Name)
 	PlayerService.AddCurrencyToPlayer(player, CONSTANTS.CURRENCIES.sticks, itemDefinition.stick)
 	ItemService.Client.GetOrb:Fire(player)
-	-- ItemService.RemoveGroundItem(itemModel)
-	ItemService.Disable(entityID)
+	PoolService.Disable(entityID)
 end
 
 local stoneOnUse = function(player, itemDefinition, itemModel)
@@ -302,8 +301,7 @@ function ItemService.CreatePool(item, size)
 		ItemService.ItemOnSpawn,
 	}
 
-	local _pool, poolID =
-		PoolService.CreatePool(item.definition.name, CONSTANTS.DefinedTypes.Items, definitionID, prefab, onSpawn, size)
+	local _pool, poolID = PoolService.CreatePool(item.definition.name, definitionID, prefab, onSpawn, size)
 
 	ItemServiceState.poolIDs[definitionID] = poolID
 end
@@ -409,6 +407,31 @@ function ItemService.GenerateLoot(player, enemyHumanoid)
 	local orbsRng = math.random(1, 3)
 
 	ItemService.EnableManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)
+end
+
+function ItemService.LootBananas(position)
+	local roll = math.random(0, 100)
+	local isLooting = roll <= ItemServiceState.bananaLootChance
+
+	if isLooting then
+		local amount = math.random(1, 3)
+		ItemService.EnableManyItem(CategoryRegistries[CategoryStore.Usable].Banana, position, amount)
+	end
+
+	return isLooting
+end
+
+-- TODO : DRY
+function ItemService.LootSticks(position)
+	local roll = math.random(0, 100)
+	local isLooting = roll <= ItemServiceState.stickLootChance
+
+	if isLooting then
+		local definitionID = CategoryRegistries[CategoryStore.Usable].Stick.id
+		ItemService.EnableLoot(definitionID, position)
+	end
+
+	return isLooting
 end
 
 --- Spawn a Random Item from a Category

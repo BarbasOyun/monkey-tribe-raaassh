@@ -176,6 +176,7 @@ function LevelService.LoadLevelDefinitions()
 	end)
 end
 
+-- FIXME : Start
 function LevelService.StatRandomStage()
 	local mapID = math.random(1, #MapsBuildings)
 	local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
@@ -290,8 +291,8 @@ function LevelService.FinishStage()
 	local newBuildingAmount = LevelState.buildingAmount + LevelDefinitions.BUILDINGS_INCREMENT
 	LevelState.buildingAmount = math.min(newBuildingAmount, LevelDefinitions.BUILDING_LIMIT)
 
-	-- Save Bananas
-	PlayerService.SaveAllBananaDelta()
+	-- Save Datas
+	PlayerService.SaveGameData()
 
 	-- Update Game State
 	local state = Store:getState()
@@ -359,18 +360,17 @@ function LevelService.DamageBuilding(building: Part, damage: number)
 end
 
 function LevelService.DestroyBuilding(building: Part)
+	-- Cleanup Data
 	LevelState.buildingsHealth[building] = nil
 
-	-- Spawn Bananas
-	local chance = 30
-	local roll = math.random(0, 100)
+	-- Roll Loot : Bananas or Sticks
+	local isLooting = ItemService.LootBananas(building.CFrame.Position)
 
-	if roll <= chance then
-		local pos = building.CFrame.Position
-		local amount = math.random(1, 3)
-		ItemService.EnableManyItem(CategoryRegistries[CategoryStore.Usable].Banana, pos, amount)
+	if not isLooting then
+		ItemService.LootSticks(building.CFrame.Position)
 	end
 
+	-- Destroy
 	building:Destroy()
 	LevelService.ProgressStage()
 end
