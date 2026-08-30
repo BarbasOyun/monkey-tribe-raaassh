@@ -69,7 +69,7 @@ end
 -- TODO : Set Circular Limits
 
 function LevelService.IsOob(state, point: Vector3)
-	local yLimit = 100
+	local yLimit = LevelConst.Y_LIMIT
 
 	if point.Y <= -yLimit or yLimit <= point.Y then
 		return true
@@ -91,8 +91,11 @@ function LevelService.KeepPointInLimits(point: Vector3)
 	local state = Store:getState()
 	local usePoint = point
 
-	local minLimit = state.gameState.minLimit
-	local maxLimit = state.gameState.maxLimit
+	local minOffSet = Vector2.new(5, 5)
+	local maxOffSet = Vector2.new(-5, -5)
+
+	local minLimit = state.gameState.minLimit + minOffSet
+	local maxLimit = state.gameState.maxLimit + maxOffSet
 
 	local xValue = math.clamp(usePoint.X, minLimit.X, maxLimit.X)
 	local zValue = math.clamp(usePoint.Z, minLimit.Y, maxLimit.Y)
@@ -176,9 +179,15 @@ function LevelService.LoadLevelDefinitions()
 	end)
 end
 
--- FIXME : Start
-function LevelService.StatRandomStage()
+function LevelService.StartRandomStage()
 	local mapID = math.random(1, #MapsBuildings)
+
+	-- Prevent rolling the same map
+	local isSameMap = mapID == LevelState.currentMapId
+	if isSameMap then
+		mapID = math.max((mapID + 1) % #MapsBuildings, 1)
+	end
+
 	local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
 
 	LevelService.StartStage(mapID, buildingsAmount)
@@ -186,13 +195,15 @@ end
 
 --- Start a New Stage
 function LevelService.StartStage(mapID, buildingsAmount)
+	local state = Store:getState()
+
 	if not LevelDefinitions then
 		warn("Level Definition not loaded -> Call LevelService.LoadLevelDefinitions()")
 		return
 	end
 
 	LevelState.currentMapId = mapID
-	warn("Start Stage MapID = " .. LevelState.currentMapId)
+	-- warn("Start Stage MapID = " .. LevelState.currentMapId)
 
 	-- Generate Map
 	LevelService.GenerateMap(LevelState.currentMapId, LevelState.stageRadius, buildingsAmount)
@@ -206,6 +217,9 @@ function LevelService.StartStage(mapID, buildingsAmount)
 	LevelService.GenerateWeapons(randomWeaponAmount)
 
 	LevelService.GenerateEvents()
+
+	-- Enemy Level Catchup
+	EnemyService.CatchupLvl(state, state.gameState.currentStage)
 end
 
 function LevelService.ResetLevel()
@@ -281,7 +295,8 @@ function LevelService.StartStageCountdown()
 end
 
 function LevelService.FinishStage()
-	warn("Finish Stage")
+	-- warn("Finish Stage")
+
 	-- Disable Countdown
 	LevelService.Client.StageCountDownUpdate:FireAll(-1)
 	LevelState.countdownHandle:Disconnect()
@@ -291,7 +306,7 @@ function LevelService.FinishStage()
 	local newBuildingAmount = LevelState.buildingAmount + LevelDefinitions.BUILDINGS_INCREMENT
 	LevelState.buildingAmount = math.min(newBuildingAmount, LevelDefinitions.BUILDING_LIMIT)
 
-	-- Save Datas
+	-- Save Data
 	PlayerService.SaveGameData()
 
 	-- Update Game State
@@ -305,7 +320,14 @@ function LevelService.FinishStage()
 
 	-- Reset + Next Stage
 	LevelService.ResetLevel()
-	LevelService.StatRandomStage()
+	LevelService.StartRandomStage()
+end
+
+function LevelService.StartGameTimer()
+	-- warn("Start Game Timer")
+	PlayerService.SecondPassed:Connect(function(state)
+		LevelService.GameTimer()
+	end)
 end
 
 function LevelService.GameTimer()
@@ -317,13 +339,6 @@ function LevelService.GameTimer()
 	if isLvlBreakpointReached then
 		EnemyService.LevelUpEnemies()
 	end
-end
-
-function LevelService.StartGameTimer()
-	-- warn("Start Game Timer")
-	PlayerService.SecondPassed:Connect(function(state)
-		LevelService.GameTimer()
-	end)
 end
 
 -- #endregion
@@ -610,7 +625,7 @@ end
 
 --- Scatter random weapons in the Map
 function LevelService.GenerateWeapons(amount)
-	warn("Generate " .. amount .. " Weapons")
+	-- warn("Generate " .. amount .. " Weapons")
 
 	local buildings = table.clone(LevelState.currentBuildings)
 

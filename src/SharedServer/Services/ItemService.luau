@@ -398,11 +398,11 @@ end
 -- #region ADVANCED
 
 --- Generate Loot of a Killed Enemy
-function ItemService.GenerateLoot(player, enemyHumanoid)
+function ItemService.GenerateLoot(player, character)
 	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
 
-	-- local pos = enemyHumanoid.Parent:GetPivot().Position
-	local pos = enemyHumanoid.CFrame.Position
+	-- local pos = character:GetPivot().Position
+	local pos = character.CFrame.Position
 	local orbsRng = math.random(1, 3)
 
 	ItemService.EnableManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)

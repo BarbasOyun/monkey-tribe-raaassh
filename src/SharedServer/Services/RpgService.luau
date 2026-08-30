@@ -338,14 +338,14 @@ RpgService.statsCalculation = {
 		local weaponData = playerState.weaponData
 
 		local weaponAttackSpeed = weaponData and weaponData.attackSpeed or 1
-
-		local totalModStat = RpgService.CalcModStat(metaUpgrades, augments, modStat)
+		local totalIncreasedAttackSpeed = RpgService.CalcModStat(metaUpgrades, augments, modStat)
 
 		-- Calc
-		local attackSpeed = weaponAttackSpeed * Gears.IncreaseToMultiplier(totalModStat)
+		local calcAttackSpeed = weaponAttackSpeed * Gears.IncreaseToMultiplier(totalIncreasedAttackSpeed)
+		local attackSpeed = math.min(RpgConst.ATTACK_SPEED_CAP, calcAttackSpeed)
 		local animationTime = 1 / attackSpeed
 
-		local patch = { [modStat] = totalModStat, [calcStat] = attackSpeed, animationTime = animationTime }
+		local patch = { [modStat] = totalIncreasedAttackSpeed, [calcStat] = attackSpeed, animationTime = animationTime }
 
 		return patch
 	end,
@@ -483,7 +483,8 @@ RpgService.statsCalculation = {
 		local humanoid = character.Humanoid
 
 		humanoid.WalkSpeed = totalMobility
-		humanoid.JumpPower = 40 + totalMobility / 2
+		-- humanoid.JumpPower = 40 + totalMobility * 0.6
+		humanoid.JumpHeight = 7.6 + totalMobility * 0.2
 
 		local patch = { [modStat] = totalMobility }
 

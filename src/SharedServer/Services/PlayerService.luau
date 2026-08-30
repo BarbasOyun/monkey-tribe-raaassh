@@ -330,7 +330,7 @@ end
 -- TODO GameService + Per Place Services loading
 
 function PlayerService.GameOver()
-	print("Game Over -> Saving Bananas & Going back to Hub")
+	print("GAME OVER -> Save Data & Going back to Hub")
 	local players = Players:GetPlayers()
 
 	PlayerService.SaveGameData()
@@ -341,6 +341,7 @@ function PlayerService.GameOver()
 	end)
 end
 
+--- Save to DB in game Data
 function PlayerService.SaveGameData()
 	local state = Store:getState()
 
@@ -364,7 +365,7 @@ function PlayerService.SaveBananaDelta(state, player)
 	local bananasDelta = playerState.bananas - playerState.bananasSavedToDb
 
 	if bananasDelta > 0 then
-		warn(player.Name .. " Increment " .. bananasDelta .. " Bananas on DB")
+		-- warn(player.Name .. " Increment " .. bananasDelta .. " Bananas on DB")
 		PlayerService.IncrementDbBananas(userId, bananasDelta)
 	end
 
@@ -375,7 +376,7 @@ end
 
 --- CheckGameOver on player Death
 function PlayerService.SetupGameOver(player)
-	-- Players.CharacterAutoLoads = false
+	Players.CharacterAutoLoads = false
 
 	local function onCharacterAdded(character)
 		local humanoid = character:WaitForChild("Humanoid")
@@ -412,6 +413,8 @@ function PlayerService.CheckGameOver()
 
 	local deadPlayersCount = PlayerService.CountDeadPlayers()
 
+	warn("Dead Players Count = " .. deadPlayersCount .. " Player Count = " .. #players)
+
 	if deadPlayersCount >= #players then
 		PlayerService.GameOver()
 	end
@@ -421,22 +424,30 @@ end
 function PlayerService.ResurrectAll()
 	for _, player in pairs(Players:GetPlayers()) do
 		if player.character.Humanoid.Health <= 0 then
+			local userId = player.UserId
+
 			player:LoadCharacterAsync()
+
+			-- TODO : Stich Patches
+			local patch = { isDead = true }
+			Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+			PlayerService.Client.PatchPlayer:Fire(player, patch) -- TODO : Send to every Players
 		end
 	end
 end
 
 function PlayerService.KillPlayer(player)
-	print(player.Name .. " died -> Waiting Next Stage to respawn...")
+	player.character.Humanoid.Health = 0
+
+	-- print(player.Name .. " died -> Waiting Next Stage to respawn...")
 	local userId = player.UserId
 
 	local patch = { isDead = true }
 	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+	PlayerService.Client.PatchPlayer:Fire(player, patch) -- TODO : Send to every Players
 
 	PlayerService.PlayerDied:Fire()
-	-- Events.PlayerDied:FireClient(player) -- TODO : Client Event
 
-	player.character.Humanoid.Health = 0
 	PlayerService.CheckGameOver()
 end
 
@@ -569,7 +580,7 @@ function PlayerService.EnemiesDetection(state, player)
 	-- Detect Enemy Humanoids
 	-- local detectedEnemies = Gears.FindUniqueHumanoids(hits)
 
-	-- Custom
+	-- Detect Mesh / Model Enemy -> use part.Parent = weaponHit
 	local detectedEnemies = hits
 
 	-- Calculate Distance Player to Enemy
@@ -577,12 +588,12 @@ function PlayerService.EnemiesDetection(state, player)
 		-- local enemy = humanoid.Parent :: Model
 		-- local enemyPos = enemy.Torso.CFrame.Position
 
-		-- Custom
 		local enemy = humanoid
 		local enemyPos = enemy.CFrame.Position
 
 		local playerToEnemyDirection = enemyPos - playerPos
 
+		-- Register Distance
 		local playerToEnemyDistance = playerToEnemyDirection.Magnitude :: number
 		PlayerServiceState.playersDetections[userId][enemy] = playerToEnemyDistance
 

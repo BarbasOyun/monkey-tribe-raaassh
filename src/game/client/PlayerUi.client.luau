@@ -15,7 +15,7 @@ local EventsIcons = LevelDefinitions.EventsIcons
 -- Get State
 local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
 local Store = RoduxStore.Store
--- local Selectors = RoduxStore.Selectors
+local Selectors = RoduxStore.Selectors
 
 -- Get MutState
 local MutState = require(ReplicatedStorage.Shared.ClientMutState)
@@ -88,6 +88,21 @@ local EnemyKills = RoactRodux.connect(function(state)
 	}
 end)(textLabel)
 
+-- Stage Countdown
+local stageCountdownProps = {
+	position = UDim2.fromScale(0.45, 0.175),
+	size = UDim2.fromScale(0.1, 0.1),
+	text = "10",
+	textTransparency = 1,
+}
+
+-- GameTimer
+local gameTimerProps = {
+	position = UDim2.fromScale(0.1, 0.0),
+	size = UDim2.fromScale(0.05, 0.05),
+	text = "00:00",
+}
+
 -- Sticks Display
 sticksImageProps = {
 	position = UDim2.fromScale(0.77, 0.175),
@@ -110,20 +125,42 @@ sticksTextProps = RoactRodux.connect(function(state, props)
 	}
 end)(textLabel)
 
--- Stage Countdown
-local stageCountdownProps = {
-	position = UDim2.fromScale(0.45, 0.175),
-	size = UDim2.fromScale(0.1, 0.1),
-	text = "10",
-	textTransparency = 1,
-}
+-- Death Panel
+local function deathPanel(props)
+	if not props.isVisible then
+		return nil
+	end
 
--- GameTimer
-local gameTimerProps = {
-	position = UDim2.fromScale(0.1, 0.0),
-	size = UDim2.fromScale(0.05, 0.05),
-	text = "00:00",
-}
+	return Roact.createElement("Frame", {
+		Position = UDim2.fromScale(0.125, 0.0),
+		Size = UDim2.fromScale(0.75, 0.9),
+		BackgroundTransparency = 0.5,
+	}, {
+		Title = textLabel({
+			text = "You are Dead\n Wait for next Stage to Respawn",
+			position = UDim2.fromScale(0.125, 0.05),
+			size = UDim2.fromScale(0.75, 0.25),
+			zIndex = 5,
+			textColor = Color3.fromRGB(172, 30, 30),
+		}),
+	})
+end
+
+local DeathPanel = RoactRodux.connect(function(state, props)
+	local isVisible = false
+
+	local playerState = Selectors.PlayerState(state, MutState.player.UserId)
+
+	if playerState then
+		isVisible = playerState.isDead
+	end
+
+	return {
+		isVisible = isVisible,
+	}
+end)(deathPanel)
+
+-- TODO : Loading Screen
 
 -- #endregion
 
@@ -304,6 +341,7 @@ local function mainGui()
 		-- Panels
 		LevelUpLabel = Roact.createElement(LevelUpLabel),
 		AugmentPanel = Roact.createElement(AugmentPanel),
+		DeathPanel = Roact.createElement(DeathPanel),
 	})
 end
 

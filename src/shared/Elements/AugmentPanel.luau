@@ -115,7 +115,7 @@ local function cardsPanel(props)
 	end
 
 	return Roact.createElement("Frame", {
-		Position = UDim2.fromScale(-0.05, 0.3),
+		Position = UDim2.fromScale(0, 0.3),
 		Size = UDim2.fromScale(1.0, 0.7),
 		BackgroundTransparency = 1,
 	}, {
@@ -138,7 +138,7 @@ local function augmentPanel(props)
 	}
 
 	return Roact.createElement("Frame", {
-		Position = UDim2.fromScale(0.125, 0.0),
+		Position = UDim2.fromScale(0.05125, 0.0),
 		Size = UDim2.fromScale(0.75, 0.9),
 		BackgroundTransparency = 1,
 	}, {

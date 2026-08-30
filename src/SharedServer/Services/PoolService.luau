@@ -60,7 +60,7 @@ function PoolService.CreatePool(name, definitionID, prefab, onSpawn, size)
 	local poolIndex = #PoolServiceState.pools
 
 	-- Spawn Pool
-	warn("Spawn Pool : " .. pool.name .. ", Size = " .. size)
+	-- warn("Spawn Pool : " .. pool.name .. ", Size = " .. size)
 	-- warn("definitionID = " .. definitionID)
 	-- warn(", StartIndex = " .. startIndex .. ", EndIndex = " .. endIndex)
 

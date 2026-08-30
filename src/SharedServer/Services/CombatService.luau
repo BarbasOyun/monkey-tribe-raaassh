@@ -89,62 +89,6 @@ end
 
 -- #region HIT DETECTION + DMG
 
---- Return a table of every unique humanoid in a Sphere
-function CombatService.HitsDetection(position, radius, param, charactersBanned)
-	local hits = workspace:GetPartBoundsInRadius(position, radius, param)
-	local humanoidsHit = {} -- Unique Humanoids
-	local buildingsHit = {} -- Parts
-
-	-- Debug HitZone
-	-- Gears.ExecuteFor(0.5, function()
-	-- 	Gears.DrawSphere(position, radius)
-	-- end)
-
-	if #hits <= 0 then
-		return humanoidsHit, buildingsHit
-	end
-
-	for _, hit in pairs(hits) do
-		-- local humanoid = Gears.FindHumanoidFromPart(hit)
-
-		-- -- Hit Building
-		-- if not humanoid then
-		-- 	table.insert(buildingsHit, hit)
-		-- 	continue
-		-- end
-
-		-- Hit Humanoid
-		-- local isInBanList = charactersBanned and table.find(charactersBanned, humanoid.Parent)
-		-- local isValid = humanoid and not table.find(humanoidsHit, humanoid) and not isInBanList
-
-		-- if not isValid then
-		-- 	continue
-		-- end
-
-		-- table.insert(humanoidsHit, humanoid)
-
-		-- Custom
-		local isEnemy = hit.Parent == CONSTANTS.WEAPON_HIT_FOLDER
-
-		if not isEnemy then
-			table.insert(buildingsHit, hit)
-			continue
-		end
-
-		-- Hit Humanoid
-		local isInBanList = charactersBanned and table.find(charactersBanned, isEnemy)
-		local isValid = hit and not table.find(humanoidsHit, hit) and not isInBanList
-
-		if not isValid then
-			continue
-		end
-
-		table.insert(humanoidsHit, hit)
-	end
-
-	return humanoidsHit, buildingsHit
-end
-
 -- Context = After Validation
 function CombatService.AttackHit(player, playerStats, weaponState)
 	-- warn("Attack Hit AOE = " .. playerStats.aoe)
@@ -154,13 +98,14 @@ function CombatService.AttackHit(player, playerStats, weaponState)
 
 	-- Hits Detection
 	local banList = { character }
-	local humanoidsHit, buildingsHit =
+	local meshEnemyHit, buildingsHit =
 		CombatService.HitsDetection(attackPosition, playerStats.aoe, CombatState.weaponHitParam, banList)
 
 	local isCrit = CombatService.RollCrit(playerStats)
 	local hasHitBuilding = #buildingsHit > 0
+	local hasAttackHit = #meshEnemyHit > 0 or #buildingsHit > 0
 
-	if #humanoidsHit <= 0 and #buildingsHit <= 0 then
+	if not hasAttackHit then
 		CombatService.AttackFeedback(weaponState, isCrit, hasHitBuilding)
 		return
 	end
@@ -174,14 +119,108 @@ function CombatService.AttackHit(player, playerStats, weaponState)
 		LevelService.DamageBuilding(building, damage)
 	end
 
-	-- Damage Humanoids
-	for _, humanoid in pairs(humanoidsHit) do
-		-- local entityID = humanoid.Parent:GetAttribute("EntityId")
-		local entityID = humanoid:GetAttribute("EntityId")
-		EnemyService.DamageEnemy(player, entityID, humanoid, damage)
+	-- Damage Mesh Enemy
+	for _, enemy in pairs(meshEnemyHit) do
+		local entityID = enemy:GetAttribute("EntityId")
+		EnemyService.DamageEnemy(player, entityID, enemy, damage)
 	end
 
+	-- Damage Model Enemy
+	-- for _, humanoid in pairs(humanoidsHit) do
+	-- 	local entityID = humanoid.Parent:GetAttribute("EntityId")
+	-- 	EnemyService.DamageEnemy(player, entityID, humanoid.Parent, damage)
+	-- end
+
 	CombatService.AttackFeedback(weaponState, isCrit, hasHitBuilding)
+end
+
+function CombatService.GetAttackPosition(player, weaponState)
+	local userId = player.UserId
+	local character = player.Character or player.CharacterAdded:Wait()
+	local playerPos = character.HumanoidRootPart.CFrame.Position
+
+	local attackPosition = weaponState.attackPoint.WorldCFrame.Position
+
+	-- Aim toward Closet Target
+	local closestEnemy = CombatState.playersClosestEnemy[userId]
+	local closestBuilding = CombatState.playersClosestBuilding[userId]
+
+	local hasTargetClose = closestEnemy or closestBuilding
+
+	if hasTargetClose then
+		local targetPos
+
+		if closestEnemy then
+			-- targetPos = closestEnemy.Head.CFrame.Position
+			-- targetPos = closestEnemy.HeadPoint.CFrame.Position
+			targetPos = closestEnemy.CFrame.Position
+		elseif closestBuilding then
+			targetPos = closestBuilding.CFrame.Position
+		end
+
+		local playerToTargetNormal = (targetPos - playerPos).Unit
+		local hitDistance = (weaponState.attackPoint.WorldCFrame.Position - playerPos).Magnitude
+		attackPosition = playerPos + playerToTargetNormal * hitDistance
+	end
+
+	-- Adjust VFX pos
+	if weaponState.attackVFX.Parent then
+		local handle = weaponState.attackVFX.Parent.Parent
+		local localPosition = handle.CFrame:PointToObjectSpace(attackPosition)
+		weaponState.attackVFX.Parent.CFrame = CFrame.new(localPosition)
+	end
+
+	return attackPosition
+end
+
+--- Return a table of every unique humanoid in a Sphere
+function CombatService.HitsDetection(position, radius, param, charactersBanned)
+	local hits = workspace:GetPartBoundsInRadius(position, radius, param)
+	local meshEnemy = {}
+	-- local humanoidsHit = {} -- Unique Humanoids
+	local buildingsHit = {} -- Parts
+
+	-- DEBUG Hit zone
+	-- Gears.ExecuteFor(0.5, function()
+	-- 	Gears.DrawSphere(position, radius)
+	-- end)
+
+	if #hits <= 0 then
+		-- return meshEnemy, humanoidsHit, buildingsHit
+		return meshEnemy, buildingsHit
+	end
+
+	for _, hit in pairs(hits) do
+		local isEnemy = hit.Parent == CONSTANTS.WEAPON_HIT_FOLDER
+
+		-- Register Building
+		if not isEnemy then
+			table.insert(buildingsHit, hit)
+			continue
+		end
+
+		-- Register Model Enemy
+		-- local humanoid = Gears.FindHumanoidFromPart(hit)
+		-- if humanoid then
+		-- 	local isInBanList = charactersBanned and table.find(charactersBanned, humanoid.Parent)
+		-- 	local isValid = not table.find(humanoidsHit, humanoid) and not isInBanList
+		-- 	table.insert(humanoidsHit, humanoid)
+		-- 	continue
+		-- end
+
+		-- Register Mesh Enemies
+		local isInBanList = charactersBanned and table.find(charactersBanned, hit)
+		local isValid = hit and not table.find(meshEnemy, hit) and not isInBanList
+
+		if not isValid then
+			continue
+		end
+
+		table.insert(meshEnemy, hit)
+	end
+
+	-- return meshEnemy, humanoidsHit, buildingsHit
+	return meshEnemy, buildingsHit
 end
 
 function CombatService.AttackFeedback(weaponData, isCrit, hasHitBuilding)
@@ -226,35 +265,6 @@ function CombatService.RollAttackDamage(playerStats, isCrit)
 	return damage
 end
 
-function CombatService.GetAttackPosition(player, weaponState)
-	local userId = player.UserId
-	local character = player.Character or player.CharacterAdded:Wait()
-	local playerPos = character.HumanoidRootPart.CFrame.Position
-
-	local attackPosition = weaponState.attackPoint.WorldCFrame.Position
-
-	-- Aim toward Closet Enemy
-	local closestEnemy = CombatState.playersClosestEnemy[userId]
-
-	if closestEnemy then
-		-- local targetPart = closestEnemy.Head
-		local targetPart = closestEnemy
-		local playerToEnemyNormal = (targetPart.CFrame.Position - playerPos).Unit
-
-		local hitDistance = (weaponState.attackPoint.WorldCFrame.Position - playerPos).Magnitude
-		attackPosition = playerPos + playerToEnemyNormal * hitDistance
-	end
-
-	-- Adjust VFX pos
-	if weaponState.attackVFX.Parent then
-		local handle = weaponState.attackVFX.Parent.Parent
-		local localPosition = handle.CFrame:PointToObjectSpace(attackPosition)
-		weaponState.attackVFX.Parent.CFrame = CFrame.new(localPosition)
-	end
-
-	return attackPosition
-end
-
 function CombatService.IncrementCombo(player, weaponData)
 	local userId = player.UserId
 	CombatState.comboIndexes[userId] = (CombatState.comboIndexes[userId] + 1) % weaponData.maxCombo
@@ -279,6 +289,7 @@ end
 -- 3) Animation = Clients
 -- 4) Attack Result = Server
 
+--- Start a Player Attack
 function CombatService.StartAttackPlayer(player, attackSpeed)
 	local userId = player.UserId
 
@@ -303,7 +314,7 @@ function CombatService.StartAttackPlayer(player, attackSpeed)
 	CombatService.Client.startAttack:Fire(player, comboId, attackSpeed)
 end
 
---- 2) Start a Player Attack (Server Validation)
+--- 2) Initiate a Player Attack + Server Validation
 function CombatService.StartAttack(state, player, playerStats, weaponState)
 	-- Validation
 	local userId = player.UserId
@@ -331,9 +342,6 @@ function CombatService.StartAttack(state, player, playerStats, weaponState)
 		if missingTime <= 0.1 and not isBuffering then
 			-- print("Attack Buffer: " .. player.Name)
 			CombatState.attackBuffer[userId] = missingTime -- Lock Input Buffer
-			-- task.delay(missingTime, function() -- FIXME : Perf
-			-- 	startAttack()
-			-- end)
 		end
 
 		return
@@ -341,6 +349,15 @@ function CombatService.StartAttack(state, player, playerStats, weaponState)
 
 	-- print("Attack non buffer: " .. player.Name)
 	CombatService.StartAttackPlayer(player, playerStats.attackSpeed)
+end
+
+--- Client (Player Input) Initial Call
+function CombatService.Client:StartAttack(player)
+	local state = Store:getState()
+	local playerData = state.players[player.UserId]
+	local playerStats, weaponData = Selectors.PlayerStats(playerData)
+
+	CombatService.StartAttack(state, player, playerStats, weaponData)
 end
 
 function CombatService.BufferUpdate(state, dt)
@@ -387,15 +404,6 @@ function CombatService.Client:AttackCallback(player)
 	-- Attack Result
 	CombatService.AttackHit(player, playerStats, weaponData)
 	CombatService.IncrementCombo(player, weaponData)
-end
-
---- Client (Player Input) Initial Call
-function CombatService.Client:StartAttack(player)
-	local state = Store:getState()
-	local playerData = state.players[player.UserId]
-	local playerStats, weaponData = Selectors.PlayerStats(playerData)
-
-	CombatService.StartAttack(state, player, playerStats, weaponData)
 end
 
 -- #endregion

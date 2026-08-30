@@ -57,7 +57,7 @@ local PlayerServiceState = {
 -- Level Service State
 local LevelState = {
 	-- Map
-	currentMapId = 1,
+	currentMapId = 0,
 	addMusicHandle = nil,
 	addMusicHandles = {},
 	stageRadius = 200,
@@ -179,7 +179,7 @@ local EnemyServiceState = {
 	poolIDs = {},
 
 	-- Stream Spawn
-	streamSpawnNbr = 2,
+	streamSpawnNbr = 1,
 	streamSpawnNbrRange = 1,
 	streamSpawnDeltaTime = 7,
 	streamSpawnDeltaTimeRange = 2,
@@ -188,6 +188,8 @@ local EnemyServiceState = {
 
 	-- SwarmSpawn
 	swarmWaves = 0,
+	swarmAmount = 2,
+	swarmAmountRange = 1,
 }
 
 -- AugmentState
