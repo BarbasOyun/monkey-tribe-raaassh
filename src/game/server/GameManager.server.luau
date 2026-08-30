@@ -32,7 +32,7 @@ local function createPools()
 	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].Stick, 50)
 
 	-- Load Enemies
-	EnemyService.CreatePool(Enemies.Robot, 150)
+	EnemyService.CreatePool(Enemies.Robot, 100)
 end
 
 local function setupPlayers()

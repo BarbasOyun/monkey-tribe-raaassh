@@ -80,7 +80,7 @@ local function rerollButton()
 	end
 
 	return Roact.createElement("TextButton", {
-		Position = UDim2.fromScale(0.95, 0.5), -- UDim2.fromScale(0.75, 0.175)
+		Position = UDim2.fromScale(1.05, 0.5), -- UDim2.fromScale(0.75, 0.175)
 		Size = UDim2.fromScale(0.15, 0.15),
 		Text = "Reroll \n Cost : 10 Sticks",
 		[Roact.Event.MouseButton1Click] = onClick,
@@ -115,7 +115,7 @@ local function cardsPanel(props)
 	end
 
 	return Roact.createElement("Frame", {
-		Position = UDim2.fromScale(0.0, 0.3),
+		Position = UDim2.fromScale(-0.05, 0.3),
 		Size = UDim2.fromScale(1.0, 0.7),
 		BackgroundTransparency = 1,
 	}, {

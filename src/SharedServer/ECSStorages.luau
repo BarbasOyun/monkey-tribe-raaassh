@@ -253,7 +253,7 @@ end
 -- #endregion
 
 -- #region LIFE BAR ID = 3
--- Components Dependancies : Gameobject, Unit
+-- Components Dependencies : Gameobject, Unit
 
 local LifeBarStorage = Storage.new()
 
@@ -283,7 +283,8 @@ function LifeBarStorage.AddComponentToEntity(entityId, EcsService)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 	lifeBar.Parent = gameObject
 
-	lifeBar.Adornee = gameObject.Head
+	-- lifeBar.Adornee = gameObject.Head
+	lifeBar.Adornee = gameObject.HeadPoint
 
 	local unitStorageState = UnitStorage.GetState()
 	local unitId = UnitStorage.GetComponentId(unitStorageState, entityId)

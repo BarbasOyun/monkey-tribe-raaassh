@@ -116,8 +116,11 @@ local RpgConst = {
 -- #region ENEMY SERVICE CONST
 
 local EnemyConst = {
-	Enemies = EnemyDefinitions.Enemies,
-	EnemiesStats = EnemyDefinitions.EnemiesStats,
+	Enemies = {
+		Dummy = 1,
+		Robot = 2,
+	},
+	EnemiesStats = EnemyDefinitions,
 	EnemiesPrefabs = {
 		PREFABS_FOLDER.Enemies:FindFirstChild("Dummy"),
 		PREFABS_FOLDER.Enemies:FindFirstChild("Mobot"),
@@ -143,8 +146,8 @@ local EnemyConst = {
 
 	-- Stats Scaling
 	ENEMY_LVL_UP_BREAKPOINT = 30,
-	DAMAGE_MULTIPLIER = 1.2,
-	LIFE_MULTIPLIER = 1.2,
+	DAMAGE_MULTIPLIER = 1.35,
+	LIFE_MULTIPLIER = 1.35,
 	MOVEMENT_SPEED_INCREMENT = 0.2,
 }
 

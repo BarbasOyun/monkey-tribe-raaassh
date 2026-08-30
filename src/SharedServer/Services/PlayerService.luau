@@ -250,9 +250,10 @@ function PlayerService.SaveHighestKills(player)
 	local playerState = state.players[userId]
 
 	local totalKills = state.gameState.enemiesDeathCount
-	warn(player.Name .. " Save Highest Kills = " .. totalKills)
 
 	if totalKills > playerState.highestKills then
+		warn(player.Name .. " Save New Highest Kills = " .. totalKills)
+
 		pcall(function()
 			KillsData:SetAsync(userId, totalKills)
 		end)
@@ -566,17 +567,19 @@ function PlayerService.EnemiesDetection(state, player)
 	)
 
 	-- Detect Enemy Humanoids
-	local detectedEnemies = Gears.FindUniqueHumanoids(hits)
-	-- local detectedEnemies = hits
+	-- local detectedEnemies = Gears.FindUniqueHumanoids(hits)
+
+	-- Custom
+	local detectedEnemies = hits
 
 	-- Calculate Distance Player to Enemy
 	for _, humanoid in pairs(detectedEnemies) do
-		local enemy = humanoid.Parent :: Model
-		local enemyPos = enemy.Torso.CFrame.Position
+		-- local enemy = humanoid.Parent :: Model
+		-- local enemyPos = enemy.Torso.CFrame.Position
 
 		-- Custom
-		-- local enemy = humanoid
-		-- local enemyPos = enemy.CFrame.Position
+		local enemy = humanoid
+		local enemyPos = enemy.CFrame.Position
 
 		local playerToEnemyDirection = enemyPos - playerPos
 
@@ -592,18 +595,26 @@ function PlayerService.DetectEnemy(enemy)
 	for _, player in Players:GetPlayers() do
 		local userId = player.UserId
 
-		local enemyPos = enemy.Torso.CFrame.Position
+		-- Enemy + Player Pos
+		-- local enemyPos = enemy.Torso.CFrame.Position
+		local enemyPos = enemy.CFrame.Position
 
 		local character = player.Character or player.CharacterAdded:Wait()
 		local torso = character.UpperTorso or character.Torso
 		local playerPos = torso.CFrame.Position
 
+		-- Calc Distance
 		local playerToEnemyDirection = enemyPos - playerPos
-
 		local playerToEnemyDistance = playerToEnemyDirection.Magnitude :: number
+
+		-- Register Detection
 		PlayerServiceState.playersDetections[userId][enemy] = playerToEnemyDistance
 
-		-- TODO : Calculate Normals
+		-- local isInRange = playerToEnemyDistance <= CONSTANTS.ENEMIES_DETECTION_RADIUS
+		-- if isInRange then
+		-- 	PlayerServiceState.playersDetections[userId][enemy] = playerToEnemyDistance
+		-- 	-- TODO : Calculate Normals
+		-- end
 	end
 end
 

@@ -57,9 +57,9 @@ local DEFAULT_STATS: Stats = {
 	mobility = 15,
 	luck = 0,
 	increasedXp = 0,
-	basePickupRange = 10,
+	basePickupRange = 12,
 	increasedPickupRange = 0,
-	pickupRange = 10,
+	pickupRange = 15,
 	-- ModStats?
 }
 
@@ -476,10 +476,10 @@ local AUGMENTS = {
 		legendary = 20,
 	},
 	increasedPickupRange = {
-		uncommon = 10,
-		rare = 15,
-		epic = 20,
-		legendary = 25,
+		uncommon = 15,
+		rare = 20,
+		epic = 25,
+		legendary = 32,
 	},
 }
 

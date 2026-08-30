@@ -1,18 +1,10 @@
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- local Gears = require(ReplicatedStorage.Shared.Gears)
-
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 local EnemyConst = CONSTANTS.EnemyConst
 local Enemies = EnemyConst.Enemies
-
--- Get State
--- local RoduxStore = require(ReplicatedStorage.Shared.RoduxStore)
--- local Store = RoduxStore.Store
--- local StoreActions = RoduxStore.Actions
--- local Selectors = RoduxStore.Selectors
 
 -- Get Mutable State
 local MutState = require(ServerScriptService.SharedServer.MutableState)
@@ -91,15 +83,13 @@ function PoolService.SpawnEntity(GameObjectStorage, definitionID, prefab, onSpaw
 
 	-- OnSpawn Functions
 	if onSpawn then
-		local onSpawnCtx = {
+		local spawnCtx = {
 			entityId = entityId,
 			definitionId = definitionID,
 			model = model,
 		}
 
-		for i = 1, #onSpawn do
-			onSpawn[i](onSpawnCtx)
-		end
+		onSpawn(spawnCtx)
 	end
 
 	-- Disable

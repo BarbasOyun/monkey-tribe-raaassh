@@ -297,9 +297,7 @@ end
 function ItemService.CreatePool(item, size)
 	local definitionID = item.id
 	local prefab = item.prefab
-	local onSpawn = {
-		ItemService.ItemOnSpawn,
-	}
+	local onSpawn = ItemService.ItemOnSpawn
 
 	local _pool, poolID = PoolService.CreatePool(item.definition.name, definitionID, prefab, onSpawn, size)
 
@@ -403,7 +401,8 @@ end
 function ItemService.GenerateLoot(player, enemyHumanoid)
 	-- TODO : Generate Loot based on : PlayerStats, Enemy type + Modifier, Area Modifiers
 
-	local pos = enemyHumanoid.Parent:GetPivot().Position
+	-- local pos = enemyHumanoid.Parent:GetPivot().Position
+	local pos = enemyHumanoid.CFrame.Position
 	local orbsRng = math.random(1, 3)
 
 	ItemService.EnableManyItem(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, pos, orbsRng)

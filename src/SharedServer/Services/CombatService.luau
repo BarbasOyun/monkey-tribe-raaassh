@@ -105,23 +105,41 @@ function CombatService.HitsDetection(position, radius, param, charactersBanned)
 	end
 
 	for _, hit in pairs(hits) do
-		local humanoid = Gears.FindHumanoidFromPart(hit)
+		-- local humanoid = Gears.FindHumanoidFromPart(hit)
 
-		-- Hit Building
-		if not humanoid then
+		-- -- Hit Building
+		-- if not humanoid then
+		-- 	table.insert(buildingsHit, hit)
+		-- 	continue
+		-- end
+
+		-- Hit Humanoid
+		-- local isInBanList = charactersBanned and table.find(charactersBanned, humanoid.Parent)
+		-- local isValid = humanoid and not table.find(humanoidsHit, humanoid) and not isInBanList
+
+		-- if not isValid then
+		-- 	continue
+		-- end
+
+		-- table.insert(humanoidsHit, humanoid)
+
+		-- Custom
+		local isEnemy = hit.Parent == CONSTANTS.WEAPON_HIT_FOLDER
+
+		if not isEnemy then
 			table.insert(buildingsHit, hit)
 			continue
 		end
 
 		-- Hit Humanoid
-		local isInBanList = charactersBanned and table.find(charactersBanned, humanoid.Parent)
-		local isValid = humanoid and not table.find(humanoidsHit, humanoid) and not isInBanList
+		local isInBanList = charactersBanned and table.find(charactersBanned, isEnemy)
+		local isValid = hit and not table.find(humanoidsHit, hit) and not isInBanList
 
 		if not isValid then
 			continue
 		end
 
-		table.insert(humanoidsHit, humanoid)
+		table.insert(humanoidsHit, hit)
 	end
 
 	return humanoidsHit, buildingsHit
@@ -158,7 +176,8 @@ function CombatService.AttackHit(player, playerStats, weaponState)
 
 	-- Damage Humanoids
 	for _, humanoid in pairs(humanoidsHit) do
-		local entityID = humanoid.Parent:GetAttribute("EntityId")
+		-- local entityID = humanoid.Parent:GetAttribute("EntityId")
+		local entityID = humanoid:GetAttribute("EntityId")
 		EnemyService.DamageEnemy(player, entityID, humanoid, damage)
 	end
 
@@ -218,8 +237,8 @@ function CombatService.GetAttackPosition(player, weaponState)
 	local closestEnemy = CombatState.playersClosestEnemy[userId]
 
 	if closestEnemy then
-		local targetPart = closestEnemy.Head
-		-- local targetPart = closestEnemy
+		-- local targetPart = closestEnemy.Head
+		local targetPart = closestEnemy
 		local playerToEnemyNormal = (targetPart.CFrame.Position - playerPos).Unit
 
 		local hitDistance = (weaponState.attackPoint.WorldCFrame.Position - playerPos).Magnitude
