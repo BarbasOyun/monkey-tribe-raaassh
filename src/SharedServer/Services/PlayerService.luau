@@ -5,8 +5,6 @@ local RunService = game:GetService("RunService")
 local TeleportService = game:GetService("TeleportService")
 local DataStoreService = game:GetService("DataStoreService")
 
-local Gears = require(ReplicatedStorage.Shared.Gears)
-
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
 
@@ -107,6 +105,7 @@ end
 --]]
 
 function PlayerService.AddPlayer(player)
+	-- warn("Add Player: " .. player.Name)
 	local userId = player.UserId
 
 	local highestKills = PlayersDb:GetAsync(userId) or 0
@@ -122,20 +121,20 @@ function PlayerService.AddPlayer(player)
 	PlayerServiceState.playersDetections[userId] = {}
 	PlayerServiceState.buildingsDetections[userId] = {}
 
-	-- Events
-	PlayerService.PlayerAdded:Fire(player)
-	PlayerService.Client.PlayerAdded:FireAll(player)
-
 	player.CharacterAdded:Connect(function(character)
 		PlayerService.OnCharacterAdded(player, character)
 	end)
+
+	-- Events
+	PlayerService.PlayerAdded:Fire(player)
+	PlayerService.Client.PlayerAdded:FireAll(player)
 end
 
 function PlayerService.OnCharacterAdded(player, character)
-	-- warn(player.Name .. " Character Added")
 	local userId = player.UserId
 
 	PlayerService.AddSounds(player)
+	ItemService.AddDefaultWeapon(player)
 
 	-- Un-kill on character on spawn
 	local state = Store:getState()
@@ -145,6 +144,17 @@ function PlayerService.OnCharacterAdded(player, character)
 		local patch = { isDead = false }
 		Store:dispatch(StoreActions.PatchPlayer(userId, patch))
 	end
+end
+
+--- Add the Default sounds to a player
+function PlayerService.AddSounds(player)
+	local playerGui = player:WaitForChild("PlayerGui")
+
+	local soundFolder = Instance.new("Folder", playerGui)
+	soundFolder.Name = "ClientSounds"
+
+	local mainSounds = MutState.mainSounds:clone()
+	mainSounds.Parent = soundFolder
 end
 
 function PlayerService.RemovePlayer(player, exitReason)
@@ -159,6 +169,11 @@ function PlayerService.RemovePlayer(player, exitReason)
 	Store:dispatch(StoreActions.RemovePlayer(userId))
 end
 
+function PlayerService.Client:ToggleMusic(player, isEnabled)
+	local patch = { isMusicEnabled = isEnabled }
+	Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
+end
+
 --- Return a random player
 function PlayerService.GetRandomPlayer()
 	local playerCount = #Players:GetPlayers()
@@ -170,20 +185,6 @@ function PlayerService.GetRandomPlayer()
 	local randomIndex = math.random(1, playerCount)
 
 	return Players:GetPlayers()[randomIndex]
-end
-
---- Add the Default sounds to a player
-function PlayerService.AddSounds(player)
-	local playerGui = player:WaitForChild("PlayerGui")
-	local soundFolder = playerGui:WaitForChild("ClientSounds") -- or Instance("Folder")
-
-	local mainSounds = MutState.mainSounds:clone()
-	mainSounds.Parent = soundFolder
-end
-
-function PlayerService.Client:ToggleMusic(player, isEnabled)
-	local patch = { isMusicEnabled = isEnabled }
-	Store:dispatch(StoreActions.PatchPlayer(player.UserId, patch))
 end
 
 -- #endregion
@@ -303,9 +304,7 @@ end
 
 --- Debug func -> Delete Player's DB
 function PlayerService.ResetPlayer(player)
-	local state = Store:getState()
 	local userId = player.UserId
-	local playerData = state.players[userId]
 
 	-- Highest Kill
 	pcall(function()
@@ -317,8 +316,10 @@ function PlayerService.ResetPlayer(player)
 		PlayersDb:SetAsync(userId .. "_bananas", 0)
 	end)
 
+	local metaUpgrades = CONSTANTS.RpgConst.META_UPRGADES
+
 	-- Meta Upgrades
-	for upgradeType, value in pairs(playerData.metaUpgradesLevel) do
+	for upgradeType, value in pairs(metaUpgrades) do
 		pcall(function()
 			PlayersDb:SetAsync(userId .. "_" .. upgradeType, 0)
 		end)
@@ -331,15 +332,23 @@ end
 -- TODO GameService + Per Place Services loading
 
 function PlayerService.GameOver()
-	print("GAME OVER -> Save Data & Going back to Hub")
-	local players = Players:GetPlayers()
+	-- warn("GAME OVER -> Save Data & Going back to Hub")
+
+	local patch = { isGameOver = true }
+	Store:dispatch(StoreActions.PatchGameState(patch))
 
 	PlayerService.SaveGameData()
 
+	local players = Players:GetPlayers()
+
 	-- Go Back to Hub
-	pcall(function()
+	local _success, _err = pcall(function()
 		return TeleportService:TeleportAsync(CONSTANTS.HUB_PLACE_ID, players)
 	end)
+
+	-- if not success then
+	-- 	warn("Teleport failed: " .. tostring(err))
+	-- end
 end
 
 --- Save to DB in game Data
@@ -377,8 +386,6 @@ end
 
 --- CheckGameOver on player Death
 function PlayerService.SetupGameOver(player)
-	Players.CharacterAutoLoads = false
-
 	local function onCharacterAdded(character)
 		local humanoid = character:WaitForChild("Humanoid")
 		humanoid.Died:Connect(PlayerService.CheckGameOver)
@@ -400,7 +407,8 @@ function PlayerService.CountDeadPlayers()
 
 	-- Count using Roblox Humanoid
 	for _, player in pairs(Players:GetPlayers()) do
-		if player.character.Humanoid.Health <= 0 then
+		local character = player.character
+		if character and character.Humanoid.Health <= 0 then
 			deadPlayersCount += 1
 		end
 	end
@@ -409,31 +417,35 @@ function PlayerService.CountDeadPlayers()
 end
 
 function PlayerService.CheckGameOver()
-	local state = Store:getState()
-	local players = state.players
-
 	local deadPlayersCount = PlayerService.CountDeadPlayers()
+	local playerCount = #Players:GetPlayers()
 
-	warn("Dead Players Count = " .. deadPlayersCount .. " Player Count = " .. #players)
+	-- warn("Dead Players Count = " .. deadPlayersCount .. " Player Count = " .. playerCount)
 
-	if deadPlayersCount >= #players then
+	if deadPlayersCount >= playerCount then
 		PlayerService.GameOver()
+	end
+end
+
+function PlayerService.ResurrectPlayer(player)
+	local character = player.character
+
+	if character and character.Humanoid.Health <= 0 then
+		local userId = player.UserId
+
+		player:LoadCharacterAsync()
+
+		-- TODO : Stich Patches
+		local patch = { isDead = false }
+		Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+		PlayerService.Client.PatchPlayer:Fire(player, patch) -- TODO : Send to every Players
 	end
 end
 
 --- Resurrect every Dead players
 function PlayerService.ResurrectAll()
 	for _, player in pairs(Players:GetPlayers()) do
-		if player.character.Humanoid.Health <= 0 then
-			local userId = player.UserId
-
-			player:LoadCharacterAsync()
-
-			-- TODO : Stich Patches
-			local patch = { isDead = true }
-			Store:dispatch(StoreActions.PatchPlayer(userId, patch))
-			PlayerService.Client.PatchPlayer:Fire(player, patch) -- TODO : Send to every Players
-		end
+		PlayerService.ResurrectPlayer(player)
 	end
 end
 

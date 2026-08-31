@@ -27,8 +27,6 @@ local ItemService = Knit.GetService("ItemService")
 local EnemyService = Knit.GetService("EnemyService")
 
 -- Platforms tp
-local GAME_PLACE_ID = 109804031798809
-
 -- TODO : HubState
 -- DB
 local isPlayerChanged = {}
@@ -89,57 +87,61 @@ local function createGameInstance(players)
 	end
 
 	-- Create Instance
-	print("Creating new Game Instance for players :")
-	print(players)
+	-- print("Creating new Game Instance for players :")
+	-- print(players)
 
-	local newCode = TeleportService:ReserveServerAsync(GAME_PLACE_ID)
-	print("Reserved new server with code: " .. newCode)
+	local newCode = TeleportService:ReserveServerAsync(CONSTANTS.GAME_PLACE_ID)
+	-- print("Reserved new server with code: " .. newCode)
 
 	-- Join Instance
 	local options = Instance.new("TeleportOptions")
 	options.ReservedServerAccessCode = newCode
 
 	task.spawn(function()
-		task.wait(TeleportService:TeleportAsync(GAME_PLACE_ID, players, options))
+		task.wait(TeleportService:TeleportAsync(CONSTANTS.GAME_PLACE_ID, players, options))
 		Gears.SplitTable(playersLoadingTp, players)
+	end)
+end
+
+local function setupPlatform(index, platform)
+	-- Player Enter Platform
+	platform.Touched:Connect(function(hit)
+		local player = game.Players:GetPlayerFromCharacter(hit.Parent)
+
+		if not player or table.find(playersLoadingTp, player) or table.find(platformsPlayers[index], player) then
+			return
+		end
+
+		table.insert(platformsPlayers[index], player)
+		updatePlatformLabel(index)
+
+		-- if there is enough players on the Platform -> Launch Game
+		if #platformsPlayers[index] >= platformsMaxPlayers[index] then
+			Gears.JoinTable(playersLoadingTp, platformsPlayers[index])
+			createGameInstance(platformsPlayers[index])
+
+			table.clear(platformsPlayers[index])
+			updatePlatformLabel(index)
+		end
+	end)
+
+	-- Player Leave Platform
+	platform.TouchEnded:Connect(function(hit)
+		local player = game.Players:GetPlayerFromCharacter(hit.Parent)
+
+		if not player or table.find(playersLoadingTp, player) then
+			return
+		end
+
+		local id = table.find(platformsPlayers[index], player)
+		table.remove(platformsPlayers[index], id)
+		updatePlatformLabel(index)
 	end)
 end
 
 local function setupPlatforms()
 	for i, platform in ipairs(platforms) do
-		-- Player Enter Platform
-		platform.Touched:Connect(function(hit)
-			local player = game.Players:GetPlayerFromCharacter(hit.Parent)
-
-			if not player or table.find(playersLoadingTp, player) or table.find(platformsPlayers[i], player) then
-				return
-			end
-
-			table.insert(platformsPlayers[i], player)
-			updatePlatformLabel(i)
-
-			-- if there is enough players on the Platform -> Launch Game
-			if #platformsPlayers[i] >= platformsMaxPlayers[i] then
-				Gears.JoinTable(playersLoadingTp, platformsPlayers[i])
-				createGameInstance(platformsPlayers[i])
-
-				table.clear(platformsPlayers[i])
-				updatePlatformLabel(i)
-			end
-		end)
-
-		-- Player Leave Platform
-		platform.TouchEnded:Connect(function(hit)
-			local player = game.Players:GetPlayerFromCharacter(hit.Parent)
-
-			if not player or table.find(playersLoadingTp, player) then
-				return
-			end
-
-			local id = table.find(platformsPlayers[i], player)
-			table.remove(platformsPlayers[i], id)
-			updatePlatformLabel(i)
-		end)
+		setupPlatform(i, platform)
 	end
 end
 

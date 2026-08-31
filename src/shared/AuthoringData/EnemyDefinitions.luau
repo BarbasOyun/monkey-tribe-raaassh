@@ -7,8 +7,8 @@ local EnemiesStats = {
 	},
 	{
 		Name = "Robot",
-		MaxLife = 100,
-		Damage = 2,
+		MaxLife = 50,
+		Damage = 1.5,
 		AttackSpeed = 1,
 		Range = 9,
 		MovementSpeed = 5,

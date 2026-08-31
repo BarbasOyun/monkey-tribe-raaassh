@@ -39,10 +39,10 @@ local function setupPlayers()
 	Players.PlayerAdded:Connect(function(player)
 		PlayerService.AddPlayer(player)
 
+		player:LoadCharacterAsync()
+
 		PlayerService.GetMetaUpgrades(player)
 		AugmentsService.GenerateAugments(player)
-
-		ItemService.EquipDefaultWeapon(player)
 
 		RpgService.RegisterLife(player)
 		PlayerService.SetupGameOver(player)
@@ -63,7 +63,6 @@ local function setupLevel()
 end
 
 local function startStage()
-	LevelService.LoadLevelDefinitions()
 	-- LevelService.StartStage(1, 10)
 	LevelService.StartRandomStage()
 end
@@ -77,6 +76,9 @@ local function setupEnemies()
 end
 
 -- #region START
+
+Players.CharacterAutoLoads = false
+LevelService.LoadLevelDefinitions()
 
 setupPlayers()
 setupLevel()

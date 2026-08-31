@@ -136,7 +136,7 @@ local DEFAULT_PLAYER: Player = {
 	username = "",
 	state = "Playing", -- TODO : rename logicState
 	isMusicEnabled = true,
-	isDead = false,
+	isDead = false, -- TODO : logicState
 
 	-- Currencies
 	bananas = 0,

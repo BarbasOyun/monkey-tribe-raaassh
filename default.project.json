@@ -2,6 +2,9 @@
   "name": "monkey-tribe-raaassh",
   "tree": {
     "$className": "DataModel",
+    "ReplicatedFirst": {
+      "$path": "src/replicatedFirst"
+    },
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"

@@ -1,6 +1,7 @@
 local ServerScriptService = game:GetService("ServerScriptService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local Gears = require(ReplicatedStorage.Shared.Gears)
 
@@ -185,7 +186,7 @@ function LevelService.StartRandomStage()
 	-- Prevent rolling the same map
 	local isSameMap = mapID == LevelState.currentMapId
 	if isSameMap then
-		mapID = math.max((mapID + 1) % #MapsBuildings, 1)
+		mapID = math.max((mapID + 1) % (#MapsBuildings + 1), 1)
 	end
 
 	local buildingsAmount = Gears.RandomRange(LevelState.buildingAmount, LevelDefinitions.BUILDINGS_RANGE)
@@ -331,6 +332,10 @@ function LevelService.StartGameTimer()
 end
 
 function LevelService.GameTimer()
+	if not RunService:IsRunning() then
+		return
+	end
+
 	MutState.gameTimer += 1
 
 	LevelService.Client.GameTimerUpdate:FireAll(MutState.gameTimer)

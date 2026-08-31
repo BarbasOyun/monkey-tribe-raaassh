@@ -295,10 +295,10 @@ local robotLogic = {
 	onEnabled = function(spawnCtx)
 		local character = spawnCtx.model
 
-		-- EnemyService.EnableGameObject(spawnCtx)
-		PlayerService.DetectEnemy(character)
 		character.Anchored = false
 		character.AlignOrientation.Enabled = true
+
+		PlayerService.DetectEnemy(character)
 
 		EnemyService.EnableUnit(spawnCtx)
 		EnemyService.EnableLifeBar(spawnCtx)
@@ -588,38 +588,6 @@ function EnemyService.GetSpawnPosition(position)
 	return usePos
 end
 
---- return Player
-function EnemyService.GetNearestPlayer(state, enemy)
-	local minDistance = math.huge
-	local nearestPlayer = nil
-	local logicState = nil
-
-	for _, player in pairs(Players:GetPlayers()) do
-		-- Avoid non ready player
-		local playerState = Selectors.PlayerState(state, player.UserId)
-		local isPlayerReady = playerState and playerState.state == CONSTANTS.PLAYER_STATES.playing
-
-		if playerState then
-			logicState = playerState.state
-		end
-
-		if not isPlayerReady then
-			continue
-		end
-
-		local distance = PlayerServiceState.playersDetections[player.UserId][enemy]
-		-- warn(enemy.Name .. " Distance With " .. player.Name .. " = " .. distance)
-		local isCloser = distance and distance < minDistance
-
-		if isCloser then
-			minDistance = distance
-			nearestPlayer = player
-		end
-	end
-
-	return nearestPlayer, minDistance, logicState
-end
-
 function EnemyService.TryToFindLifeBar(character)
 	local lBar = character:FindFirstChild("LifeBar")
 	local lifeBar = nil
@@ -800,6 +768,45 @@ end
 
 -- #region ENEMIES UPDATE LOGIC
 
+--- return Player
+function EnemyService.GetNearestPlayer(state, enemy)
+	local minDistance = math.huge
+	local nearestPlayer = nil
+	local logicState = nil
+
+	for _, player in pairs(Players:GetPlayers()) do
+		local playerState = Selectors.PlayerState(state, player.UserId)
+
+		-- FIXME
+		if playerState.isDead then
+			continue
+		end
+
+		-- Avoid non ready player
+		-- TODO : PlayerService.IsReady(playerState)
+		local isPlayerReady = playerState and playerState.state == CONSTANTS.PLAYER_STATES.playing
+
+		if playerState then
+			logicState = playerState.state
+		end
+
+		if not isPlayerReady then
+			continue
+		end
+
+		local distance = PlayerServiceState.playersDetections[player.UserId][enemy]
+		-- warn(enemy.Name .. " Distance With " .. player.Name .. " = " .. distance)
+		local isCloser = distance and distance < minDistance
+
+		if isCloser then
+			minDistance = distance
+			nearestPlayer = player
+		end
+	end
+
+	return nearestPlayer, minDistance, logicState
+end
+
 -- TODO : Component Param
 --- Unit Update System : Attack CD + Dispawn CD
 function EnemyService.UnitUpdate(dt)
@@ -885,7 +892,7 @@ function EnemyService.MobBehaviorUpdate(state, dt)
 		local unitID = UnitStorage.GetComponentId(UnitStorageState, entityId)
 
 		-- EnemyService.MobBehavior(state, entityId, character, robotStats)
-		EnemyService.CustomMobBehavior(state, UnitStorageState, entityId, character, unitID, robotStats)
+		EnemyService.CustomMobBehavior(dt, state, UnitStorageState, entityId, character, unitID, robotStats)
 	end
 end
 
@@ -934,10 +941,10 @@ function EnemyService.MobBehavior(state, entityId, character, robotStats)
 end
 
 --- Replace Roblox Humanoid -> Performance
-function EnemyService.CustomMobBehavior(state, UnitStorageState, entityId, character, unitID, robotStats)
+function EnemyService.CustomMobBehavior(dt, state, UnitStorageState, entityId, character, unitID, robotStats)
 	-- Replace Missing GameObject
 	if not character then
-		warn("Entity " .. entityId .. " Replace GameObject")
+		-- warn("Entity " .. entityId .. " Replace GameObject")
 		PoolService.ResetGameObject(entityId, character)
 		return
 	end
@@ -955,7 +962,8 @@ function EnemyService.CustomMobBehavior(state, UnitStorageState, entityId, chara
 	-- No Target = Respawn
 	if not targetPlayer then
 		local isPickingAugments = playerState == CONSTANTS.PLAYER_STATES.pickingAugment
-		if not isPickingAugments then
+
+		if not isPickingAugments and not state.gameState.isGameOver then
 			EnemyService.RespawnEnemy(character)
 		end
 		return
@@ -972,16 +980,16 @@ function EnemyService.CustomMobBehavior(state, UnitStorageState, entityId, chara
 
 	-- Move to Player
 	local playerPos = targetPlayer.character:GetPivot().Position
-	local targetPos = Vector3.new(playerPos.X, character.Position.Y, playerPos.Z) -- Vector3.new(playerPos.X, 4.5, playerPos.Z)
+	local targetPos = Vector3.new(playerPos.X, character.Position.Y, playerPos.Z)
 
 	-- FIXME : Perf
 	local enemyToPlayer = targetPos - character.CFrame.Position
 	local normal = enemyToPlayer.Unit
-	local nextPos = character.CFrame.Position + normal * EnemyServiceState.currentRobotStats.MovementSpeed * 0.025
+	local nextPos = character.CFrame.Position + normal * EnemyServiceState.currentRobotStats.MovementSpeed * dt
 	character.CFrame = CFrame.new(nextPos)
 
 	-- Rotate -> Face Player
-	-- Client Side?
+	-- TODO : Client Side
 	character.CFrame = CFrame.lookAt(character.Position, targetPos)
 end
 

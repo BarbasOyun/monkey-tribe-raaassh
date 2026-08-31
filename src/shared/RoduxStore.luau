@@ -9,6 +9,7 @@ local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefi
 
 -- Immutable Default Game State
 local defaultGameState = {
+	isGameOver = false,
 	enemiesDeathCount = 0,
 	globalEnemyLvl = 1,
 	minLimit = Vector2.new(-100, -100),

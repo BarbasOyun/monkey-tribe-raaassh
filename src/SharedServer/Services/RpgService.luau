@@ -167,8 +167,11 @@ end
 
 function RpgService.DamagePlayer(player, damage)
 	assert(damage > 0, "Damage needs to be greater than 0")
-
 	local userId = player.UserId
+
+	if not RpgState.playersLife[userId] then
+		return
+	end
 
 	-- Take Damage
 	local life = RpgState.playersLife[userId] - damage

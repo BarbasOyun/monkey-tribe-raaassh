@@ -251,7 +251,7 @@ function AugmentsService.Client:StartAugmentPick(player)
 	-- Validations
 	local isValid = waitingLevel > 0 and playerState.currentAugments
 	if not isValid then
-		warn("No Waiting Levels or Augments = " .. playerState.currentAugments)
+		-- warn("No Waiting Levels or Augments")
 		return
 	end
 
