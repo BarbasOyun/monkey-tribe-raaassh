@@ -8,16 +8,12 @@ local Gears = require(ReplicatedStorage.Shared.Gears)
 
 -- Get Constants
 local CONSTANTS = require(ServerScriptService.SharedServer.Constants)
+-- local ModStatsStore = CONSTANTS.RpgConst.MOD_STATS_STORE
+local Enemies = CONSTANTS.EnemyConst.Enemies
+local CategoryStore = CONSTANTS.CategoryStore
+local CategoryRegistries = CONSTANTS.CategoryRegistries
 
-local enemyDef = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
-local Enemies = enemyDef.Enemies
-
-local StatsDefinitions = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
-local ModStatsStore = StatsDefinitions.MOD_STATS_STORE
-
--- local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-
--- Get Services
+-- Get Knit
 local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await()
 
@@ -27,14 +23,14 @@ local LevelService = Knit.GetService("LevelService")
 local RpgService = Knit.GetService("RpgService")
 local AugmentsService = Knit.GetService("AugmentsService")
 
-local PoolService = Knit.GetService("PoolService")
+local ItemService = Knit.GetService("ItemService")
 local EnemyService = Knit.GetService("EnemyService")
 
 -- Platforms tp
 local GAME_PLACE_ID = 109804031798809
 
 -- TODO : HubState
--- Db
+-- DB
 local isPlayerChanged = {}
 
 local gamePlatforms = workspace.GamePlatforms
@@ -211,13 +207,13 @@ local function setupPlayerService()
 		music:Play()
 
 		-- Manual Tests
-		local userId = player.UserId
+		-- local userId = player.UserId
 		-- PlayerService.AddBananas(100)
 
 		-- RPGService Test
-		AugmentsService.AddAugmentStat(userId, ModStatsStore.increasedAttackSpeed, 100)
-		RpgService.AddXpToAllPlayers(225)
-		RpgService.DamagePlayer(player, 50)
+		-- AugmentsService.AddAugmentStat(userId, ModStatsStore.increasedAttackSpeed, 100)
+		-- RpgService.AddXpToAllPlayers(225)
+		-- RpgService.DamagePlayer(player, 50)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
@@ -253,20 +249,25 @@ local function setupLevel()
 	LevelService.SetLimits(minLimit, maxLimit)
 end
 
+local function createPools()
+	ItemService.CreatePool(CategoryRegistries[CategoryStore.Usable].SmallXpOrb, 10)
+
+	EnemyService.CreatePool(Enemies.Dummy, 10)
+end
+
 local function setupEnemies()
-	EnemyService.StartUnitUpdate()
+	EnemyService.StartEnemyUpdate()
 
 	-- Spawn Dummies
-	PoolService.CreatePool(Enemies.Dummy)
-
 	local pos1 = Vector3.new(-3.15, 4.5, 70)
 	local pos2 = Vector3.new(5.85, 4.5, 70)
 
-	EnemyService.EnableNextInPool(Enemies.Dummy, pos1)
-	EnemyService.EnableNextInPool(Enemies.Dummy, pos2)
+	EnemyService.EnableEnemy(Enemies.Dummy, pos1)
+	EnemyService.EnableEnemy(Enemies.Dummy, pos2)
 end
 
 -- Setup Services
+createPools()
 setupPlayerService()
 setupLevel()
 setupRpgService()

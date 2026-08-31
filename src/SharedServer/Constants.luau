@@ -3,9 +3,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Load Authoring Data
+local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 local EnemyDefinitions = require(ReplicatedStorage.Shared.AuthoringData.EnemyDefinitions)
 local itemDef = require(ReplicatedStorage.Shared.AuthoringData.ItemDefinitions)
-local statsDefinition = require(ReplicatedStorage.Shared.AuthoringData.StatsDefinitions)
 
 -- #region GLOBAL
 

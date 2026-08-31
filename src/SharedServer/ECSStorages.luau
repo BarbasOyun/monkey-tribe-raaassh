@@ -283,9 +283,11 @@ function LifeBarStorage.AddComponentToEntity(entityId, EcsService)
 	local gameObject = GameObjectStorage.GetGameObject(entityId)
 	lifeBar.Parent = gameObject
 
-	-- lifeBar.Adornee = gameObject.Head
-	lifeBar.Adornee = gameObject.HeadPoint
+	-- LifeBar Position
+	local targetPoint = gameObject.Head or gameObject.HeadPoint
+	lifeBar.Adornee = targetPoint
 
+	-- Update Lifebar when Unit Take Damage
 	local unitStorageState = UnitStorage.GetState()
 	local unitId = UnitStorage.GetComponentId(unitStorageState, entityId)
 

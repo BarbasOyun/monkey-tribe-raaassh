@@ -1,6 +1,3 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local prefabs = ReplicatedStorage.Shared.Prefabs
-
 -- ITEM SYSTEM DESIGN
 -- Endgame setup = csv file
 
@@ -23,7 +20,10 @@ local prefabs = ReplicatedStorage.Shared.Prefabs
 -- 2) AutoPickup Usables
 -- 	Subtype = Orb -> consumed on pickup eg XpOrbs
 
--- ITEMS TYPES
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local prefabs = ReplicatedStorage.Shared.Prefabs
+
+-- region ITEMS TYPES
 
 local ItemTypes = {
 	orb = "Orb",
@@ -46,6 +46,8 @@ local itemTypeDefinition = {
 	["Weapon"] = { DataSourceType.Instance, PickupType.Auto },
 	-- equipment
 }
+
+-- #ednregion
 
 -- ITEMS DEFINITIONS
 

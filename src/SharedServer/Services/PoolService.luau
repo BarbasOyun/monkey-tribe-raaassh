@@ -60,9 +60,9 @@ function PoolService.CreatePool(name, definitionID, prefab, onSpawn, size)
 	local poolIndex = #PoolServiceState.pools
 
 	-- Spawn Pool
-	-- warn("Spawn Pool : " .. pool.name .. ", Size = " .. size)
+	-- warn("Spawn Pool : " .. pool.name .. ", Index = " .. poolIndex)
 	-- warn("definitionID = " .. definitionID)
-	-- warn(", StartIndex = " .. startIndex .. ", EndIndex = " .. endIndex)
+	-- warn("Size = " .. size .. ", StartIndex = " .. startIndex .. ", EndIndex = " .. endIndex)
 
 	local GameObjectStorage = EcsService.GetStorage(CONSTANTS.EcsStorages.gameObject)
 

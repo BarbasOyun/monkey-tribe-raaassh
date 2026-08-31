@@ -98,12 +98,12 @@ function CombatService.AttackHit(player, playerStats, weaponState)
 
 	-- Hits Detection
 	local banList = { character }
-	local meshEnemyHit, buildingsHit =
+	local humanoidsHit, meshEnemyHit, buildingsHit =
 		CombatService.HitsDetection(attackPosition, playerStats.aoe, CombatState.weaponHitParam, banList)
+	local hasHitBuilding = #buildingsHit > 0
+	local hasAttackHit = hasHitBuilding or #meshEnemyHit > 0 or #humanoidsHit > 0
 
 	local isCrit = CombatService.RollCrit(playerStats)
-	local hasHitBuilding = #buildingsHit > 0
-	local hasAttackHit = #meshEnemyHit > 0 or #buildingsHit > 0
 
 	if not hasAttackHit then
 		CombatService.AttackFeedback(weaponState, isCrit, hasHitBuilding)
@@ -126,10 +126,10 @@ function CombatService.AttackHit(player, playerStats, weaponState)
 	end
 
 	-- Damage Model Enemy
-	-- for _, humanoid in pairs(humanoidsHit) do
-	-- 	local entityID = humanoid.Parent:GetAttribute("EntityId")
-	-- 	EnemyService.DamageEnemy(player, entityID, humanoid.Parent, damage)
-	-- end
+	for _, humanoid in pairs(humanoidsHit) do
+		local entityID = humanoid.Parent:GetAttribute("EntityId")
+		EnemyService.DamageEnemy(player, entityID, humanoid.Parent, damage)
+	end
 
 	CombatService.AttackFeedback(weaponState, isCrit, hasHitBuilding)
 end
@@ -176,8 +176,8 @@ end
 --- Return a table of every unique humanoid in a Sphere
 function CombatService.HitsDetection(position, radius, param, charactersBanned)
 	local hits = workspace:GetPartBoundsInRadius(position, radius, param)
+	local humanoidsHit = {} -- Unique Humanoids
 	local meshEnemy = {}
-	-- local humanoidsHit = {} -- Unique Humanoids
 	local buildingsHit = {} -- Parts
 
 	-- DEBUG Hit zone
@@ -186,11 +186,26 @@ function CombatService.HitsDetection(position, radius, param, charactersBanned)
 	-- end)
 
 	if #hits <= 0 then
-		-- return meshEnemy, humanoidsHit, buildingsHit
-		return meshEnemy, buildingsHit
+		return humanoidsHit, meshEnemy, buildingsHit
+		-- return meshEnemy, buildingsHit
 	end
 
 	for _, hit in pairs(hits) do
+		-- Register Model Enemy
+		local humanoid = Gears.FindHumanoidFromPart(hit)
+
+		if humanoid then
+			local isInBanList = charactersBanned and table.find(charactersBanned, humanoid.Parent)
+			local isValid = not table.find(humanoidsHit, humanoid) and not isInBanList
+
+			if not isValid then
+				continue
+			end
+
+			table.insert(humanoidsHit, humanoid)
+			continue
+		end
+
 		local isEnemy = hit.Parent == CONSTANTS.WEAPON_HIT_FOLDER
 
 		-- Register Building
@@ -198,15 +213,6 @@ function CombatService.HitsDetection(position, radius, param, charactersBanned)
 			table.insert(buildingsHit, hit)
 			continue
 		end
-
-		-- Register Model Enemy
-		-- local humanoid = Gears.FindHumanoidFromPart(hit)
-		-- if humanoid then
-		-- 	local isInBanList = charactersBanned and table.find(charactersBanned, humanoid.Parent)
-		-- 	local isValid = not table.find(humanoidsHit, humanoid) and not isInBanList
-		-- 	table.insert(humanoidsHit, humanoid)
-		-- 	continue
-		-- end
 
 		-- Register Mesh Enemies
 		local isInBanList = charactersBanned and table.find(charactersBanned, hit)
@@ -219,8 +225,8 @@ function CombatService.HitsDetection(position, radius, param, charactersBanned)
 		table.insert(meshEnemy, hit)
 	end
 
-	-- return meshEnemy, humanoidsHit, buildingsHit
-	return meshEnemy, buildingsHit
+	return humanoidsHit, meshEnemy, buildingsHit
+	-- return meshEnemy, buildingsHit
 end
 
 function CombatService.AttackFeedback(weaponData, isCrit, hasHitBuilding)

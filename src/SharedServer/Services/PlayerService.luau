@@ -190,12 +190,12 @@ end
 
 -- #region DB
 
---- Save all Player Data
+--- Hub : Save all Player Data
 function PlayerService.SaveToDb(userId)
 	local state = Store:getState()
 	local playerState = state.players[userId]
 
-	warn(playerState.username .. " Saving Player Data to DB")
+	-- warn(playerState.username .. " Saving Player Data to DB")
 
 	-- Bananas
 	local bananaCount = playerState.bananas
@@ -296,6 +296,7 @@ function PlayerService.GetMetaUpgrades(player)
 
 	local patch = { metaUpgradesLevel = levels, metaUpgradesCost = costs, metaUpgrades = metaUpgrades }
 	Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+	PlayerService.Client.PatchPlayer:Fire(player, patch)
 
 	RpgService.CalculateAllStats(player)
 end
@@ -464,7 +465,7 @@ function PlayerService.GetCurrency(state, userId, currencyId)
 	return if currency ~= nil then currency else 0
 end
 
-local function updateCurrency(state, player, currencyId, value)
+function PlayerService.UpdateCurrency(state, player, currencyId, value)
 	local userId = player.UserId
 
 	local playerState = Selectors.PlayerState(state, userId)
@@ -486,19 +487,19 @@ local function updateCurrency(state, player, currencyId, value)
 	PlayerService.BananasChanged:Fire(player, value)
 end
 
-local function updateCurrencyToAllPlayers(currencyId, value)
+function PlayerService.UpdateCurrencyToAllPlayers(currencyId, value)
 	assert(value ~= 0, "value must be not zero")
 
 	local state = Store:getState()
 
 	for _, player in Players:GetPlayers() do
-		updateCurrency(state, player, currencyId, value)
+		PlayerService.UpdateCurrency(state, player, currencyId, value)
 	end
 end
 
 function PlayerService.AddCurrencyToAllPlayers(currencyId, value)
 	assert(value > 0, "value must be positive")
-	updateCurrencyToAllPlayers(currencyId, value)
+	PlayerService.UpdateCurrencyToAllPlayers(currencyId, value)
 end
 
 function PlayerService.AddCurrencyToPlayer(player, currencyId, value)
@@ -506,7 +507,7 @@ function PlayerService.AddCurrencyToPlayer(player, currencyId, value)
 
 	local state = Store:getState()
 
-	updateCurrency(state, player, currencyId, value)
+	PlayerService.UpdateCurrency(state, player, currencyId, value)
 end
 
 function PlayerService.SubtractCurrency(player, currencyId, value)
@@ -514,7 +515,7 @@ function PlayerService.SubtractCurrency(player, currencyId, value)
 
 	local state = Store:getState()
 
-	updateCurrency(state, player, currencyId, -value)
+	PlayerService.UpdateCurrency(state, player, currencyId, -value)
 end
 
 -- #endregion

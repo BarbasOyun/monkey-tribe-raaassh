@@ -137,7 +137,7 @@ local function deathPanel(props)
 		BackgroundTransparency = 0.5,
 	}, {
 		Title = textLabel({
-			text = "You are Dead\n Wait for next Stage to Respawn",
+			text = "You are Down\n Wait for next Stage to Respawn",
 			position = UDim2.fromScale(0.125, 0.05),
 			size = UDim2.fromScale(0.75, 0.25),
 			zIndex = 5,

@@ -534,8 +534,8 @@ RpgService.statsCalculation = {
 
 -- #region META UPGRADES
 
+--- Calculate Cost & Stat at a Level
 function RpgService.UpdateMetaUpgrade(newLevel, upgradeType)
-	-- Calculate Cost & Stat at a Level
 	local upgradeData = META_UPRGADES[upgradeType]
 
 	local totalMultiplier = math.pow(upgradeData.costMultiplier, newLevel)
@@ -546,8 +546,8 @@ function RpgService.UpdateMetaUpgrade(newLevel, upgradeType)
 	return cost, stat
 end
 
--- upgradeType = from MOD_STATS_STORE
-local function incrementMetaUpgrade(state, player, upgradeType)
+--- upgradeType = from MOD_STATS_STORE
+function RpgService.IncrementMetaUpgrade(state, player, upgradeType)
 	local userId = player.UserId
 	local playerData = state.players[userId]
 
@@ -576,46 +576,37 @@ local function incrementMetaUpgrade(state, player, upgradeType)
 	RpgService.CalculateStat(newState, player, statType)
 end
 
-function RpgService.Client.BuyMetaUpgrade(player, upgradeType)
+function RpgService.Client:BuyMetaUpgrade(player, upgradeType)
 	local state = Store:getState()
 	local userId = player.UserId
 
-	local playerData = state.players[userId]
+	local playerState = Selectors.PlayerState(state, userId)
 
-	local isUpgradeMaxLevel = playerData.metaUpgradesLevel[upgradeType] >= META_UPRGADES[upgradeType].maxLevel
+	local isUpgradeMaxLevel = playerState.metaUpgradesLevel[upgradeType] >= META_UPRGADES[upgradeType].maxLevel
 
 	if isUpgradeMaxLevel then
-		print(playerData.username .. " " .. upgradeType .. " Upgrade Max Level")
+		-- print(playerState.username .. " " .. upgradeType .. " Upgrade Max Level")
+		return
 	end
 
-	local playerBananas = playerData.bananas
+	local playerBananas = playerState.bananas
 
 	-- Price Check
-	local upgradeCost = playerData.metaUpgradesCost[upgradeType]
+	local upgradeCost = playerState.metaUpgradesCost[upgradeType]
 
-	print(
-		playerData.username
-			.. " Try to buy "
-			.. upgradeType
-			.. " at Cost = "
-			.. upgradeCost
-			.. " with "
-			.. playerBananas
-			.. " Bananas"
-	)
+	-- warn(playerState.username .. " Try to buy " .. upgradeType)
+	-- warn("Cost = " .. upgradeCost .. " Bananas = " .. playerBananas)
 
 	-- Handle Fail
-	if playerBananas < upgradeCost then
-		print(playerData.username .. " Not Enough Bananas to buy Upgrade")
+	local canBuy = playerBananas >= upgradeCost
+	if not canBuy then
+		-- print(playerState.username .. " Not Enough Bananas to buy Upgrade")
 		return
 	end
 
 	-- Transaction
-	-- Grant Upgrade
-	incrementMetaUpgrade(state, player, upgradeType)
-
-	-- Subtract Cost from Bananas
-	PlayerService:SubtractCurrency(player, PlayerService.CURRENCIES.bananas, upgradeCost)
+	RpgService.IncrementMetaUpgrade(state, player, upgradeType)
+	PlayerService.SubtractCurrency(player, CONSTANTS.CURRENCIES.bananas, upgradeCost)
 end
 
 -- #endregion

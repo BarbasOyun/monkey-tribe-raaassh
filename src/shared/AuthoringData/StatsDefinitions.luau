@@ -337,7 +337,7 @@ local META_UPGRADES = {
 		incrementValue = 5,
 		baseCost = 10,
 		maxLevel = 30,
-		costMultiplier = 1.05,
+		costMultiplier = 1.07,
 	},
 	lifeRegen = {
 		incrementValue = 1,
@@ -375,7 +375,7 @@ local META_UPGRADES = {
 		incrementValue = 2,
 		baseCost = 100,
 		maxLevel = 12,
-		costMultiplier = 1.2,
+		costMultiplier = 1.25,
 	},
 }
 
