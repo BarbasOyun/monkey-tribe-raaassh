@@ -55,17 +55,6 @@ function ItemService:KnitStart()
 	EcsService = Knit.GetService("EcsService")
 	PoolService = Knit.GetService("PoolService")
 
-	-- Create Starter Weapon as Item
-	-- PlayerService.PlayerAdded:Connect(function(player)
-	-- 	player.CharacterAdded:Connect(function(character)
-	-- 		local baseWeapon = player.Backpack:WaitForChild("WoodenClub")
-
-	-- 		local definitionID = CategoryRegistries[CategoryStore.Weapons].WoodenClub.id
-	-- 		ItemService.CreateItem(definitionID, baseWeapon)
-	-- 		ItemService.SetupWeapon(baseWeapon)
-	-- 	end)
-	-- end)
-
 	PlayerService.StateUpdate:Connect(function(state, dt)
 		ItemService.LootMovementUpdate()
 	end)
@@ -492,6 +481,7 @@ end
 
 --- Add the Default weapon in a Player's Backpack
 function ItemService.AddDefaultWeapon(player)
+	-- Create Default Weapon
 	local defaultWeapon = CategoryRegistries[CategoryStore.Weapons].WoodenClub
 	local definitionID = defaultWeapon.id
 	local model = defaultWeapon.prefab:clone()
@@ -499,13 +489,16 @@ function ItemService.AddDefaultWeapon(player)
 	ItemService.CreateItem(definitionID, model)
 	ItemService.SetupWeapon(model)
 
+	-- Add it to Backpack
 	local backpack = player:WaitForChild("Backpack")
 	model.Parent = backpack
 
+	task.wait()
 	ItemService.EquipDefaultWeapon(player)
 end
 
 function ItemService.EquipDefaultWeapon(player)
+	-- warn(player.Name .. " Equip Default Weapon")
 	local character = player.Character
 
 	if not character then
@@ -521,8 +514,8 @@ function ItemService.EquipDefaultWeapon(player)
 
 	local baseWeapon = backpack:FindFirstChild("WoodenClub")
 
-	-- print("Equip Default tool : " .. baseWeapon)
 	if baseWeapon then
+		-- warn("Equip Default Weapon : " .. baseWeapon.Name)
 		humanoid:EquipTool(baseWeapon)
 	end
 end

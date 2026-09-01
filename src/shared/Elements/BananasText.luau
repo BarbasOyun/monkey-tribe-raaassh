@@ -24,13 +24,13 @@ local hubConnectionProps = {
 
 -- Game Version
 local gameImageProps = {
-	position = UDim2.fromScale(0.77, 0),
+	position = UDim2.fromScale(0.8, 0),
 	size = UDim2.fromScale(0.05, 0.09),
 	imageLink = "rbxassetid://92617984020165",
 }
 
 local gameConnectionProps = {
-	position = UDim2.fromScale(0.66, 0), -- X_pos = 0.75 - size.x / 2
+	position = UDim2.fromScale(0.69, 0),
 	size = UDim2.fromScale(0.1, 0.1),
 }
 

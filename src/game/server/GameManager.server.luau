@@ -35,9 +35,22 @@ local function createPools()
 	EnemyService.CreatePool(Enemies.Robot, 100)
 end
 
+local function onCharacterAdded(player, character)
+	-- Set Player Dead when Humanoid Die
+	local humanoid = character:WaitForChild("Humanoid")
+
+	humanoid.Died:Connect(function()
+		PlayerService.SetPlayerDead(player)
+	end)
+end
+
 local function setupPlayers()
 	Players.PlayerAdded:Connect(function(player)
 		PlayerService.AddPlayer(player)
+
+		player.CharacterAdded:Connect(function(character)
+			onCharacterAdded(player, character)
+		end)
 
 		player:LoadCharacterAsync()
 

@@ -25,6 +25,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await()
 
 local PlayerController = Knit.GetController("PlayerController")
+local PlayerService = Knit.GetService("PlayerService")
 local LevelService = Knit.GetService("LevelService")
 
 -- #region ROACT COMPONENTS
@@ -66,11 +67,18 @@ globalEnemyLvlText = RoactRodux.connect(function(state, props)
 	end
 
 	return {
-		position = UDim2.fromScale(0.025, 0),
+		position = UDim2.fromScale(0.0375, 0),
 		size = UDim2.fromScale(0.1, 0.1),
 		text = "Lvl " .. globalEnemyLvl,
 	}
 end)(textLabel)
+
+-- GameTimer
+local gameTimerProps = {
+	position = UDim2.fromScale(0.14, 0.0),
+	size = UDim2.fromScale(0.05, 0.05),
+	text = "00:00",
+}
 
 -- Enemy Kills
 local EnemyKills = RoactRodux.connect(function(state)
@@ -82,7 +90,7 @@ local EnemyKills = RoactRodux.connect(function(state)
 	end
 
 	return {
-		position = UDim2.fromScale(0.15, 0),
+		position = UDim2.fromScale(0.025, 0.1), -- (0.175, 0
 		size = UDim2.fromScale(0.05, 0.05),
 		text = "Kills: " .. enemyKills,
 	}
@@ -96,16 +104,9 @@ local stageCountdownProps = {
 	textTransparency = 1,
 }
 
--- GameTimer
-local gameTimerProps = {
-	position = UDim2.fromScale(0.1, 0.0),
-	size = UDim2.fromScale(0.05, 0.05),
-	text = "00:00",
-}
-
 -- Sticks Display
 sticksImageProps = {
-	position = UDim2.fromScale(0.77, 0.175),
+	position = UDim2.fromScale(0.8, 0.175),
 	size = UDim2.fromScale(0.05, 0.09),
 	imageLink = "rbxassetid://109738929660031",
 }
@@ -119,7 +120,7 @@ sticksTextProps = RoactRodux.connect(function(state, props)
 	end
 
 	return {
-		position = UDim2.fromScale(0.7, 0.175),
+		position = UDim2.fromScale(0.73, 0.175),
 		size = UDim2.fromScale(0.1, 0.1),
 		text = sticks,
 	}
@@ -392,10 +393,8 @@ local function generateUi()
 	end)
 end
 
-generateUi()
-
 -- Generate UI on Character Spawn
-MutState.player.CharacterAdded:Connect(function(character)
+PlayerService.CharacterAdded:Connect(function(character)
 	PlayerController.GetSounds()
 	generateUi()
 end)

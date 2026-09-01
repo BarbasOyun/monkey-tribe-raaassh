@@ -40,6 +40,7 @@ local PlayerService = Knit.CreateService({
 	Client = {
 		ReplicateStore = Knit.CreateSignal(),
 		PlayerAdded = Knit.CreateSignal(),
+		CharacterAdded = Knit.CreateSignal(),
 		PlayerRemoved = Knit.CreateSignal(),
 		PatchPlayer = Knit.CreateSignal(),
 		PatchGameState = Knit.CreateSignal(),
@@ -105,10 +106,10 @@ end
 --]]
 
 function PlayerService.AddPlayer(player)
-	-- warn("Add Player: " .. player.Name)
 	local userId = player.UserId
 
-	local highestKills = PlayersDb:GetAsync(userId) or 0
+	local highestKills = KillsData:GetAsync(userId) or 0
+	-- warn("Add Player: " .. player.Name .. " Highest Kill = " .. highestKills)
 
 	-- Create Player
 	Store:dispatch(StoreActions.AddPlayer(player, highestKills))
@@ -131,10 +132,8 @@ function PlayerService.AddPlayer(player)
 end
 
 function PlayerService.OnCharacterAdded(player, character)
+	-- warn(player.Name .. " Character added")
 	local userId = player.UserId
-
-	PlayerService.AddSounds(player)
-	ItemService.AddDefaultWeapon(player)
 
 	-- Un-kill on character on spawn
 	local state = Store:getState()
@@ -143,7 +142,15 @@ function PlayerService.OnCharacterAdded(player, character)
 	if playerState.isDead then
 		local patch = { isDead = false }
 		Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+		PlayerService.Client.PatchPlayer:Fire(player, patch) -- TODO : Send to every Players
 	end
+
+	-- Character Setup
+	task.wait()
+	PlayerService.AddSounds(player)
+	ItemService.AddDefaultWeapon(player)
+
+	PlayerService.Client.CharacterAdded:Fire(player, character)
 end
 
 --- Add the Default sounds to a player
@@ -253,7 +260,7 @@ function PlayerService.SaveHighestKills(player)
 	local totalKills = state.gameState.enemiesDeathCount
 
 	if totalKills > playerState.highestKills then
-		warn(player.Name .. " Save New Highest Kills = " .. totalKills)
+		-- warn(player.Name .. " Save New Highest Kills = " .. totalKills)
 
 		pcall(function()
 			KillsData:SetAsync(userId, totalKills)
@@ -430,15 +437,19 @@ end
 function PlayerService.ResurrectPlayer(player)
 	local character = player.character
 
-	if character and character.Humanoid.Health <= 0 then
-		local userId = player.UserId
+	if not character then
+		player:LoadCharacterAsync()
+	end
 
+	if character.Humanoid.Health <= 0 then
 		player:LoadCharacterAsync()
 
-		-- TODO : Stich Patches
-		local patch = { isDead = false }
-		Store:dispatch(StoreActions.PatchPlayer(userId, patch))
-		PlayerService.Client.PatchPlayer:Fire(player, patch) -- TODO : Send to every Players
+		-- local userId = player.UserId
+
+		-- -- TODO : Stich Patches
+		-- local patch = { isDead = false }
+		-- Store:dispatch(StoreActions.PatchPlayer(userId, patch))
+		-- PlayerService.Client.PatchPlayer:Fire(player, patch) -- TODO : Send to every Players
 	end
 end
 
@@ -451,7 +462,9 @@ end
 
 function PlayerService.KillPlayer(player)
 	player.character.Humanoid.Health = 0
+end
 
+function PlayerService.SetPlayerDead(player)
 	-- print(player.Name .. " died -> Waiting Next Stage to respawn...")
 	local userId = player.UserId
 

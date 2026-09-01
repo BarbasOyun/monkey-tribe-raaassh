@@ -45,11 +45,10 @@ function PlayerController:KnitInit()
 end
 
 function PlayerController:KnitStart()
+	-- Get Services
 	PlayerService = Knit.GetService("PlayerService")
-
 	RpgService = Knit.GetService("RpgService")
 	AugmentsService = Knit.GetService("AugmentsService")
-
 	CombatService = Knit.GetService("CombatService")
 	ItemService = Knit.GetService("ItemService")
 
@@ -143,7 +142,7 @@ end
 
 -- On Respawn
 function PlayerController.OnCharacterAdded(newCharacter)
-	-- print("Character Added for player: " .. player.Name)
+	-- print(player.Name .. " Character Added")
 	MutState.animator = newCharacter:WaitForChild("Humanoid"):WaitForChild("Animator")
 	table.clear(MutState.animationTracks)
 	PlayerController.LoadAllAnimations()

@@ -21,6 +21,7 @@ local Knit = require(ReplicatedStorage.Packages.Knit)
 Knit.OnStart():await() -- Wait for KnitControllersStart
 
 local PlayerController = Knit.GetController("PlayerController")
+local PlayerService = Knit.GetService("PlayerService")
 
 -- TODO : Client side Mutable State
 local player = Players.LocalPlayer
@@ -143,10 +144,8 @@ local function generateUi()
 	updateLifeBar()
 end
 
-generateUi()
-
 -- Generate UI on Character Spawn
-player.CharacterAdded:Connect(function(character)
+PlayerService.CharacterAdded:Connect(function(character)
 	PlayerController.GetSounds()
 	generateUi()
 end)

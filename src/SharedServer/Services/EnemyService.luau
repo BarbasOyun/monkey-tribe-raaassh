@@ -777,18 +777,19 @@ function EnemyService.GetNearestPlayer(state, enemy)
 	for _, player in pairs(Players:GetPlayers()) do
 		local playerState = Selectors.PlayerState(state, player.UserId)
 
-		-- FIXME
+		if not playerState then
+			continue
+		end
+
 		if playerState.isDead then
 			continue
 		end
 
+		logicState = playerState.state
+
 		-- Avoid non ready player
 		-- TODO : PlayerService.IsReady(playerState)
 		local isPlayerReady = playerState and playerState.state == CONSTANTS.PLAYER_STATES.playing
-
-		if playerState then
-			logicState = playerState.state
-		end
 
 		if not isPlayerReady then
 			continue
