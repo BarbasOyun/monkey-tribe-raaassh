@@ -1,0 +1,27 @@
+--- Assets Produced :
+-Game Icons (Krita)
+-Crit Sound (Audacity)
+-3D Wooden Club (Blender)
+-R15 Animation
+-Attack VFX
+
+--- Buildings :
+-From Roblox Toolbox
+
+--- Music :
+-Military Map : https://create.roblox.com/store/asset/1837362990/Roof-Pursuit
+-Lab Map : https://create.roblox.com/store/asset/1839999365/Even-the-Odds-e
+-Hub : https://create.roblox.com/store/asset/1843529844/Tribal-Drumfest
+
+--- SFX :
+-Stage Completed : https://create.roblox.com/store/asset/106372595530401/Generator-complete
+-Auto Pickup (XP, Banana) : https://create.roblox.com/store/asset/87437544236708/UI-Click-1
+-LevelUp = https://create.roblox.com/store/asset/133977339172345/power-up-1
+
+-Open Augment Menu : https://create.roblox.com/store/asset/18133558673/UISelect
+-Choose Augment : https://create.roblox.com/store/asset/6373199071/Arcade-heal-sfx
+
+-Attack : https://create.roblox.com/store/asset/10730819/MaceNoise
+-Building Hit : https://create.roblox.com/store/asset/119071629128044/CollisionMedium
+
+-Player Damaged : https://freesound.org/people/Raclure/sounds/458867/
