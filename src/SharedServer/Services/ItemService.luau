@@ -493,8 +493,9 @@ function ItemService.AddDefaultWeapon(player)
 	local backpack = player:WaitForChild("Backpack")
 	model.Parent = backpack
 
-	task.wait()
-	ItemService.EquipDefaultWeapon(player)
+	-- Doesn't work
+	-- task.wait()
+	-- ItemService.EquipDefaultWeapon(player)
 end
 
 function ItemService.EquipDefaultWeapon(player)
